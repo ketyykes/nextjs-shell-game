@@ -115,3 +115,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## 遊戲設計文件
+
+這個專案要做的是「shell 解謎遊戲」，方向、劇情、技術選型與待討論項目都記錄在 [`docs/game-design.md`](./docs/game-design.md)。動工前先讀它，設計有變更時直接改那份文件。

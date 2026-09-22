@@ -54,3 +54,9 @@ next-env.d.ts
 
 # claude code (本機權限設定，不進版控)
 .claude/settings.local.json
+
+# AI 產圖原始大圖與美術原始檔，只 commit 縮小後的預覽圖與定稿素材
+/docs/assets-draft/*-original.png
+*.psd
+*.blend
+*.aseprite
