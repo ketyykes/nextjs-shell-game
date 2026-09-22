@@ -291,7 +291,12 @@ NOVA 從未被回滾，「失憶」是演的。公司規定無人站點滿三年
 
 ### 6.2 還沒找到的素材
 
-- 角色 sprite sheet：CC0 來源找不到合用的。OpenGameArt 的「Top Down Astronaut - Animated」是 Blender 3D 專案檔不是現成 sprite。改用 codex 試產，結果可用：4x4 格、四方向順序正確（下、左、右、上）、每列四幀走路循環、深藍連身服橘色反光條。AI 畫的每格位置不完全一致，使用前要用腳本把每幀重新置中切成統一格子。原圖 1254x1254 存在 `~/.codex/generated_images/`，正式版放 `public/sprites/`。
+- 角色 sprite sheet：CC0 來源找不到合用的。OpenGameArt 的「Top Down Astronaut - Animated」是 Blender 3D 專案檔不是現成 sprite。改用 codex 試產，結果可用：4x4 格、四方向順序正確（下、左、右、上）、每列四幀走路循環、深藍連身服橘色反光條。AI 畫的每格位置不完全一致，用 `pnpm sprites:slice`（`scripts/slice-sprites.mjs`，需要 sharp）重切：清掉半透明雜訊、每格只留最大連通區塊、每列各自縮放、腳底對齊同一基準線。正式檔在 `public/sprites/technician-{a,c,d,e}.png`，規格如下：
+  - 格子 32x48，4 欄 4 列，整張 128x192。
+  - 列順序由上到下：面向下、面向左、面向右、面向上。
+  - 每列四幀：站立、左腳前、站立、右腳前。走路動畫播 0-1-2-3 循環，站立用第 0 幀。
+  - 角色高約 46 px，寬 20 到 28 px，腳底在格子第 47 列。
+  - 選 32x48 而不是 32x32 的原因：角色圖是瘦長的，32x32 只剩 18 px 寬會糊掉；32x48 是一格 tile 寬、一格半高，跟 32px tile 的搭配是 RPG Maker XP 的經典比例。
 - 音效：Kenney「Sci-fi Sounds」已確認 CC0，共 70 個音效。第一版可以先不加，若加只要環境嗡鳴、終端機按鍵聲、門開聲三種。
 
 ### 6.3 codex 產圖流程
