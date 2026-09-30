@@ -34,24 +34,49 @@ pnpm start
 
 # 執行 ESLint 檢查 (實際執行 eslint .，Next.js 16 已移除 next lint)
 pnpm lint
+
+# 單元測試 (Vitest，預設 watch 模式；一次性執行用 pnpm test --run)
+pnpm test
+
+# e2e 測試 (Playwright，會自動啟動 pnpm dev；本機已有 :3000 就直接沿用)
+pnpm test:e2e
+
+# 重切角色 sprite sheet (原圖在 docs/assets-draft/，輸出到 public/sprites/)
+pnpm sprites:slice                # 處理腳本 SHEETS 清單全部
+pnpm sprites:slice technician-d   # 只處理指定角色
 ```
+
+## 測試
+
+- **Vitest** (`vitest.config.mts`)：環境 jsdom，`@/` 別名已對應 `src/`，只掃 `src/**/*.{test,spec}.{ts,tsx}`，所以 `e2e/` 不會被撿到。純邏輯測試（例如 shell 引擎）在檔案頂端加 `// @vitest-environment node` 可省掉 jsdom 開銷。
+- **Playwright** (`playwright.config.ts`)：測試放 `e2e/`，只跑 chromium，`baseURL` 是 `http://localhost:3000`，報告用 html reporter。
 
 ## 專案架構
 
 ### 目錄結構
 
+目前 `src/` 仍是模板骨架，遊戲程式碼尚未開工；遊戲程式的預定目錄結構（`src/game/`、`src/components/terminal/` 等）見 [`docs/game-design.md`](./docs/game-design.md) 第 7 節，這裡只列現況。
+
 ```
 src/
 ├── app/                    # Next.js App Router
-│   ├── api/               # API 路由 (目前為空)
 │   ├── layout.tsx         # 根佈局 (含 Geist 字型設定)
 │   ├── page.tsx           # 首頁
-│   └── globals.css        # 全域樣式
+│   ├── page.test.tsx      # 首頁的 Vitest 測試
+│   └── globals.css        # 全域樣式 (Tailwind v4 的 @theme 在這裡)
 ├── components/
 │   └── ui/                # shadcn/ui 元件
-│       └── button.tsx     # 按鈕元件
+│       ├── button.tsx
+│       └── shimmer-button.tsx
 └── lib/
     └── utils.ts           # 工具函式 (cn 函式)
+e2e/                        # Playwright 測試
+scripts/slice-sprites.mjs   # sprite sheet 切格腳本 (pnpm sprites:slice)
+public/sprites/             # 四位角色的 32x48 sprite sheet (128x192，4x4 格)
+docs/
+├── game-design.md          # 設計定案 (第 7 節是遊戲程式的預定目錄結構)
+├── progress.md             # 進度、下一步、已知陷阱
+└── assets-draft/           # 素材原圖與預覽 (*-original.png 原則上不進版控)
 ```
 
 ### 重要設定
@@ -97,9 +122,16 @@ npx shadcn@latest add [component-name]
 2. **React Server Components**: 預設所有元件都是伺服器元件，需要客戶端互動時使用 `"use client"` 指令
 3. **樣式工具**: 使用 `cn()` 函式 (來自 `@/lib/utils`) 合併 Tailwind CSS 類別名稱
 4. **表單驗證**: 使用 react-hook-form + zod 進行型別安全的表單驗證
-5. **Tailwind CSS v4**: 注意此版本的 Tailwind 設定方式可能與 v3 不同
+5. **Tailwind CSS v4**: 沒有 `tailwind.config.js`；設定寫在 `src/app/globals.css` 的 `@import "tailwindcss"` 與 `@theme inline` 區塊，PostCSS 只掛 `@tailwindcss/postcss`
 6. **動畫**: 使用 `motion` 套件，匯入路徑為 `motion/react`（例如 `import { motion } from "motion/react"`），動畫元件需搭配 `"use client"`
 7. **圖示**: lucide-react 1.x 已移除所有品牌圖示（如 GitHub、Twitter），圖示預設帶有 `aria-hidden`
+8. **Phaser**: 會碰 `window`，只能在 client component 內用 `next/dynamic` 加 `ssr: false` 載入；用 `useLayoutEffect` 建立、卸載時 `game.destroy(true)`，並防 StrictMode 重複建立。官方 `phaserjs/template-nextjs` 是 Pages Router，不能照抄
+
+## 協作慣例
+
+- **commit**: Conventional Commit，主旨繁體中文，不加 AI 署名 footer，依性質拆分（docs、feat、chore、test 分開）。
+- **codex plugin**: `.claude/settings.json` 已啟用 `codex@openai-codex`，產圖流程與 `-i` 參數陷阱見 `docs/progress.md` 第 5 節。
+- **設計 vs 進度**: 設計變更改 `docs/game-design.md`，進度變更改 `docs/progress.md`，不在本檔重寫。
 
 ## 環境設定
 
