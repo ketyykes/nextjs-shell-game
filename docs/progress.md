@@ -18,11 +18,11 @@
 
 | 項目 | 內容 |
 |---|---|
-| 更新日期 | 2026-09-30 |
-| 最新 commit | `c1e75ce chore: 暫時把素材原圖納入版控以便跨機器接續` |
-| 目前階段 | M0 規劃與素材前置 ✅ 完成，M1 Shell 引擎 ⬜ 尚未開工 |
-| 程式碼狀態 | `src/` 仍是 Next.js 模板，沒有任何遊戲程式碼。`src/game/`、`src/components/terminal/`、`src/components/game/` 都還不存在 |
-| 下一步 | M1-1 建立 `src/game/shell/` 目錄骨架與虛擬檔案系統，見第 3 節 |
+| 更新日期 | 2026-10-01 |
+| 最新 commit | `5efe4d9 test: 加入 shell 引擎的單元測試與第一章正解序列整合測試` |
+| 目前階段 | M1 Shell 引擎 ✅ 完成，M2 終端機 UI 與 store ⬜ 尚未開工 |
+| 程式碼狀態 | `src/game/shell/` 完成，純 TypeScript 零 React/Phaser 相依，`pnpm test --run` 22 個測試檔 415 個測試全綠。`src/components/terminal/`、`src/components/game/`、`src/game/phaser/`、`src/game/store/` 都還不存在 |
+| 下一步 | M2-1 安裝 zustand 與 persist，見第 3 節。`Shell.toState()` 已經是可直接存進 store 的純資料 |
 | 遠端 | `origin` 是 SSH 網址 `git@github.com:ketyykes/nextjs-shell-game.git`，本機與 `origin/main` 同步 |
 
 ## 2. 里程碑總覽
@@ -32,7 +32,7 @@
 | 里程碑 | 內容 | 狀態 | 設計文件章節 |
 |---|---|---|---|
 | M0 | 方向討論、設計文件、素材前置、工具鏈 | ✅ | 全部 |
-| M1 | Shell 引擎與單元測試 | ⬜ | 3.3、4.8、8-1 |
+| M1 | Shell 引擎與單元測試 | ✅ | 3.3、4.8、8-1 |
 | M2 | 終端機 UI 與 zustand store | ⬜ | 4.9、5、8-2 |
 | M3 | Phaser 地圖與角色 | ⬜ | 3.2、6.2、9、8-3 |
 | M4 | 事件橋接與 HUD | ⬜ | 3.1、4.6、8-4 |
@@ -57,34 +57,20 @@
 | 四張正式 sprite sheet | ✅ | `public/sprites/technician-{a,c,d,e}.png`（128x192，4x4 格 32x48） | `369a6fa` |
 | 原圖暫時納入版控以便跨機器接續 | ✅ | 六張 `*-original.png` 用 `git add -f` 加入 | `c1e75ce` |
 
-### M1 Shell 引擎與單元測試 ⬜
+### M1 Shell 引擎與單元測試 ✅
 
-目標：不碰 UI，純 TypeScript 模組加 Vitest，能在測試裡跑完第一章六台終端機的正解指令序列。
+目標：不碰 UI，純 TypeScript 模組加 Vitest，能在測試裡跑完第一章六台終端機的正解指令序列。程式在 `f548b83`，測試在 `5efe4d9`。
 
-- ⬜ **M1-1 目錄骨架與虛擬檔案系統**（3.3、7）
-  - 建 `src/game/shell/{fs,parser,commands}/` 與 `src/game/shell/shell.ts`。
-  - 節點型別：目錄與檔案，欄位含名稱、內容、修改時間、大小、擁有者、權限字串。`ls -l` 與第五章 `chmod` 都要用到，現在就留欄位。
-  - 路徑解析：絕對、相對、`.`、`..`、`~`（家目錄 `/home/tech`），多餘斜線正規化。
-  - 快照建立函式：從巢狀物件字面值建 FS，劇本檔才能用「寫檔案等於寫劇情」的方式寫。
-  - 序列化與還原：FS 修改要能存進 store 再讀回來。
-- ⬜ **M1-2 指令解析器**（3.3）
-  - tokenizer 支援空白分隔、單雙引號。管線與重導向第一章不做，但 token 型別先預留。
-  - 全形空白與全形標點偵測，回傳專屬錯誤。
-  - 「忘記空格」偵測：整串找不到指令時，試著拆成「已知指令 + 剩餘字串」給建議。
-- ⬜ **M1-3 第一章指令**（4.3 第 1 章、4.4）
-  - 每個指令一個檔案，統一介面：輸入 `args`、`context`（cwd、fs、已學清單、hint 計數），輸出 `{ ok, lines }`。`ok` 為 false 才算「錯誤」，氧氣值與環境反應階梯靠它。
-  - `pwd`、`ls`（`-a`、`-l`、`-la`、接路徑、多路徑）、`cd`（無參數回家、`..`、`~`、`cd` 到檔案要報錯）、`cat`（多檔、對目錄報錯）。
-  - 遊戲指令：`help`（只列已學）、`hint`（三段式，每台終端機獨立計數）、`man <指令>`（繁中說明，與側邊面板同一份資料）。
-  - 輔助指令：`history`、`clear`。
-- ⬜ **M1-4 友善錯誤訊息模組**（4.8）
-  - 集中一個檔案管所有繁中錯誤訊息：指令不存在、路徑不存在、`cd` 到檔案、`cat` 目錄、忘記空格、全形字元。
-- ⬜ **M1-5 Tab 補全與歷史**（4.6）
-  - 補全指令名與路徑，目錄補完自動加 `/`，多個候選時列出。
-  - 歷史：上下鍵叫回，`history` 列出。
-- ⬜ **M1-6 Vitest 測試**（3.3）
-  - 每個指令一個測試檔，另加解析器、路徑解析、補全、錯誤訊息的測試。
-  - 一個整合測試：用第一章 T1 的假 FS 跑「`ls` → `cat wake_up.txt`」這類正解序列。
-- **完成定義**：`pnpm test` 全綠；沒有任何 React 或 Phaser 相依。
+| 任務 | 狀態 | 產出 |
+|---|---|---|
+| M1-1 目錄骨架與虛擬檔案系統 | ✅ | `src/game/shell/types.ts`（所有模組的共用契約）、`fs/{path,node,snapshot,VirtualFileSystem}.ts`。快照格式：字串是檔案、`$type: "file"`／`"dir"` 帶 metadata、其他物件是目錄 |
+| M1-2 指令解析器 | ✅ | `parser/{fullwidth,tokenizer,parse,suggest}.ts`。管線與重導向已能切成 token，執行時回「尚未支援」 |
+| M1-3 第一章指令 | ✅ | `commands/{pwd,ls,cd,cat,help,hint,man,history,clear}.ts`，註冊表在 `commands/index.ts` 的 `ALL_COMMANDS` |
+| M1-4 友善錯誤訊息模組 | ✅ | `messages.ts`，所有繁中錯誤文字集中在此，指令不得自己寫錯誤字串 |
+| M1-5 Tab 補全與歷史 | ✅ | `completion.ts`、`history.ts` |
+| M1-6 Vitest 測試 | ✅ | 每個模組一個測試檔，`shell.test.ts` 跑 T1 到 T6 正解序列。指令測試共用 `commands/testFixtures.ts` 的第一章假 FS |
+
+**給 M2 的介面摘要**：UI 只需要 `new Shell(options)`，然後呼叫 `execute(input)` 拿 `ShellExecution`（`lines`、`isError`、`clearScreen`、`cwd`）、`complete(input)` 拿 Tab 候選、`historyUp()`／`historyDown()`、`prompt()` 拿提示符。存檔用 `toState()`，還原用 `Shell.fromState(state, VirtualFileSystem.fromSerialized(state.fs), hints)`。指令說明資料在 `commands/docs.ts` 的 `COMMAND_DOCS`，側邊面板直接用。
 
 ### M2 終端機 UI 與 store ⬜
 
@@ -177,7 +163,14 @@
 - **Git 憑證**：這台 Mac 的 `gh` 與 HTTPS keychain 都是失效的其他帳號，push 用 SSH。抓公開 repo 資料用 `curl`，不要用 `gh api`。
 - **Next.js 16 與 Phaser**：Phaser 會碰 `window`，只能在 client component 內用 `next/dynamic` 加 `ssr: false` 載入。寫 Next.js 相關程式前先讀 `node_modules/next/dist/docs/` 的對應章節，這版與訓練資料有差異。
 - **版本限制**：TypeScript 停在 6.x、ESLint 停在 9.x，原因見 `CLAUDE.md`。
-- **Vitest**：設定在 `vitest.config.mts`，只掃 `src/**/*.{test,spec}.{ts,tsx}`，環境 jsdom，`@/` 別名已設。純邏輯測試可在檔案頂端加 `// @vitest-environment node` 加速。
+- **Vitest**：設定在 `vitest.config.mts`，只掃 `src/**/*.{test,spec}.{ts,tsx}`，環境 jsdom，`@/` 別名已設。純邏輯測試可在檔案頂端加 `// @vitest-environment node` 加速。測試共用的 fixture 檔不要用 `.test` 後綴（例如 `testFixtures.ts`），否則會被當測試跑。
+- **Shell 引擎的已知邊界**（M1 刻意不做，之後章節需要再補）：
+  - 快照的 key 不可含 `/`、空字串、`.`、`..`；目錄裡不要放名叫 `$type` 的子項，那是型別標記。
+  - 路徑的 `..` 是純字串化簡，`wake_up.txt/..` 不會報 ENOTDIR；對檔案加結尾斜線會報 ENOTDIR。`~user` 不支援。
+  - 解析器對整行掃全形字元，包括引號內；彎引號 `“”‘’` 也算全形（中文輸入法按 `"` 會打出來）。引號外的反斜線不當跳脫，`cat a\ b` 會切成兩個參數。
+  - 補全只處理游標在結尾，用空白切 token 不走 tokenizer；`cd ..` 與 `cd ~` 不帶斜線按 Tab 沒有候選。
+  - `ls -l` 的日期固定用 UTC 顯示，劇本寫 mtime 時要自己算好想給玩家看的時間。
+  - `messages.notADirectory` 的文案偏向 `cd`，`ls wake_up.txt/inner` 這種路徑中間是檔案的情況語意稍偏，之後可讓它帶指令名。
 
 ## 6. 協作慣例
 
@@ -189,6 +182,13 @@
 ## 7. 工作日誌
 
 每次 session 收工加一筆，最新在最上面。格式：日期、做了什麼、commit 範圍、下一步。
+
+### 2026-10-01
+
+- 完成整個 M1：先定 `types.ts` 共用契約，再分兩波平行 subagent 實作 FS、解析器、訊息與說明資料、九個指令、補全，最後整合 `shell.ts` 與正解序列測試。
+- 22 個測試檔 415 個測試全綠，`pnpm lint` 與 `tsc --noEmit` 無錯誤，`src/game/shell/` 零 React/Phaser 相依。
+- commit：`f548b83`（feat）、`5efe4d9`（test）、本檔與 `CLAUDE.md` 目錄現況另一筆 docs。未 push。
+- 下一步：M2-1 安裝 zustand 與 persist。
 
 ### 2026-09-30
 

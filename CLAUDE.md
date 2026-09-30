@@ -55,7 +55,7 @@ pnpm sprites:slice technician-d   # 只處理指定角色
 
 ### 目錄結構
 
-目前 `src/` 仍是模板骨架，遊戲程式碼尚未開工；遊戲程式的預定目錄結構（`src/game/`、`src/components/terminal/` 等）見 [`docs/game-design.md`](./docs/game-design.md) 第 7 節，這裡只列現況。
+遊戲程式的完整預定目錄結構（`src/components/terminal/`、`src/game/phaser/` 等）見 [`docs/game-design.md`](./docs/game-design.md) 第 7 節，這裡只列現況。
 
 ```
 src/
@@ -68,6 +68,16 @@ src/
 │   └── ui/                # shadcn/ui 元件
 │       ├── button.tsx
 │       └── shimmer-button.tsx
+├── game/
+│   └── shell/             # Shell 引擎，純 TypeScript，零 React/Phaser 相依
+│       ├── types.ts       # 所有 shell 模組的共用契約，改介面先改這裡
+│       ├── shell.ts       # 執行入口 Shell 類別 (execute、complete、toState)
+│       ├── messages.ts    # 所有繁中錯誤訊息集中於此，指令不得自己寫錯誤字串
+│       ├── completion.ts  # Tab 補全
+│       ├── history.ts     # 指令歷史 (上下鍵)
+│       ├── fs/            # 虛擬檔案系統、路徑解析、快照建樹、序列化
+│       ├── parser/        # tokenizer、全形偵測、忘記空格建議
+│       └── commands/      # 每個指令一個檔案，index.ts 是註冊表，docs.ts 是 man 說明資料
 └── lib/
     └── utils.ts           # 工具函式 (cn 函式)
 e2e/                        # Playwright 測試
