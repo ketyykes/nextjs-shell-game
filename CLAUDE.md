@@ -119,3 +119,5 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 ## 遊戲設計文件
 
 這個專案要做的是「shell 解謎遊戲」，方向、劇情、技術選型與待討論項目都記錄在 [`docs/game-design.md`](./docs/game-design.md)。動工前先讀它，設計有變更時直接改那份文件。
+
+目前進度、下一步與已知陷阱記錄在 [`docs/progress.md`](./docs/progress.md)。開新 session 時先照它的第 0 節檢查清單走；每次收工要更新它的現況快照、任務勾選與工作日誌，並一起 commit。
