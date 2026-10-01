@@ -18,12 +18,12 @@
 
 | 項目 | 內容 |
 |---|---|
-| 更新日期 | 2026-10-01 |
-| 最新 commit | 見 `git log --oneline -8`：第八場共八筆（六筆 feat／test／chore、一筆 chore 插圖、一筆 docs） |
-| 目前階段 | **M0 到 M8 全部完成，六章都做好了**：第二到六章劇本、十九個新指令（管線、重導向、變數、萬用字元、權限、程序）、六張甲板地圖、章節切換與片尾。全部是 agent 初稿，Danny 還沒玩過第二章以後 |
-| 程式碼狀態 | 標題 → 選角 → boot log → 六章地圖 → 片尾。`pnpm test --run` 83 個測試檔 1636 個測試全綠，`npx tsc --noEmit` 與 `pnpm lint` 乾淨，`pnpm build` 通過；`PORT=3001 pnpm test:e2e` 18 個（第一章從標題走到進第二章、第二到六章各一個種存檔走完、home、play）。插圖見第 4 節 |
-| 下一步 | 沒有排定的里程碑。Danny 從第二章開始試玩（標題「繼續」或 `e2e/helpers/deck.ts` 的 `seedSave` 寫法可直接種到第 N 章）、看第 8 節 #23 到 #36 的決策、潤稿；候選工作見第 9 節 |
-| 遠端 | `origin` 是 SSH 網址 `git@github.com:ketyykes/nextjs-shell-game.git`，本機與 `origin/main` 同步 |
+| 更新日期 | 2026-10-02 |
+| 最新 commit | 見 `git log --oneline -5`：第九場共三筆（兩筆 fix、一筆 docs） |
+| 目前階段 | **M0 到 M8 全部完成**；第九場用 playwright-cli 從標題一路真玩到片尾（六章 36 台終端機、零頁面錯誤），抓到四個 bug 並全部修掉（見第 7 節第九場與第 8 節 #37 到 #39）。Danny 本人還沒玩過第二章以後 |
+| 程式碼狀態 | 標題 → 選角 → boot log → 六章地圖 → 片尾。`pnpm test --run` 84 個測試檔 1644 個測試全綠，`npx tsc --noEmit` 與 `pnpm lint` 乾淨；`PORT=3001 pnpm test:e2e` 19 個（新增「章節結束畫面回訪」防死路）。插圖見第 4 節 |
+| 下一步 | 沒有排定的里程碑。Danny 從第二章開始試玩（標題「繼續」或 `e2e/helpers/deck.ts` 的 `seedSave` 寫法可直接種到第 N 章）、看第 8 節 #23 到 #39 的決策、潤稿；候選工作見第 9 節 |
+| 遠端 | `origin` 是 SSH 網址 `git@github.com:ketyykes/nextjs-shell-game.git`，本機比 `origin/main` 新（約 48 筆未 push） |
 
 ## 2. 里程碑總覽
 
@@ -238,6 +238,19 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 
 每次 session 收工加一筆，最新在最上面。格式：日期、做了什麼、commit 範圍、下一步。
 
+### 2026-10-02（第九場，全程試玩與修 bug）
+
+- Danny 要求「從第一章玩到第六章遊戲結束，bug 先記錄、玩完再修（修的時候用 TDD）」。用 playwright-cli 開真瀏覽器，從標題（新遊戲 → 選角 → boot log 自然打完）一路玩到片尾回標題：六章 36 台終端機全部照正解通關，走路移植 `e2e/helpers/deck.ts` 的貼牆滑行；全程收集 `window` 錯誤、資源 404、NOVA 台詞與終端機輸出，**零頁面錯誤、零資源錯誤**。氧氣扣血與回復、Esc 不連動暫停選單、六章的過關演出與回顧卡都正常。
+- 抓到四個 bug，全部紅燈先行再修：
+  1. **進度死路（最嚴重）**：一章全解、章節結束畫面看過後回標題再「繼續」，結束畫面不再出現，玩家被困在完成的甲板進不了下一章。修法見決策 #37（`showChapterEnd` 拿掉旗標條件、`ChapterEndScreen` 加 `skipOutro`），新增 e2e「章節結束畫面的回訪」並確認拿掉修正會紅。
+  2. **終端機底部「已學」重複**（例：`pwd ls cat cd ls cd ls history clear`）：`Shell` 建構子沒去重（`learn()` 有），PlayScreen 把 `ls -l`、`ls -a` 轉成指令名後重複傳入。改建構子走 `learn()` 去重。
+  3. **回顧卡 `>`、`|`、`>>`、`$變數` 說明空白**：`COMMAND_DOCS` 查不到就空字串。新增 `docsConcepts.ts` 的 `CONCEPT_DOCS` 與 `getTeachDoc`（決策 #38），回顧卡與側邊面板都改查它，`chapters.test.ts` 加守門測試「每章 teaches 都查得到說明」。
+  4. **片尾佔位塊顯示「過場插圖（M6 產圖）」**：內部字樣露給玩家，改成世界觀內的「影像訊號遺失」（決策 #39）。
+- 順帶驗證過不是 bug 的觀察：NOVA 台詞在 innerText 出現兩次是 `DialogueBlock` 的 sr-only 無障礙設計；通關後標題副標停在「NOVA 核心 · 第六章」屬預期。存檔大小六章全解約 137 KB，離 localStorage 上限很遠。
+- 84 個測試檔 1644 個單元測試、19 個 e2e 全綠，tsc 與 lint 乾淨。
+- commit：兩筆 fix、本檔一筆 docs。未 push。
+- 下一步：Danny 親自試玩（尤其第二章以後的劇情手感）、潤稿、補 12 張插圖；其餘見第 4、8、9 節。
+
 ### 2026-10-01（第八場，`/goal` 做到第六章）
 
 - Danny 下 `/goal`：「幫我做到 1～6 章，中間有任何不確定的就紀錄下來不要停下來，不用管 token 消耗，允許派遣平行 subagent，使用 TDD 並且要做 playwright cli 的測試，直到做完」。全程沒有再用 AskUserQuestion，自主決定記在第 8 節 #23 到 #36。
@@ -366,6 +379,14 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 | 34 | 第六章之後顯示片尾（`ending.ts`，救援船終端機逐句打字）再回標題；標題副標顯示目前章節 | 4.3 的片尾；玩家看得出自己玩到哪 | `ChapterEndScreen` 的 `ending` prop、`TitleFlow.subtitleFor` |
 | 35 | 第二到六章插圖用 codex 背景批次產（`generate-ch2-6.sh`），`story/scenes.ts` 的 `AVAILABLE_SCENES` 只列真的存在的圖，沒產出的艙區不顯示插圖卡 | 產圖要一兩小時，不能擋程式；缺圖不能變破圖 | `scenes.ts` |
 | 36 | 第一章資料夾裡的 `findTerminal` 搬到 `chapters/index.ts` 跨章節找 | id 有章節前綴不會撞 | — |
+
+第九場（2026-10-02，全程試玩修 bug）新增：
+
+| # | 決策 | 理由 | 推翻時要改 |
+|---|---|---|---|
+| 37 | 章節結束畫面在六台全解且終端機關閉時**一定**出現；`outroShown` 旗標只拿來跳過 outro 打字段，直接從回顧卡開始（`ChapterEndScreen` 新 prop `skipOutro`） | 否則全解後回標題再「繼續」會被困在完成的甲板，沒有任何 UI 能進下一章（第九場實測重現的死路）；代價是完成的章節不能再自由走動，但設計本來就沒有這個需求 | `PlayScreen` 的 `showChapterEnd`、`ChapterEndScreen.skipOutro`、e2e「章節結束畫面的回訪」 |
+| 38 | `>`、`>>`、`\|`、`$變數` 的說明放獨立的 `CONCEPT_DOCS`（`docsConcepts.ts`），由 `getTeachDoc` 在查不到指令時改查；不併入 `COMMAND_DOCS` | 回顧卡與側邊面板需要說明，但它們不是可執行的指令，help 與 man 的指令清單不該混進它們 | `docsConcepts.ts`、`docs.ts` 的 `getTeachDoc`、`chapters.test.ts` 的守門測試 |
+| 39 | 缺圖時的佔位文字統一用世界觀內的「影像訊號遺失」 | 原文字「過場插圖（M6 產圖）」把內部里程碑字樣露給玩家；改成敘事內的字樣在補完 12 張插圖前也不突兀 | `ChapterEndScreen` 的 `Illustration` |
 
 ## 9. 第一版之後的候選工作
 
