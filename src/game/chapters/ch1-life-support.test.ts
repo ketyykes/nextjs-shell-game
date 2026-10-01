@@ -226,14 +226,24 @@ function collectSnapshotTexts(snapshot: FsSnapshot): string[] {
 
 /** 劇本裡所有玩家看得到的文字。 */
 function collectChapterTexts(): string[] {
-	const texts: string[] = [chapterOneLifeSupport.title, ...(chapterOneLifeSupport.intro ?? []), ...(chapterOneLifeSupport.outro ?? [])];
+	const texts: string[] = [
+		chapterOneLifeSupport.title,
+		...(chapterOneLifeSupport.intro ?? []),
+		...(chapterOneLifeSupport.outro ?? []),
+		...(chapterOneLifeSupport.novaErrorLines ?? []),
+	];
 
 	for (const terminal of chapterOneLifeSupport.terminals) {
 		texts.push(terminal.title, terminal.objective.title, ...terminal.hints, ...(terminal.banner ?? []));
 		if (terminal.objective.description !== undefined) {
 			texts.push(terminal.objective.description);
 		}
-		texts.push(...(terminal.nova?.onEnterRoom ?? []), ...(terminal.nova?.onOpen ?? []), ...(terminal.nova?.onSolved ?? []));
+		texts.push(
+			...(terminal.nova?.onEnterRoom ?? []),
+			...(terminal.nova?.onOpen ?? []),
+			...(terminal.nova?.onSolved ?? []),
+			...(terminal.nova?.onStuck ?? []),
+		);
 		texts.push(...collectSnapshotTexts(terminal.fs));
 	}
 	return texts;
@@ -252,6 +262,20 @@ describe("第一章文字", () => {
 		for (const terminal of chapterOneLifeSupport.terminals) {
 			expect(terminal.nova?.onSolved?.length, terminal.id).toBeGreaterThan(0);
 		}
+	});
+
+	it("每台終端機都有 NOVA 卡關台詞，一到兩句", () => {
+		for (const terminal of chapterOneLifeSupport.terminals) {
+			const length = terminal.nova?.onStuck?.length ?? 0;
+			expect(length, terminal.id).toBeGreaterThanOrEqual(1);
+			expect(length, terminal.id).toBeLessThanOrEqual(2);
+		}
+	});
+
+	it("環境反應階梯的 NOVA 台詞有三到五句", () => {
+		const length = chapterOneLifeSupport.novaErrorLines?.length ?? 0;
+		expect(length).toBeGreaterThanOrEqual(3);
+		expect(length).toBeLessThanOrEqual(5);
 	});
 
 	it("有開場與結尾台詞", () => {

@@ -53,6 +53,14 @@ describe("terminalDefinitionSchema", () => {
 		expect(terminalDefinitionSchema.safeParse(minimal).success).toBe(true);
 	});
 
+	it("nova.onStuck 合法時通過，有空字串時失敗", () => {
+		const withStuck = validTerminal({ nova: { onStuck: ["技師，先看看周圍。"] } });
+		expect(terminalDefinitionSchema.safeParse(withStuck).success).toBe(true);
+
+		const emptyLine = validTerminal({ nova: { onStuck: [""] } });
+		expect(terminalDefinitionSchema.safeParse(emptyLine).success).toBe(false);
+	});
+
 	it("欄位名稱打錯（未知欄位）失敗", () => {
 		const result = terminalDefinitionSchema.safeParse({ ...validTerminal(), hint: ["多打錯一個"] });
 		expect(result.success).toBe(false);
@@ -141,5 +149,10 @@ describe("validateChapter", () => {
 describe("chapterDefinitionSchema", () => {
 	it("合法章節通過", () => {
 		expect(chapterDefinitionSchema.safeParse(validChapter()).success).toBe(true);
+	});
+
+	it("novaErrorLines 合法時通過，有空字串時失敗", () => {
+		expect(chapterDefinitionSchema.safeParse({ ...validChapter(), novaErrorLines: ["你確定你是技師？"] }).success).toBe(true);
+		expect(chapterDefinitionSchema.safeParse({ ...validChapter(), novaErrorLines: [""] }).success).toBe(false);
 	});
 });

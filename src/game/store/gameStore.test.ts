@@ -205,6 +205,52 @@ describe("終端機 session", () => {
 		warn.mockRestore();
 	});
 
+	it("setTerminalErrorCount 對沒有 session 的終端機不做事", () => {
+		useGameStore.getState().setTerminalErrorCount("ch1-t9", 3);
+		expect(useGameStore.getState().terminals).toEqual({});
+	});
+
+	it("setTerminalErrorCount 只更新計數，不動 shell 與 transcript", () => {
+		const record = createRecord([createSystemEntry(1)]);
+		useGameStore.getState().saveTerminalSession("ch1-t1", record);
+		useGameStore.getState().setTerminalErrorCount("ch1-t1", 3);
+
+		const saved = useGameStore.getState().terminals["ch1-t1"];
+		expect(saved.errorCount).toBe(3);
+		expect(saved.shell).toBe(record.shell);
+		expect(saved.transcript).toBe(record.transcript);
+
+		useGameStore.getState().setTerminalErrorCount("ch1-t1", 0);
+		expect(useGameStore.getState().terminals["ch1-t1"].errorCount).toBe(0);
+	});
+
+	it("setTerminalErrorCount 負數與小數會修成非負整數", () => {
+		useGameStore.getState().saveTerminalSession("ch1-t1", createRecord());
+		useGameStore.getState().setTerminalErrorCount("ch1-t1", -2);
+		expect(useGameStore.getState().terminals["ch1-t1"].errorCount).toBe(0);
+		useGameStore.getState().setTerminalErrorCount("ch1-t1", 4.7);
+		expect(useGameStore.getState().terminals["ch1-t1"].errorCount).toBe(4);
+	});
+
+	it("saveTerminalSession 沒帶 errorCount 時保留原本的階梯計數，有帶就覆蓋", () => {
+		const { saveTerminalSession, setTerminalErrorCount } = useGameStore.getState();
+		saveTerminalSession("ch1-t1", createRecord());
+		setTerminalErrorCount("ch1-t1", 5);
+
+		saveTerminalSession("ch1-t1", createRecord([createSystemEntry(2)]));
+		expect(useGameStore.getState().terminals["ch1-t1"].errorCount).toBe(5);
+
+		saveTerminalSession("ch1-t1", { ...createRecord(), errorCount: 1 });
+		expect(useGameStore.getState().terminals["ch1-t1"].errorCount).toBe(1);
+	});
+
+	it("errorCount 會存進 localStorage", () => {
+		useGameStore.getState().saveTerminalSession("ch1-t1", createRecord());
+		useGameStore.getState().setTerminalErrorCount("ch1-t1", 7);
+		const stored = readStoredSave().state as { terminals: Record<string, TerminalSessionRecord> };
+		expect(stored.terminals["ch1-t1"].errorCount).toBe(7);
+	});
+
 	it("clearTranscript 清空輸出但保留 shell 狀態", () => {
 		const record = createRecord([createSystemEntry(1), createSystemEntry(2)]);
 		useGameStore.getState().saveTerminalSession("ch1-t1", record);

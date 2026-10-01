@@ -1,7 +1,16 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import type { RoomId } from "../events";
-import { airlockTilePosition, POWER_ON_ORDER, powerOnOrder, SHADOW_INSET, shadowFlashPosition } from "./effects";
+import {
+	airlockTilePosition,
+	FLICKER_PULSES,
+	flickerLegDuration,
+	flickerMode,
+	POWER_ON_ORDER,
+	powerOnOrder,
+	SHADOW_INSET,
+	shadowFlashPosition,
+} from "./effects";
 
 /** deck1 的主走廊矩形（`public/maps/deck1.json` 的 room corridor）。 */
 const CORRIDOR = { x: 64, y: 320, width: 1056, height: 96 };
@@ -95,5 +104,36 @@ describe("airlockTilePosition", () => {
 
 	it("格子邊界往下取整", () => {
 		expect(airlockTilePosition({ x: 31.9, y: 32 })).toEqual({ tileX: 0, tileY: 1 });
+	});
+});
+
+describe("flickerMode", () => {
+	const idle = { sequenceRunning: false, isPowered: false, isFullyLit: false, isFlickering: false };
+
+	it("斷電中用遮罩閃", () => {
+		expect(flickerMode(idle)).toBe("mask");
+	});
+
+	it("已通電且遮罩隱藏時改用鏡頭 flash", () => {
+		expect(flickerMode({ ...idle, isPowered: true, isFullyLit: true })).toBe("camera");
+	});
+
+	it("亮燈序列進行中、通電淡出中、正在閃時都略過", () => {
+		expect(flickerMode({ ...idle, sequenceRunning: true })).toBe("skip");
+		expect(flickerMode({ ...idle, isPowered: true })).toBe("skip");
+		expect(flickerMode({ ...idle, isFlickering: true })).toBe("skip");
+		expect(flickerMode({ ...idle, isPowered: true, isFullyLit: true, isFlickering: true })).toBe("skip");
+	});
+});
+
+describe("flickerLegDuration", () => {
+	it("總長平均分給每次暗下去再亮回來", () => {
+		expect(flickerLegDuration(600)).toBe(600 / (FLICKER_PULSES * 2));
+		expect(flickerLegDuration(400, 2)).toBe(100);
+	});
+
+	it("太短時有下限，pulses 不合法時當 1", () => {
+		expect(flickerLegDuration(0)).toBeGreaterThan(0);
+		expect(flickerLegDuration(200, 0)).toBe(100);
 	});
 });
