@@ -1,0 +1,19 @@
+/*
+ * 終端機彈窗的像素 9-slice 邊框（設計文件 4.9）。
+ *
+ * 邊框圖是 24x24 的 inline SVG，切成 3x3 每格 8px：
+ * 四角是切角的深藍外框、全息藍細線與鉚釘，四邊是沿邊重複的同一組線條，中間格不使用。
+ * 色碼是 globals.css 的 --game-* 換算成 hex（data URI 裡無法用 CSS 變數）：
+ *   #030915 = --game-bg、#11bff0 = --game-holo、#0d2f4f 深藍外框、#005477 內線、#9be4fc 鉚釘高光。
+ */
+.frame {
+	border-style: solid;
+	border-width: 8px;
+	border-image-source: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' shape-rendering='crispEdges'%3E%3Cg fill='%230d2f4f'%3E%3Crect x='1' y='1' width='22' height='22'/%3E%3Crect x='2' y='0' width='20' height='24'/%3E%3Crect x='0' y='2' width='24' height='20'/%3E%3C/g%3E%3Cg fill='%2311bff0'%3E%3Crect x='3' y='2' width='18' height='1'/%3E%3Crect x='3' y='21' width='18' height='1'/%3E%3Crect x='2' y='3' width='1' height='18'/%3E%3Crect x='21' y='3' width='1' height='18'/%3E%3C/g%3E%3Crect x='3' y='3' width='18' height='18' fill='%23030915'/%3E%3Cg fill='%23005477'%3E%3Crect x='6' y='5' width='12' height='1'/%3E%3Crect x='6' y='18' width='12' height='1'/%3E%3Crect x='5' y='6' width='1' height='12'/%3E%3Crect x='18' y='6' width='1' height='12'/%3E%3C/g%3E%3Cg fill='%239be4fc'%3E%3Crect x='4' y='4' width='1' height='1'/%3E%3Crect x='19' y='4' width='1' height='1'/%3E%3Crect x='4' y='19' width='1' height='1'/%3E%3Crect x='19' y='19' width='1' height='1'/%3E%3C/g%3E%3C/svg%3E");
+	border-image-slice: 8;
+	border-image-width: 8px;
+	border-image-repeat: stretch;
+	image-rendering: pixelated;
+	/* 背景只畫在邊框內側，切角處才會透出後面變暗的地圖 */
+	background-clip: padding-box;
+}

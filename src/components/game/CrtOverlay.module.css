@@ -1,0 +1,73 @@
+/* CRT 覆蓋層：容器不攔截任何指標事件，z-index 由元件以 inline style 傳入 */
+.overlay {
+	position: fixed;
+	inset: 0;
+	pointer-events: none;
+}
+
+.layer {
+	position: absolute;
+	inset: 0;
+}
+
+/* 掃描線：每 3px 一個週期，前 1px 為半透明黑線 */
+.scanlines {
+	background: repeating-linear-gradient(
+		to bottom,
+		oklch(0 0 0 / 0.18) 0,
+		oklch(0 0 0 / 0.18) 1px,
+		transparent 1px,
+		transparent 3px
+	);
+}
+
+/* 暗角：中央透明，邊緣為深藍黑 */
+.vignette {
+	background: radial-gradient(
+		ellipse at center,
+		transparent 55%,
+		oklch(0.08 0.02 255 / 0.75) 100%
+	);
+}
+
+/* 微閃爍：極淡白色層，4 秒內不規則地短暫變化兩三次，幅度只在 0.02 ~ 0.05 之間 */
+.flicker {
+	background: oklch(1 0 0);
+	opacity: 0.02;
+	animation: crt-flicker 4s steps(1, end) infinite;
+}
+
+@keyframes crt-flicker {
+	0% {
+		opacity: 0.02;
+	}
+	12% {
+		opacity: 0.05;
+	}
+	14% {
+		opacity: 0.02;
+	}
+	47% {
+		opacity: 0.04;
+	}
+	49% {
+		opacity: 0.03;
+	}
+	51% {
+		opacity: 0.02;
+	}
+	83% {
+		opacity: 0.05;
+	}
+	86% {
+		opacity: 0.02;
+	}
+}
+
+/* 偏好減少動態的使用者：關閉閃爍動畫，連靜態的白層也不顯示 */
+@media (prefers-reduced-motion: reduce) {
+	.flicker {
+		animation: none;
+		opacity: 0;
+	}
+}

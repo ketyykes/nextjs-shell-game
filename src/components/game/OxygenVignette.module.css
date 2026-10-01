@@ -1,0 +1,16 @@
+/* 氧氣低警示暗角：中央透明、邊緣為紅琥珀色，強度由元件以 inline opacity 控制 */
+.vignette {
+	position: fixed;
+	inset: 0;
+	pointer-events: none;
+	background: radial-gradient(
+		ellipse at center,
+		transparent 45%,
+		color-mix(
+				in oklch,
+				var(--game-amber) 65%,
+				oklch(0.45 0.2 25)
+			)
+			100%
+	);
+}
