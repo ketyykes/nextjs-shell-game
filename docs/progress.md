@@ -19,10 +19,10 @@
 | 項目 | 內容 |
 |---|---|
 | 更新日期 | 2026-10-01 |
-| 最新 commit | `5efe4d9 test: 加入 shell 引擎的單元測試與第一章正解序列整合測試` |
-| 目前階段 | M1 Shell 引擎 ✅ 完成，M2 終端機 UI 與 store ⬜ 尚未開工 |
-| 程式碼狀態 | `src/game/shell/` 完成，純 TypeScript 零 React/Phaser 相依，`pnpm test --run` 22 個測試檔 415 個測試全綠。`src/components/terminal/`、`src/components/game/`、`src/game/phaser/`、`src/game/store/` 都還不存在 |
-| 下一步 | M2-1 安裝 zustand 與 persist，見第 3 節。`Shell.toState()` 已經是可直接存進 store 的純資料 |
+| 最新 commit | `7925b2b test: 加入 store、終端機元件、CRT 效果的單元測試與 /play 的 Playwright e2e` |
+| 目前階段 | M2 終端機 UI 與 store ✅ 完成，M3 Phaser 地圖與角色 ⬜ 尚未開工 |
+| 程式碼狀態 | `/play` 可玩第一章 T1 的全部 M1 指令，重整後輸出、cwd、歷史都在。`pnpm test --run` 28 個測試檔 489 個測試全綠，`pnpm test:e2e` 5 個全綠。`src/game/phaser/` 與 `public/maps/`、`public/tiles/` 還不存在 |
+| 下一步 | M3-1 把 tileset 複製到 `public/tiles/`，然後 M3-2 用 Tiled 畫地圖，見第 3 節 |
 | 遠端 | `origin` 是 SSH 網址 `git@github.com:ketyykes/nextjs-shell-game.git`，本機與 `origin/main` 同步 |
 
 ## 2. 里程碑總覽
@@ -33,7 +33,7 @@
 |---|---|---|---|
 | M0 | 方向討論、設計文件、素材前置、工具鏈 | ✅ | 全部 |
 | M1 | Shell 引擎與單元測試 | ✅ | 3.3、4.8、8-1 |
-| M2 | 終端機 UI 與 zustand store | ⬜ | 4.9、5、8-2 |
+| M2 | 終端機 UI 與 zustand store | ✅ | 4.9、5、8-2 |
 | M3 | Phaser 地圖與角色 | ⬜ | 3.2、6.2、9、8-3 |
 | M4 | 事件橋接與 HUD | ⬜ | 3.1、4.6、8-4 |
 | M5 | 第一章劇本 | ⬜ | 3.4、4.4、4.8、8-5 |
@@ -72,17 +72,21 @@
 
 **給 M2 的介面摘要**：UI 只需要 `new Shell(options)`，然後呼叫 `execute(input)` 拿 `ShellExecution`（`lines`、`isError`、`clearScreen`、`cwd`）、`complete(input)` 拿 Tab 候選、`historyUp()`／`historyDown()`、`prompt()` 拿提示符。存檔用 `toState()`，還原用 `Shell.fromState(state, VirtualFileSystem.fromSerialized(state.fs), hints)`。指令說明資料在 `commands/docs.ts` 的 `COMMAND_DOCS`，側邊面板直接用。
 
-### M2 終端機 UI 與 store ⬜
+### M2 終端機 UI 與 store ✅
 
-目標：在 `/play` 頁面上打指令看結果，重新整理後歷史與進度還在。先不接 Phaser 與劇情。
+目標：在 `/play` 頁面上打指令看結果，重新整理後歷史與進度還在。先不接 Phaser 與劇情。commit `090e169` 到 `7925b2b`。
 
-- ⬜ **M2-1 zustand 與 persist**（2、4.7）：安裝 zustand，切 slice：shell session、progress、settings、story flags。存檔格式從一開始就帶 `chapter` 欄位。
-- ⬜ **M2-2 字型**（4.9）：next/font 載入 VT323、Press Start 2P；Fusion Pixel 12px 比例版 zh-Hant 要自己下載 woff2 放進專案。
-- ⬜ **M2-3 Terminal 元件群**（5、7）：`src/components/terminal/` 放 Terminal、OutputBlock、DialogueBlock（NOVA 內嵌區塊）、PromptInput。像素 9-slice 邊框、標題列含「[Esc] 關閉」、底部「已學」列。
-- ⬜ **M2-4 Magic UI Terminal 評估**（2）：`pnpm dlx shadcn@latest add @magicui/terminal`，只借外框與打字動畫，輸入列自己做。不合用就直接自製，不強求。
-- ⬜ **M2-5 鍵盤處理**：Tab 補全、上下鍵歷史、Esc 關閉，全形輸入法偵測提示。
-- ⬜ **M2-6 CRT 效果**（4.9）：掃描線、暗角、微閃爍，三者各自可在設定關閉。
-- **完成定義**：瀏覽器可玩 M1 的指令，重整不掉資料。
+| 任務 | 狀態 | 產出 |
+|---|---|---|
+| M2-1 zustand 與 persist | ✅ | `src/game/store/{types,gameStore,selectors,index}.ts`。存檔 key `kepler9-save`、`version: 1`，四塊：progress（含 `chapter`、`learnedCommands`、`oxygen`）、settings、terminals（每台的 `Shell.toState()` 加輸出紀錄）、storyFlags |
+| M2-2 字型 | ✅ | `src/app/fonts.ts`、`src/app/fonts/fusion-pixel-12px-proportional-zh_hant.woff2`（v2026.09.25，約 910 KB，OFL）。Tailwind class `font-terminal`（VT323 + Fusion Pixel）、`font-title`（Press Start 2P） |
+| M2-3 Terminal 元件群 | ✅ | `src/components/terminal/`：Terminal、TerminalFrame（inline SVG 9-slice）、OutputBlock、DialogueBlock、PromptInput、useTerminalKeyboard、useTypewriter |
+| M2-4 Magic UI Terminal 評估 | ❌ | 試裝看過：外框是固定圓角加 macOS 三色圓點、`max-w-lg`、靠 `useInView` 觸發的展示型序列動畫，沒有輸入列，跟像素邊框與標題列對不上；打字動畫自己寫十幾行。已移除，全部自製 |
+| M2-5 鍵盤處理 | ✅ | Enter、Tab（多候選時列在輸出區）、↑↓、Esc、輸入法組字中不處理（`isComposing` 與 Safari `keyCode 229`）、全形字元即時琥珀提示 |
+| M2-6 CRT 效果 | ✅ | `src/components/game/CrtOverlay.tsx`（掃描線、暗角、閃爍各自 prop，`prefers-reduced-motion` 自動關閃爍）、`OxygenVignette.tsx`（低於 30% 的琥珀暗角）。`/play` 底部有三個開關的暫時設定列，M7-5 做正式選單後移除 |
+| /play 整合 | ✅ | `src/app/play/page.tsx` 加 `src/components/game/PlayScreen.tsx`；`src/game/chapters/ch1-life-support.ts` 先放 T1 的檔案系統、hint、banner。e2e 在 `e2e/play.spec.ts` |
+
+**M2 暫時的簡化，之後要改**：第一次開 T1 就把它教的 pwd、ls、cat 算學會（M5 改成過關才學會）；終端機固定開 `ch1-t1`，關閉後只顯示「重新開啟」按鈕（M4 由 Phaser 事件開關）；配色與字型只套在 `/play`，首頁還是模板。
 
 ### M3 Phaser 地圖與角色 ⬜
 
@@ -164,6 +168,10 @@
 - **Next.js 16 與 Phaser**：Phaser 會碰 `window`，只能在 client component 內用 `next/dynamic` 加 `ssr: false` 載入。寫 Next.js 相關程式前先讀 `node_modules/next/dist/docs/` 的對應章節，這版與訓練資料有差異。
 - **版本限制**：TypeScript 停在 6.x、ESLint 停在 9.x，原因見 `CLAUDE.md`。
 - **Vitest**：設定在 `vitest.config.mts`，只掃 `src/**/*.{test,spec}.{ts,tsx}`，環境 jsdom，`@/` 別名已設。純邏輯測試可在檔案頂端加 `// @vitest-environment node` 加速。測試共用的 fixture 檔不要用 `.test` 後綴（例如 `testFixtures.ts`），否則會被當測試跑。
+- **store 的使用規則**：`@/game/store` 的 index 帶 React hook，只能在 client component import，純邏輯或 server component 用 `@/game/store/types`。**讀檔完成前不要呼叫任何 action**（每次 `set` 都會寫 localStorage，會把預設值蓋掉存檔），依賴存檔的畫面都要先等 `useStoreHydration()` 回 true。selector 不要回傳新組的物件，多欄位用 `useShallow`。
+- **Terminal 元件的整合規則**：`shell` 必須是同一個實例（`useState` 保住），每次 render 都 `new Shell` 會重置 cwd 與歷史。`entries` 由父層持有並整批替換，`clear` 會傳空陣列。掛載當下就在 `entries` 裡的 dialogue 不重播打字動畫，要播的 NOVA 台詞得在掛載後才 push。Esc 有 `preventDefault` 沒有 `stopPropagation`，之後 Phaser 或暫停選單聽 Esc 時要在終端機開著時擋掉。
+- **Vitest 與 CSS Module**：`postcss.config.mjs` 用字串宣告 `@tailwindcss/postcss`，Vite 解析不了，所以 `vitest.config.mts` 設了 `css.postcss: { plugins: [] }`，單元測試不跑 Tailwind。vitest 沒開 globals，Testing Library 不會自動 cleanup，元件測試要手動 `afterEach(cleanup)`。
+- **字型尺寸**：VT323 的 x-height 偏小，終端機字級不要低於 20px；Fusion Pixel 用 12 的整數倍最清楚。Next dev 模式左下角有 Next.js 的圓形工具按鈕，會蓋住 `/play` 的設定列，正式 build 沒有。
 - **Shell 引擎的已知邊界**（M1 刻意不做，之後章節需要再補）：
   - 快照的 key 不可含 `/`、空字串、`.`、`..`；目錄裡不要放名叫 `$type` 的子項，那是型別標記。
   - 路徑的 `..` 是純字串化簡，`wake_up.txt/..` 不會報 ENOTDIR；對檔案加結尾斜線會報 ENOTDIR。`~user` 不支援。
@@ -182,6 +190,14 @@
 ## 7. 工作日誌
 
 每次 session 收工加一筆，最新在最上面。格式：日期、做了什麼、commit 範圍、下一步。
+
+### 2026-10-01（第二場）
+
+- 完成整個 M2：先定 `src/game/store/types.ts` 契約與 `--game-*` 配色 token，平行派 store（opus）、字型（sonnet）、CRT（sonnet）、Terminal 元件群（opus），再自己整合 `PlayScreen`、`/play`、T1 劇本資料與 e2e。
+- Magic UI Terminal 試裝評估後判定不合用，移除改自製。
+- 28 個測試檔 489 個單元測試、5 個 e2e 全綠，lint 與 tsc 無錯誤。截圖確認像素邊框、中英混排字型、CRT 效果都正常。
+- commit：`090e169`（chore）、`8d5cec1`、`8478284`、`0f88bc3`（feat）、`7925b2b`（test）、本檔另一筆 docs。未 push。
+- 下一步：M3-1 素材就位。M3-2 的 Tiled 地圖需要 Danny 手動畫或討論用程式產生，開工前先問。
 
 ### 2026-10-01
 

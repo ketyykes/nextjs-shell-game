@@ -60,15 +60,19 @@ pnpm sprites:slice technician-d   # 只處理指定角色
 ```
 src/
 ├── app/                    # Next.js App Router
-│   ├── layout.tsx         # 根佈局 (含 Geist 字型設定)
-│   ├── page.tsx           # 首頁
-│   ├── page.test.tsx      # 首頁的 Vitest 測試
-│   └── globals.css        # 全域樣式 (Tailwind v4 的 @theme 在這裡)
+│   ├── layout.tsx         # 根佈局 (掛三種像素字型的 CSS 變數，lang zh-Hant)
+│   ├── fonts.ts           # next/font 定義：VT323、Press Start 2P、Fusion Pixel
+│   ├── fonts/             # Fusion Pixel woff2 與授權
+│   ├── page.tsx           # 首頁 (仍是模板)
+│   ├── play/page.tsx      # 遊戲頁面，只渲染 PlayScreen
+│   └── globals.css        # 全域樣式 (Tailwind v4 的 @theme、--game-* 配色、font-terminal/font-title)
 ├── components/
-│   └── ui/                # shadcn/ui 元件
-│       ├── button.tsx
-│       └── shimmer-button.tsx
+│   ├── ui/                # shadcn/ui 元件
+│   ├── terminal/          # Terminal 元件群：外框、輸出區、NOVA 對話、輸入列、鍵盤 hook
+│   └── game/              # PlayScreen、CrtOverlay、OxygenVignette
 ├── game/
+│   ├── store/             # zustand store 與 localStorage 存檔；types.ts 是存檔格式契約
+│   ├── chapters/          # 劇本資料 (ch1-life-support.ts)，M5 會加 zod schema
 │   └── shell/             # Shell 引擎，純 TypeScript，零 React/Phaser 相依
 │       ├── types.ts       # 所有 shell 模組的共用契約，改介面先改這裡
 │       ├── shell.ts       # 執行入口 Shell 類別 (execute、complete、toState)
@@ -80,7 +84,7 @@ src/
 │       └── commands/      # 每個指令一個檔案，index.ts 是註冊表，docs.ts 是 man 說明資料
 └── lib/
     └── utils.ts           # 工具函式 (cn 函式)
-e2e/                        # Playwright 測試
+e2e/                        # Playwright 測試 (home.spec.ts、play.spec.ts)
 scripts/slice-sprites.mjs   # sprite sheet 切格腳本 (pnpm sprites:slice)
 public/sprites/             # 四位角色的 32x48 sprite sheet (128x192，4x4 格)
 docs/
