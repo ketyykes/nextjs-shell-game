@@ -61,3 +61,5 @@ next-env.d.ts
 *.psd
 *.blend
 *.aseprite
+# Playwright CLI output (may contain credentials)
+.playwright-cli/
