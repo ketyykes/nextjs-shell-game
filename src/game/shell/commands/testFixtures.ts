@@ -6,7 +6,7 @@
  */
 
 import type { CommandContext, FsSnapshot } from "../types";
-import { HOME_DIR } from "../types";
+import { HOME_DIR, PLAYER_USER } from "../types";
 import { VirtualFileSystem } from "../fs";
 
 /** 冷凍艙目錄統一的修改時間，`ls -l` 測試用。 */
@@ -76,7 +76,10 @@ export function createTestFs(): VirtualFileSystem {
 	return VirtualFileSystem.fromSnapshot(CH1_TEST_SNAPSHOT);
 }
 
-/** 產生指令用的 `CommandContext`，預設站在家目錄，可用 `overrides` 覆寫任何欄位。 */
+/**
+ * 產生指令用的 `CommandContext`，預設站在家目錄，可用 `overrides` 覆寫任何欄位。
+ * `stdin` 預設 null（不在管線裡）、`env` 預設是 shell 會自動補的三個基本變數、`processes` 預設空陣列。
+ */
 export function createContext(overrides: Partial<CommandContext> = {}): CommandContext {
 	return {
 		cwd: HOME_DIR,
@@ -88,6 +91,9 @@ export function createContext(overrides: Partial<CommandContext> = {}): CommandC
 		hintCount: 0,
 		history: [],
 		availableCommands: ["pwd", "ls", "cd", "cat"],
+		stdin: null,
+		env: { HOME: HOME_DIR, USER: PLAYER_USER, PWD: HOME_DIR },
+		processes: [],
 		...overrides,
 	};
 }

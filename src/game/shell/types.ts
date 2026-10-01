@@ -98,10 +98,30 @@ export interface SerializedFs {
  * 檔案系統操作失敗的錯誤代碼，沿用 POSIX 命名方便對照。
  * - ENOENT：路徑不存在
  * - ENOTDIR：路徑中某一段不是目錄，或對檔案做了目錄操作（例如 `cd` 到檔案）
- * - EISDIR：對目錄做了檔案操作（例如 `cat` 目錄）
+ * - EISDIR：對目錄做了檔案操作（例如 `cat` 目錄、不加 `-r` 的 `rm` 目錄）
  * - EEXIST：目標已存在（第三章 `mkdir` 用）
+ * - EACCES：沒有權限（第五章 `chmod` 之前讀不到的封存檔）
+ * - EBUSY：不能動的節點（例如刪除根目錄、把目錄搬進自己底下）
  */
-export type FsErrorCode = "ENOENT" | "ENOTDIR" | "EISDIR" | "EEXIST";
+export type FsErrorCode = "ENOENT" | "ENOTDIR" | "EISDIR" | "EEXIST" | "EACCES" | "EBUSY";
+
+/**
+ * 判斷玩家對某個節點有沒有讀取權限（第五章 `chmod`）。
+ * 擁有者是玩家（`PLAYER_USER`）時看前三碼，否則看「其他人」的後三碼；中間的群組碼不用。
+ * 純函式，`readFile` 與 `cat` 之外的指令（例如 `head`、`grep`）也要用它擋。
+ */
+export function canRead(node: FsNode, user: string = PLAYER_USER): boolean {
+	const mode = node.mode.padEnd(9, "-");
+	if (node.owner === user) {
+		return mode[0] === "r";
+	}
+	return mode[6] === "r";
+}
+
+/** 權限字串是否合法：九碼，每碼只能是 `r`、`w`、`x` 或 `-`，位置也要對。 */
+export function isValidMode(mode: string): boolean {
+	return /^[r-][w-][x-][r-][w-][x-][r-][w-][x-]$/.test(mode);
+}
 
 /**
  * 檔案系統錯誤。指令層抓到後用 `code` 與 `path` 換成友善的繁中訊息，
@@ -144,11 +164,54 @@ export interface VirtualFs {
 	/** 列出目錄下的子節點，依名稱排序；隱藏檔（`.` 開頭）預設不列出。 */
 	list(cwd: string, input: string, options?: { includeHidden?: boolean }): FsNode[];
 
-	/** 讀檔案內容。 */
+	/** 讀檔案內容。沒有讀取權限（見 `canRead`）時丟 `FsError("EACCES")`。 */
 	readFile(cwd: string, input: string): string;
 
-	/** 寫檔案，不存在時建立，父目錄必須存在。第四章重導向會用到，M1 先實作但指令不用。 */
+	/** 寫檔案，不存在時建立，父目錄必須存在。第四章重導向 `>` 用它。 */
 	writeFile(cwd: string, input: string, content: string): void;
+
+	/** 在檔案結尾追加內容，不存在時建立。第四章重導向 `>>` 用它。 */
+	appendFile(cwd: string, input: string, content: string): void;
+
+	/**
+	 * 建立目錄（第三章 `mkdir`）。已存在丟 `EEXIST`；父目錄不存在丟 `ENOENT`，
+	 * 除非 `parents` 為 true（`mkdir -p`）會連父目錄一起建，而且已存在時不報錯。
+	 */
+	mkdir(cwd: string, input: string, options?: { parents?: boolean }): void;
+
+	/**
+	 * 建立空檔案或更新 mtime（第三章 `touch`）：不存在就建一個空檔，存在就把 mtime 改成現在。
+	 * 目標是目錄時只更新 mtime。
+	 */
+	touch(cwd: string, input: string): void;
+
+	/**
+	 * 刪除節點（第三章 `rm`）。目標是目錄而 `recursive` 不為 true 時丟 `EISDIR`；
+	 * 刪根目錄丟 `EBUSY`。
+	 */
+	remove(cwd: string, input: string, options?: { recursive?: boolean }): void;
+
+	/**
+	 * 搬移或改名（第三章 `mv`）。`to` 是既有目錄時搬進它底下（保留原名），否則視為新路徑。
+	 * 把目錄搬進自己或自己的子孫底下丟 `EBUSY`；目標已經是檔案時直接覆蓋，跟真的 `mv` 一樣。
+	 */
+	move(cwd: string, from: string, to: string): void;
+
+	/**
+	 * 複製（第三章 `cp`）。規則同 `move`：`to` 是既有目錄就複製進去。
+	 * 來源是目錄而 `recursive` 不為 true 時丟 `EISDIR`。複製出來的節點 mtime 是現在、擁有者是玩家。
+	 */
+	copy(cwd: string, from: string, to: string, options?: { recursive?: boolean }): void;
+
+	/** 改權限（第五章 `chmod`），`mode` 是九碼字串，不合法時丟一般 `Error`（指令層要先驗）。 */
+	setMode(cwd: string, input: string, mode: string): void;
+
+	/**
+	 * 萬用字元展開（第四章 `cat *.log`）。只處理最後一段路徑裡的 `*` 與 `?`，
+	 * 回傳依名稱排序、保留玩家寫法前綴的路徑（例如 `logs/*.txt` 回 `logs/a.txt`）；
+	 * 隱藏檔只有在 pattern 以 `.` 開頭時才會配到。沒有任何相符回傳空陣列，由呼叫端決定要不要保留原字串。
+	 */
+	glob(cwd: string, pattern: string): string[];
 
 	/** 序列化成可存進 store 的純資料。 */
 	serialize(): SerializedFs;
@@ -162,8 +225,7 @@ export const DIR_SIZE = 4096;
 // ---------------------------------------------------------------------------
 
 /**
- * token 種類。第一章只用得到 `word`，管線與重導向先預留型別，
- * tokenizer 現在就要能切出來，執行時由 shell 回報「尚未支援」。
+ * token 種類。`word` 是一般字串；`pipe` 是 `|`；`redirect` 是 `>`、`redirectAppend` 是 `>>`。
  */
 export type TokenKind = "word" | "pipe" | "redirect" | "redirectAppend";
 
@@ -171,17 +233,23 @@ export interface Token {
 	kind: TokenKind;
 	/** `word` 是去掉引號後的內容，其他種類是符號本身。 */
 	value: string;
-	/** 是否曾被單引號或雙引號包住，補全與萬用字元之後會需要知道。 */
+	/**
+	 * 是否曾被單引號或雙引號包住。
+	 * 被引號包住的 word 不做萬用字元展開；單引號內也不做變數展開（`singleQuoted`）。
+	 */
 	quoted: boolean;
+	/** 是否整個 token 都在單引號內，單引號內的 `$NAME` 不展開。沒有這個欄位視為 false。 */
+	singleQuoted?: boolean;
 }
 
 /**
  * 解析錯誤代碼。
  * - FULLWIDTH_CHAR：輸入含全形空白或全形標點
  * - UNCLOSED_QUOTE：引號沒關
- * - UNSUPPORTED_OPERATOR：出現管線或重導向，但這一章還不支援
+ * - EMPTY_COMMAND：`|` 的前面或後面沒有指令（例如 `ls |`、`| sort`）
+ * - MISSING_REDIRECT_TARGET：`>` 或 `>>` 後面沒有檔名
  */
-export type ParseErrorCode = "FULLWIDTH_CHAR" | "UNCLOSED_QUOTE" | "UNSUPPORTED_OPERATOR";
+export type ParseErrorCode = "FULLWIDTH_CHAR" | "UNCLOSED_QUOTE" | "EMPTY_COMMAND" | "MISSING_REDIRECT_TARGET";
 
 export interface ParseError {
 	code: ParseErrorCode;
@@ -195,8 +263,33 @@ export interface ParsedCommand {
 	args: string[];
 }
 
+/** 輸出重導向（第四章）：`>` 覆寫、`>>` 追加，`target` 是玩家輸入的原字串。 */
+export interface Redirect {
+	kind: "overwrite" | "append";
+	target: string;
+}
+
+/**
+ * 一整行輸入解析後的管線：一個以上的指令用 `|` 串起來，結尾可接一個重導向。
+ * 沒有管線也沒有重導向時 `commands` 只有一個元素、`redirect` 是 null。
+ */
+export interface ParsedPipeline {
+	commands: ParsedCommand[];
+	redirect: Redirect | null;
+}
+
+/** 解析選項：`env` 給變數展開用（第五章），沒給就不展開、`$NAME` 原樣保留。 */
+export interface ParseOptions {
+	env?: Record<string, string>;
+}
+
+/**
+ * 解析結果。
+ * `command` 是管線的第一個指令（舊版相容；`ls | grep x` 的 `command` 是 `ls`），
+ * `pipeline` 是完整的管線；空輸入時兩者都是 null。
+ */
 export type ParseResult =
-	| { ok: true; command: ParsedCommand | null }
+	| { ok: true; command: ParsedCommand | null; pipeline: ParsedPipeline | null }
 	| { ok: false; error: ParseError };
 
 /** 「忘記空格」偵測結果，例如 `cdmedbay` 拆成 `cd` + `medbay`。 */
@@ -208,6 +301,28 @@ export interface MissingSpaceSuggestion {
 // ---------------------------------------------------------------------------
 // 指令
 // ---------------------------------------------------------------------------
+
+/**
+ * 虛擬程序（第六章 `ps`、`top`、`kill`）。
+ * 每台終端機的劇本給初始清單，`kill` 之後的變化存在 shell session 裡。
+ */
+export interface ProcessInfo {
+	pid: number;
+	/** 執行者帳號，例如 `nova`、`root`、`tech`。 */
+	user: string;
+	/** CPU 百分比，`top` 依它排序。 */
+	cpu: number;
+	/** 記憶體百分比。 */
+	mem: number;
+	/** 啟動時間，ISO 8601；`ps` 顯示成 `YYYY-MM-DD HH:MM`（UTC）。 */
+	started: string;
+	/** 指令列，例如 `/opt/nova/nova --core`。 */
+	command: string;
+	/** true 時不帶 `-9` 的 `kill` 會被忽略（程序拒絕終止訊號），`kill -9` 才殺得掉。 */
+	ignoresTerm?: boolean;
+	/** true 時連 `kill -9` 都殺不掉（例如 init），回「沒有權限」。 */
+	protected?: boolean;
+}
 
 /** 指令執行時拿到的環境，全部唯讀，指令透過回傳值表達要改什麼。 */
 export interface CommandContext {
@@ -228,6 +343,16 @@ export interface CommandContext {
 	history: string[];
 	/** 所有已註冊指令的名稱，`help` 與補全用。 */
 	availableCommands: string[];
+	/**
+	 * 管線前一個指令的輸出（第四章）。不是管線的一環、或是管線第一個指令時為 null。
+	 * 會讀輸入的指令（`cat`、`head`、`tail`、`wc`、`grep`、`sort`、`uniq`）在沒給檔名時讀它；
+	 * 其他指令忽略即可。
+	 */
+	stdin: string[] | null;
+	/** 環境變數（第五章），例如 `{ HOME: "/home/tech", USER: "tech" }`。`export` 用回傳值 `nextEnv` 改。 */
+	env: Record<string, string>;
+	/** 目前的程序清單（第六章）。`kill` 用回傳值 `nextProcesses` 改。 */
+	processes: ProcessInfo[];
 }
 
 /**
@@ -237,7 +362,7 @@ export interface CommandContext {
  */
 export interface CommandResult {
 	ok: boolean;
-	/** 要印到終端機的行，空陣列代表沒輸出（例如 `cd` 成功）。 */
+	/** 要印到終端機的行，空陣列代表沒輸出（例如 `cd` 成功）。管線時這些行會變成下一個指令的 `stdin`。 */
 	lines: string[];
 	/** `cd` 成功時回傳新的工作目錄。 */
 	nextCwd?: string;
@@ -245,6 +370,10 @@ export interface CommandResult {
 	clearScreen?: boolean;
 	/** `hint` 用，通知 shell 這台終端機的 hint 計數要加一。 */
 	hintUsed?: boolean;
+	/** `export` 用：整份取代環境變數。 */
+	nextEnv?: Record<string, string>;
+	/** `kill` 用：整份取代程序清單。 */
+	nextProcesses?: ProcessInfo[];
 }
 
 export interface CommandDefinition {
@@ -311,6 +440,10 @@ export interface ShellOptions {
 	/** 從 store 還原時帶入之前的歷史與 hint 計數。 */
 	history?: string[];
 	hintCount?: number;
+	/** 初始環境變數（第五章）。沒給時 shell 自己補 `HOME`、`USER`、`PWD` 三個基本值。 */
+	env?: Record<string, string>;
+	/** 初始程序清單（第六章）。沒給等同空陣列。 */
+	processes?: ProcessInfo[];
 }
 
 /**
@@ -324,4 +457,8 @@ export interface ShellExecution {
 	clearScreen: boolean;
 	/** 執行後的工作目錄，UI 用它組提示符。 */
 	cwd: string;
+	/** 執行後的環境變數，目標判定用（例如「`NOVA_DIR` 已設定」）。 */
+	env: Record<string, string>;
+	/** 執行後的程序清單，目標判定用（例如「nova 程序已不在」）。 */
+	processes: ProcessInfo[];
 }

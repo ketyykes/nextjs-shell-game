@@ -18,6 +18,9 @@ export function createContext(overrides: Partial<CommandContext> = {}): CommandC
 		hintCount: 0,
 		history: [],
 		availableCommands: [],
+		stdin: null,
+		env: { HOME: HOME_DIR, USER: "tech", PWD: HOME_DIR },
+		processes: [],
 		...overrides,
 	};
 }

@@ -3,6 +3,12 @@ import { describe, expect, it } from "vitest";
 import { COMMAND_DOC_ORDER, COMMAND_DOCS, getCommandDoc } from "./docs";
 
 const CHAPTER_ONE_COMMANDS = ["pwd", "ls", "cd", "cat", "help", "hint", "man", "history", "clear"];
+/** 第二到六章的指令，照章節順序接在第一章後面（設計文件 4.3）。 */
+const LATER_COMMANDS = [
+	"head", "tail", "wc", "grep", "find",
+	"mkdir", "touch", "cp", "mv", "rm", "chmod",
+	"echo", "sort", "uniq", "export", "env", "ps", "top", "kill",
+];
 
 describe("COMMAND_DOCS", () => {
 	it.each(CHAPTER_ONE_COMMANDS)("第一章指令 %s 有說明", (name) => {
@@ -53,8 +59,8 @@ describe("COMMAND_DOCS", () => {
 });
 
 describe("COMMAND_DOC_ORDER", () => {
-	it("順序符合設計", () => {
-		expect(COMMAND_DOC_ORDER).toEqual(CHAPTER_ONE_COMMANDS);
+	it("順序符合設計：先第一章，再依章節接上", () => {
+		expect(COMMAND_DOC_ORDER).toEqual([...CHAPTER_ONE_COMMANDS, ...LATER_COMMANDS]);
 	});
 
 	it("每個名稱都能在 COMMAND_DOCS 找到", () => {

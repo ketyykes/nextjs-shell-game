@@ -10,6 +10,7 @@ export {
 	DEFAULT_DIR_MODE,
 	DEFAULT_FILE_MODE,
 	DEFAULT_MTIME,
+	deleteChild,
 	getChild,
 	getNodeSize,
 	setChild,
@@ -17,4 +18,4 @@ export {
 export type { NodeMetaOptions } from "./node";
 export { buildRootFromSnapshot, ROOT_NAME } from "./snapshot";
 export { VirtualFileSystem } from "./VirtualFileSystem";
-export type { ListOptions, VirtualFileSystemOptions } from "./VirtualFileSystem";
+export type { CopyOptions, ListOptions, MkdirOptions, RemoveOptions, VirtualFileSystemOptions } from "./VirtualFileSystem";

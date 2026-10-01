@@ -17,7 +17,21 @@ import {
 	pathNotFound,
 	unclosedQuote,
 	unknownOption,
-	unsupportedOperator,
+	emptyCommand,
+	missingRedirectTarget,
+	missingCommandForRedirect,
+	permissionDenied,
+	resourceBusy,
+	directoryNeedsRecursive,
+	invalidNumber,
+	noInput,
+	invalidAssignment,
+	invalidVariableName,
+	invalidMode,
+	invalidPid,
+	noSuchProcess,
+	processIgnoredSignal,
+	processProtected,
 } from "./messages";
 import type { FsErrorCode, ParseErrorCode } from "./types";
 
@@ -50,10 +64,15 @@ describe("解析階段的訊息", () => {
 		expect(joinLines(unclosedQuote("'"))).toContain("'");
 	});
 
-	it("unsupportedOperator 會提到符號並說明之後才會教", () => {
-		const text = joinLines(unsupportedOperator("|"));
+	it("emptyCommand 會提到符號並給管線範例", () => {
+		const text = joinLines(emptyCommand("|"));
 		expect(text).toContain("`|`");
-		expect(text).toContain("之後");
+		expect(text).toContain("grep");
+	});
+
+	it("missingRedirectTarget 與 missingCommandForRedirect 會提到符號", () => {
+		expect(joinLines(missingRedirectTarget(">>"))).toContain("`>>`");
+		expect(joinLines(missingCommandForRedirect(">"))).toContain("`>`");
 	});
 });
 
@@ -101,13 +120,23 @@ describe("fsError 依代碼分派", () => {
 	it("EEXIST 會提到已經存在", () => {
 		expect(joinLines(fsError("EEXIST", "target"))).toContain("已經存在");
 	});
+
+	it("EACCES 會提到權限與 chmod，EBUSY 會提到不能搬或刪", () => {
+		const denied = joinLines(fsError("EACCES", "sealed.txt"));
+		expect(denied).toContain("權限");
+		expect(denied).toContain("chmod");
+		expect(joinLines(fsError("EBUSY", "/"))).toContain("不能");
+	});
 });
 
 describe("parseError 依代碼分派", () => {
 	const cases: Array<[ParseErrorCode, string, string[]]> = [
 		["FULLWIDTH_CHAR", "　", fullwidthChar("　")],
 		["UNCLOSED_QUOTE", '"', unclosedQuote('"')],
-		["UNSUPPORTED_OPERATOR", "|", unsupportedOperator("|")],
+		["EMPTY_COMMAND", "|", emptyCommand("|")],
+		["EMPTY_COMMAND", ">", missingCommandForRedirect(">")],
+		["EMPTY_COMMAND", ">>", missingCommandForRedirect(">>")],
+		["MISSING_REDIRECT_TARGET", ">", missingRedirectTarget(">")],
 	];
 
 	it.each(cases)("%s 會分派到對應的訊息", (code, detail, expected) => {
@@ -159,7 +188,21 @@ describe("所有訊息的共通規則", () => {
 			missingSpace("cd", "x"),
 			fullwidthChar("，"),
 			unclosedQuote('"'),
-			unsupportedOperator(">"),
+			emptyCommand("|"),
+			missingRedirectTarget(">"),
+			missingCommandForRedirect(">"),
+			permissionDenied("x"),
+			resourceBusy("x"),
+			directoryNeedsRecursive("rm", "x"),
+			invalidNumber("head", "abc"),
+			noInput("cat", "cat x"),
+			invalidAssignment("=x"),
+			invalidVariableName("1x"),
+			invalidMode("zzz"),
+			invalidPid("abc"),
+			noSuchProcess(42),
+			processIgnoredSignal(42, "nova"),
+			processProtected(1, "init"),
 			pathNotFound("x"),
 			notADirectory("x"),
 			isADirectory("x"),

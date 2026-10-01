@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { fsError, missingOperand } from "../messages";
+import { fsError, noInput } from "../messages";
 import { catCommand, splitContentLines } from "./cat";
 import { createContext } from "./testFixtures";
 
@@ -51,13 +51,31 @@ describe("cat", () => {
 		expect(result).toEqual({ ok: false, lines: fsError("ENOENT", "sleep.txt") });
 	});
 
-	it("沒有參數時提示缺少檔名，ok 為 false", () => {
+	it("沒有參數也沒有 stdin 時提示需要輸入，ok 為 false", () => {
 		const result = catCommand.run([], createContext());
 
 		expect(result).toEqual({
 			ok: false,
-			lines: missingOperand("cat", "一個檔名，例如 cat wake_up.txt"),
+			lines: noInput("cat", "cat log.txt 或 ls | cat"),
 		});
+	});
+
+	it("沒有參數但有 stdin 時原樣輸出 stdin", () => {
+		const result = catCommand.run([], createContext({ stdin: ["pod_01/", "", "wake_up.txt"] }));
+
+		expect(result).toEqual({ ok: true, lines: ["pod_01/", "", "wake_up.txt"] });
+	});
+
+	it("stdin 是空陣列時沒有輸出，ok 為 true", () => {
+		const result = catCommand.run([], createContext({ stdin: [] }));
+
+		expect(result).toEqual({ ok: true, lines: [] });
+	});
+
+	it("有參數時讀檔案，忽略 stdin", () => {
+		const result = catCommand.run(["/home/abin/day_900.txt"], createContext({ stdin: ["from pipe"] }));
+
+		expect(result).toEqual({ ok: true, lines: ["不要相信那個聲音。"] });
 	});
 
 	it("多檔案時其中一個失敗，其他內容仍輸出，錯誤放在對應位置，ok 為 false", () => {

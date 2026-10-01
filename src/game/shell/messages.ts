@@ -35,9 +35,25 @@ export function unclosedQuote(quote: string): string[] {
 	return [`引號 ${quote} 沒有關起來，請在結尾補上另一個 ${quote}，或是把引號拿掉再試一次。`];
 }
 
-/** 管線或重導向，這一章還用不到。 */
-export function unsupportedOperator(operator: string): string[] {
-	return [`\`${operator}\` 這個符號現在還用不到，之後的章節會教。先把它拿掉，只打指令本身就好。`];
+/** `|` 的前面或後面沒有指令，例如 `ls |` 或 `| sort`。 */
+export function emptyCommand(operator: string): string[] {
+	return [
+		`\`${operator}\` 的兩邊都要有指令，它的意思是「把左邊的輸出交給右邊」。`,
+		"例如 cat log.txt | grep ERROR，左邊讀檔案，右邊從裡面挑出含 ERROR 的行。",
+	];
+}
+
+/** `>` 或 `>>` 後面沒有檔名。 */
+export function missingRedirectTarget(operator: string): string[] {
+	return [`\`${operator}\` 後面要接一個檔名，輸出才有地方存，例如 ls > list.txt。`];
+}
+
+/** `>` 或 `>>` 前面沒有指令（例如一行只打 `> out.txt`），或一行出現第二個重導向。 */
+export function missingCommandForRedirect(operator: string): string[] {
+	return [
+		`\`${operator}\` 的左邊要有一個指令，它的意思是「把左邊指令的輸出存進右邊的檔案」，一行只能有一個。`,
+		"例如 echo MAYDAY > outbox.txt。",
+	];
 }
 
 /** 依解析錯誤代碼分派到對應訊息。 */
@@ -47,8 +63,13 @@ export function parseError(error: ParseError): string[] {
 			return fullwidthChar(error.detail);
 		case "UNCLOSED_QUOTE":
 			return unclosedQuote(error.detail);
-		case "UNSUPPORTED_OPERATOR":
-			return unsupportedOperator(error.detail);
+		case "EMPTY_COMMAND":
+			if (error.detail === ">" || error.detail === ">>") {
+				return missingCommandForRedirect(error.detail);
+			}
+			return emptyCommand(error.detail);
+		case "MISSING_REDIRECT_TARGET":
+			return missingRedirectTarget(error.detail);
 	}
 }
 
@@ -82,6 +103,19 @@ export function alreadyExists(path: string): string[] {
 	return [`\`${path}\` 已經存在了，換一個名字，或用 ls 看看現在有什麼。`];
 }
 
+/** 沒有讀取權限（第五章）。 */
+export function permissionDenied(path: string): string[] {
+	return [
+		`沒有權限讀取 \`${path}\`。`,
+		"用 ls -l 看它的權限欄，開頭的 r 代表可讀；沒有 r 的話，chmod +r 檔名 可以把讀取權限加回來。",
+	];
+}
+
+/** 這個節點不能這樣動，例如刪根目錄、把目錄搬進自己底下。 */
+export function resourceBusy(path: string): string[] {
+	return [`\`${path}\` 不能這樣搬或刪：目錄不能搬進自己底下，根目錄也不能刪。`];
+}
+
 /** 依檔案系統錯誤代碼分派到對應訊息。 */
 export function fsError(code: FsErrorCode, path: string): string[] {
 	switch (code) {
@@ -93,7 +127,19 @@ export function fsError(code: FsErrorCode, path: string): string[] {
 			return isADirectory(path);
 		case "EEXIST":
 			return alreadyExists(path);
+		case "EACCES":
+			return permissionDenied(path);
+		case "EBUSY":
+			return resourceBusy(path);
 	}
+}
+
+/** `rm`、`cp` 對目錄操作但沒加 `-r`。 */
+export function directoryNeedsRecursive(command: string, path: string): string[] {
+	return [
+		`\`${path}\` 是目錄，${command} 預設只處理檔案。`,
+		`要連同裡面的東西一起處理，加上 -r：${command} -r ${path}。`,
+	];
 }
 
 // ---------------------------------------------------------------------------
@@ -113,6 +159,71 @@ export function missingOperand(command: string, what: string): string[] {
 /** 不認得的選項，例如 `ls -z`。 */
 export function unknownOption(command: string, option: string): string[] {
 	return [`\`${command}\` 沒有 \`${option}\` 這個選項，輸入 man ${command} 看看有哪些選項可以用。`];
+}
+
+/** 選項需要一個數字但給的不是，例如 `head -n abc`。 */
+export function invalidNumber(command: string, value: string): string[] {
+	return [`\`${value}\` 不是數字，${command} 的 -n 後面要接要顯示的行數，例如 ${command} -n 5 檔名。`];
+}
+
+/** 指令既沒有檔名參數，也不是管線裡的一環（沒有輸入可讀）。 */
+export function noInput(command: string, example: string): string[] {
+	return [
+		`${command} 需要有東西可以讀：接一個檔名，或是放在 | 的右邊接收前一個指令的輸出。`,
+		`例如 ${example}。`,
+	];
+}
+
+// ---------------------------------------------------------------------------
+// 第五章：變數與權限
+// ---------------------------------------------------------------------------
+
+/** `export` 的參數不是 `名稱=值` 的形式。 */
+export function invalidAssignment(arg: string): string[] {
+	return [
+		`\`${arg}\` 不是 名稱=值 的形式。export 的寫法是 export 名稱=值，等號兩邊不要有空格。`,
+		"例如 export NOVA_DIR=/opt/nova。",
+	];
+}
+
+/** 變數名稱不合法（只能是英文字母、數字與底線，而且不能以數字開頭）。 */
+export function invalidVariableName(name: string): string[] {
+	return [`\`${name}\` 不能當變數名稱，只能用英文字母、數字與底線，而且不能以數字開頭。`];
+}
+
+/** `chmod` 的權限寫法看不懂。 */
+export function invalidMode(value: string): string[] {
+	return [
+		`\`${value}\` 不是 chmod 認得的權限寫法。`,
+		"可以用 +r、-r、+x、u+r 這種符號寫法，或是 644、755 這種三位數字，例如 chmod +r log.txt。",
+	];
+}
+
+// ---------------------------------------------------------------------------
+// 第六章：程序
+// ---------------------------------------------------------------------------
+
+/** `kill` 的參數不是正整數。 */
+export function invalidPid(value: string): string[] {
+	return [`\`${value}\` 不是程序編號，kill 後面要接 ps 列出的 PID 數字，例如 kill 42。`];
+}
+
+/** 沒有這個 PID 的程序。 */
+export function noSuchProcess(pid: number): string[] {
+	return [`沒有編號 ${pid} 的程序，先用 ps 看看現在有哪些程序在跑。`];
+}
+
+/** 程序忽略了一般的終止訊號，要用 `-9`。 */
+export function processIgnoredSignal(pid: number, command: string): string[] {
+	return [
+		`程序 ${pid}（${command}）忽略了終止訊號，還在跑。`,
+		"一般的 kill 只是「請它自己結束」，它可以不理。要強制結束用 kill -9 加 PID。",
+	];
+}
+
+/** 受保護的程序，連 `-9` 都不行。 */
+export function processProtected(pid: number, command: string): string[] {
+	return [`沒有權限終止程序 ${pid}（${command}），這是系統核心程序，殺掉整座站會停擺。`];
 }
 
 // ---------------------------------------------------------------------------

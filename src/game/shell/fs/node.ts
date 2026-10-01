@@ -92,6 +92,18 @@ export function setChild(dir: FsDirNode, name: string, node: FsNode): void {
 	});
 }
 
+/**
+ * 刪除目錄底下的子節點，不存在時什麼都不做。
+ * 跟 `getChild` 一樣只看自身屬性，不會誤刪原型鏈上的東西。
+ */
+export function deleteChild(dir: FsDirNode, name: string): void {
+	if (!Object.prototype.hasOwnProperty.call(dir.children, name)) {
+		return;
+	}
+
+	delete dir.children[name];
+}
+
 /** 深拷貝節點（含整棵子樹）。 */
 export function cloneNode<T extends FsNode>(node: T): T;
 export function cloneNode(node: FsNode): FsNode {

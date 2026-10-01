@@ -6,8 +6,12 @@
  */
 
 import type { CommandDoc } from "../types";
+import { FILE_COMMAND_DOCS, FILE_COMMAND_ORDER } from "./docsFiles";
+import { FILTER_COMMAND_DOCS, FILTER_COMMAND_ORDER } from "./docsFilter";
+import { SYSTEM_COMMAND_DOCS, SYSTEM_COMMAND_ORDER } from "./docsSystem";
 
-export const COMMAND_DOCS: Record<string, CommandDoc> = {
+/** 第一章的指令說明；第二章以後的分別在 `docsFilter.ts`、`docsFiles.ts`、`docsSystem.ts`，合併成 `COMMAND_DOCS`。 */
+const CHAPTER_ONE_DOCS: Record<string, CommandDoc> = {
 	pwd: {
 		name: "pwd",
 		summary: "顯示你現在所在的目錄",
@@ -143,7 +147,14 @@ export const COMMAND_DOCS: Record<string, CommandDoc> = {
 	},
 };
 
-/** 指令列表的顯示順序，`help` 與側邊面板都照這個順序排。 */
+export const COMMAND_DOCS: Record<string, CommandDoc> = {
+	...CHAPTER_ONE_DOCS,
+	...FILTER_COMMAND_DOCS,
+	...FILE_COMMAND_DOCS,
+	...SYSTEM_COMMAND_DOCS,
+};
+
+/** 指令列表的顯示順序，`help` 與側邊面板都照這個順序排：先第一章的，再依章節順序接上。 */
 export const COMMAND_DOC_ORDER: string[] = [
 	"pwd",
 	"ls",
@@ -154,6 +165,9 @@ export const COMMAND_DOC_ORDER: string[] = [
 	"man",
 	"history",
 	"clear",
+	...FILTER_COMMAND_ORDER,
+	...FILE_COMMAND_ORDER,
+	...SYSTEM_COMMAND_ORDER,
 ];
 
 /**

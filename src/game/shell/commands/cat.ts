@@ -1,10 +1,10 @@
 /**
- * `cat`：依序印出一或多個檔案的內容。
+ * `cat`：依序印出一或多個檔案的內容；沒給檔名時把管線的輸入原樣印出。
  */
 
 import type { CommandDefinition, CommandResult } from "../types";
 import { FsError } from "../types";
-import { fsError, missingOperand } from "../messages";
+import { fsError, noInput } from "../messages";
 
 /**
  * 把檔案內容切成終端機的行。
@@ -23,8 +23,12 @@ export function splitContentLines(content: string): string[] {
 export const catCommand: CommandDefinition = {
 	name: "cat",
 	run(args, context): CommandResult {
+		// 沒給檔名時讀管線前一個指令的輸出，例如 ls | cat；不在管線裡就提示要給輸入
 		if (args.length === 0) {
-			return { ok: false, lines: missingOperand("cat", "一個檔名，例如 cat wake_up.txt") };
+			if (context.stdin === null) {
+				return { ok: false, lines: noInput("cat", "cat log.txt 或 ls | cat") };
+			}
+			return { ok: true, lines: [...context.stdin] };
 		}
 
 		const lines: string[] = [];
