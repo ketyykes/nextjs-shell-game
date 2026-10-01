@@ -23,7 +23,7 @@
 | 目前階段 | **M0 到 M8 全部完成**；第九場用 playwright-cli 從標題一路真玩到片尾（六章 36 台終端機、零頁面錯誤），抓到四個 bug 並全部修掉（見第 7 節第九場與第 8 節 #37 到 #39）。Danny 本人還沒玩過第二章以後 |
 | 程式碼狀態 | 標題 → 選角 → boot log → 六章地圖 → 片尾。`pnpm test --run` 84 個測試檔 1644 個測試全綠，`npx tsc --noEmit` 與 `pnpm lint` 乾淨；`PORT=3001 pnpm test:e2e` 19 個（新增「章節結束畫面回訪」防死路）。插圖見第 4 節 |
 | 下一步 | 沒有排定的里程碑。Danny 從第二章開始試玩（標題「繼續」或 `e2e/helpers/deck.ts` 的 `seedSave` 寫法可直接種到第 N 章）、看第 8 節 #23 到 #39 的決策、潤稿；候選工作見第 9 節 |
-| 遠端 | `origin` 是 SSH 網址 `git@github.com:ketyykes/nextjs-shell-game.git`，本機比 `origin/main` 新（約 48 筆未 push） |
+| 遠端 | `origin` 是 SSH 網址 `git@github.com:ketyykes/nextjs-shell-game.git`，2026-10-02 已 push，本機與 `origin/main` 同步 |
 
 ## 2. 里程碑總覽
 
@@ -248,7 +248,7 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
   4. **片尾佔位塊顯示「過場插圖（M6 產圖）」**：內部字樣露給玩家，改成世界觀內的「影像訊號遺失」（決策 #39）。
 - 順帶驗證過不是 bug 的觀察：NOVA 台詞在 innerText 出現兩次是 `DialogueBlock` 的 sr-only 無障礙設計；通關後標題副標停在「NOVA 核心 · 第六章」屬預期。存檔大小六章全解約 137 KB，離 localStorage 上限很遠。
 - 84 個測試檔 1644 個單元測試、19 個 e2e 全綠，tsc 與 lint 乾淨。
-- commit：兩筆 fix、本檔一筆 docs。未 push。
+- commit：兩筆 fix、本檔兩筆 docs。Danny 確認後已 push（`c1e75ce..cc7b200`，含前八場累積共 50 筆）。
 - 下一步：Danny 親自試玩（尤其第二章以後的劇情手感）、潤稿、補 12 張插圖；其餘見第 4、8、9 節。
 
 ### 2026-10-01（第八場，`/goal` 做到第六章）
