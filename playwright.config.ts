@@ -10,7 +10,8 @@ export default defineConfig({
 	// CI 上若殘留 test.only 就讓建置失敗
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 0,
-	workers: process.env.CI ? 1 : undefined,
+	// 整章走完的測試對時間很敏感，六個 worker 同時跑會讓瀏覽器掉幀、貼牆滑行錯過門口，所以本機也只開兩個
+	workers: process.env.CI ? 1 : 2,
 	reporter: "html",
 	use: {
 		baseURL,
