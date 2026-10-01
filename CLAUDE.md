@@ -56,6 +56,24 @@ pnpm map:build
 - **Vitest** (`vitest.config.mts`)：環境 jsdom，`@/` 別名已對應 `src/`，只掃 `src/**/*.{test,spec}.{ts,tsx}`，所以 `e2e/` 不會被撿到。純邏輯測試（例如 shell 引擎）在檔案頂端加 `// @vitest-environment node` 可省掉 jsdom 開銷。
 - **Playwright** (`playwright.config.ts`)：測試放 `e2e/`，只跑 chromium，`baseURL` 是 `http://localhost:3000`，報告用 html reporter。
 
+### TDD 流程
+
+新功能與修 bug 一律先寫測試，走紅 → 綠 → 重構：
+
+1. **紅**：先寫一個描述預期行為的測試，執行 `pnpm test --run <檔案路徑>`，確認它**因為正確的理由失敗**（斷言不符，而非 import 錯誤或拼字錯誤）。沒看到紅燈不准寫實作。
+2. **綠**：只寫讓這個測試通過的最少程式碼，不順手加沒有測試覆蓋的功能。
+3. **重構**：測試保持綠燈的前提下整理命名、抽共用邏輯；重構期間不改測試的斷言。
+4. 一次只推進一個行為，循環到功能完成；收尾前跑 `pnpm test --run` 全部與 `pnpm lint`。
+
+細則：
+
+- **修 bug**：先寫一個能重現 bug 的失敗測試，再修。測試名稱描述正確行為，不寫「fix bug」。
+- **測試位置**：與被測檔案同目錄同名，`foo.ts` → `foo.test.ts`、`Foo.tsx` → `Foo.test.tsx`。
+- **測什麼**：測公開行為（輸入 → 輸出、使用者看到的畫面），不測私有實作細節；元件測試用 Testing Library 依角色與文字查詢。
+- **層級選擇**：純邏輯（shell 引擎、story、store）用 Vitest + node 環境；React 元件用 Vitest + jsdom；跨 Phaser 與終端機的整條流程才寫 Playwright e2e。
+- **不准為了變綠而改測試**：測試失敗時先判斷是實作錯還是需求變了；需求變了要說明理由再改測試。
+- **commit 拆分**：測試與實作可同一個 `feat`/`fix` commit；只補測試時用 `test` commit。
+
 ## 專案架構
 
 ### 目錄結構
