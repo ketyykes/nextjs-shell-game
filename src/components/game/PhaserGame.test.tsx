@@ -38,7 +38,7 @@ describe("PhaserGame", () => {
 
 		await waitForGames(1);
 		expect(startGameMock.mock.calls[0][0]).toBe(screen.getByTestId("phaser-container"));
-		expect(startGameMock.mock.calls[0][1]).toEqual({ character: "a" });
+		expect(startGameMock.mock.calls[0][1]).toEqual({ character: "a", solvedTerminals: [] });
 	});
 
 	it("onGameCreated 會收到 startGame 的回傳值", async () => {
@@ -85,7 +85,7 @@ describe("PhaserGame", () => {
 
 		expect(getDestroyMock(0)).toHaveBeenCalledWith(true);
 		expect(getDestroyMock(1)).not.toHaveBeenCalled();
-		expect(startGameMock.mock.calls[1][1]).toEqual({ character: "d" });
+		expect(startGameMock.mock.calls[1][1]).toEqual({ character: "d", solvedTerminals: [] });
 		expect(getDestroyMock(0).mock.invocationCallOrder[0]).toBeLessThan(startGameMock.mock.invocationCallOrder[1]);
 	});
 

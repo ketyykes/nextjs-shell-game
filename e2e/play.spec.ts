@@ -7,8 +7,9 @@ import { expect, test, type Page } from "@playwright/test";
 
 /** 從出生點走到 T1 冷凍艙控制台並按 E 開啟終端機。出生點在冷凍艙中央，T1 在房間左上方。 */
 async function openCryoTerminal(page: Page): Promise<void> {
-	// 等 Phaser 畫布出現
+	// 等 Phaser 畫布出現，而且 Station 場景已建立（Preloader 還在載資源時按鍵會被吃掉）
 	await expect(page.locator("canvas")).toBeVisible({ timeout: 15000 });
+	await expect(page.locator("main[data-scene-ready='true']")).toBeAttached({ timeout: 15000 });
 	await page.locator("canvas").click();
 
 	// 往左走再往上走，直到 HUD 出現「按 E」提示；每段最多按 3 秒避免卡住時無限等
@@ -62,6 +63,30 @@ test.describe("/play 地圖與終端機", () => {
 		await expect(page.getByText("喚醒排程").first()).toBeVisible();
 		await input.press("ArrowUp");
 		await expect(input).toHaveValue("cat wake_up.txt");
+	});
+
+	test("cat wake_up.txt 過關：目標打勾、氧氣回滿、學會指令、NOVA 說話", async ({ page }) => {
+		await openCryoTerminal(page);
+		const input = page.getByLabel("指令輸入");
+		// 先犯一次錯讓氧氣掉，過關後要回到 100
+		await input.fill("cat nope");
+		await input.press("Enter");
+		await expect(page.getByText("O2 99%")).toBeVisible();
+
+		await input.fill("cat wake_up.txt");
+		await input.press("Enter");
+		await expect(page.getByText("O2 100%")).toBeVisible();
+		await expect(page.getByTestId("objective-checkbox")).toHaveText("☑");
+		await expect(page.getByTestId("objective-progress")).toHaveText("1/6");
+		// 終端機內嵌的 NOVA 過關台詞
+		await expect(page.getByText("第六個").first()).toBeVisible();
+		// 底部已學列更新
+		await expect(page.getByText("已學：")).toContainText("pwd");
+
+		await page.keyboard.press("Escape");
+		await expect(page.getByTestId("terminal-modal")).toBeHidden();
+		// 關閉後地圖上的 NOVA 對話框再說一次最後一句
+		await expect(page.getByRole("status").filter({ hasText: "NOVA" }).first()).toBeVisible();
 	});
 
 	test("Esc 關閉終端機後可以繼續走動並再開一次", async ({ page }) => {
