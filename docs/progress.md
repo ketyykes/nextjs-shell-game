@@ -19,10 +19,10 @@
 | 項目 | 內容 |
 |---|---|
 | 更新日期 | 2026-10-01 |
-| 最新 commit | `f809f5c test: 第一章 happy path e2e，從標題一路解完六台終端機到章節結束再回標題`（前一筆 `df08d7d` 是 fix） |
-| 目前階段 | **M0 到 M7 全部完成**，第一版（第一章）可從標題玩到章節結束；Danny 試玩中。第七場用 playwright-cli 走完整條 happy path，抓到並修掉兩個 Esc／E 鍵的 bug，整條流程已有 e2e 守著 |
-| 程式碼狀態 | 標題 → 選角 → boot log → 地圖，六台終端機、過關演出、NOVA 三時機台詞、卡關提示、環境反應階梯、插圖卡、五種音效、暫停與設定、章節結束畫面都有。`pnpm test --run` 55 個測試檔 813 個測試全綠，`PORT=3001 pnpm test:e2e` 13 個全綠（含 `happy-path.spec.ts` 整章走完約 70 秒），`pnpm build` 通過（第五場驗過，之後只改 Phaser 端、鍵盤處理與測試） |
-| 下一步 | 沒有排定的里程碑。建議：Danny 實際玩一輪第一章、看第 8 節的決策清單、整理劇情文字；之後的候選工作見第 9 節 |
+| 最新 commit | 見 `git log --oneline -8`：第八場共八筆（六筆 feat／test／chore、一筆 chore 插圖、一筆 docs） |
+| 目前階段 | **M0 到 M8 全部完成，六章都做好了**：第二到六章劇本、十九個新指令（管線、重導向、變數、萬用字元、權限、程序）、六張甲板地圖、章節切換與片尾。全部是 agent 初稿，Danny 還沒玩過第二章以後 |
+| 程式碼狀態 | 標題 → 選角 → boot log → 六章地圖 → 片尾。`pnpm test --run` 83 個測試檔 1636 個測試全綠，`npx tsc --noEmit` 與 `pnpm lint` 乾淨，`pnpm build` 通過；`PORT=3001 pnpm test:e2e` 18 個（第一章從標題走到進第二章、第二到六章各一個種存檔走完、home、play）。插圖見第 4 節 |
+| 下一步 | 沒有排定的里程碑。Danny 從第二章開始試玩（標題「繼續」或 `e2e/helpers/deck.ts` 的 `seedSave` 寫法可直接種到第 N 章）、看第 8 節 #23 到 #36 的決策、潤稿；候選工作見第 9 節 |
 | 遠端 | `origin` 是 SSH 網址 `git@github.com:ketyykes/nextjs-shell-game.git`，本機與 `origin/main` 同步 |
 
 ## 2. 里程碑總覽
@@ -39,6 +39,7 @@
 | M5 | 第一章劇本 | ✅ | 3.4、4.4、4.8、8-5 |
 | M6 | 插圖與音效 | ✅ | 4.10、6.3、8-6 |
 | M7 | 存檔、標題畫面與設定 | ✅ | 4.7、8-7 |
+| M8 | 第二到六章：shell 擴充、六張地圖、多章節流程、五章劇本、插圖 | ✅ | 3.3、4.2、4.3、4.8 |
 
 ## 3. 任務清單
 
@@ -149,6 +150,22 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 - ✅ **M7-5 設定選單**（4.7、4.10）：`SettingsMenu.tsx`，文字速度四段、閃爍、掃描線、暗角、音量、靜音，標題與地圖都能開；音量與靜音透過 `audio:settings` 即時套用。
 - **完成定義**：關掉瀏覽器再開能從上次的終端機接續 — 輸出紀錄、cwd、歷史、過關、燈亮與門開狀態都會還原；**角色位置不存**，重開一律從冷凍艙出生點開始（決策 #15）。
 
+### M8 第二到六章 ✅
+
+2026-10-01 第八場，Danny 下 `/goal` 要求「做到 1～6 章、不確定就記錄不停下來、允許平行 subagent、TDD、playwright-cli 測試」。契約先行（`shell/types.ts`、`messages.ts`、`story/types.ts`、`phaser/events.ts` 的 42 個艙區與 `SolvedEffect`、`story/decks.ts` 的終端機表），兩波共十個 opus agent，主 session 做 store／PlayScreen／章節結束／e2e／整合。決策見第 8 節 #23 到 #36。
+
+| 任務 | 狀態 | 產出 |
+|---|---|---|
+| M8-1 shell 引擎擴充 | ✅ | `parser/`：管線 `\|`、重導向 `>` `>>`、變數 `$NAME`／`${NAME}`（單引號不展開）、四種解析錯誤；`shell.ts`：萬用字元（`fs.glob`，只在路徑最後一段）、管線逐段執行與 `stdin`、副作用（cd、env、processes）、`ShellSessionState` 多 `env`、`processes`；`VirtualFileSystem`：`appendFile`、`mkdir`、`touch`、`remove`、`move`、`copy`、`setMode`、`glob`，`readFile` 檢查 `canRead` 丟 EACCES |
+| M8-2 十九個指令 | ✅ | 第二章 `head`、`tail`、`wc`、`grep`（字面比對）、`find`；第三章 `mkdir`、`touch`、`cp`、`mv`、`rm`；第四章 `echo`、`sort`、`uniq`；第五章 `export`、`env`、`chmod`；第六章 `ps`、`top`、`kill`。說明資料拆在 `docsFilter.ts`、`docsFiles.ts`、`docsSystem.ts`，`docs.ts` 合併 |
+| M8-3 六張地圖與 Phaser | ✅ | `build-map.mjs` 的 `buildDeckLayout(n)`，deck1 逐位元不變；`Preloader` 依 registry `chapter` 載圖；`Station` 依 `terminalEffects` 分派 powerRestored／openDoor／shadowFlash／flicker／blackout，`startDark` 決定開場亮不亮；`objects/effects.ts` 多了 `resolveSolvedState` 等純函式 |
+| M8-4 多章節流程 | ✅ | `chapters/index.ts` 註冊表（`getChapter`、`getNextChapter`、`findTerminal`、`isChapterComplete`、`chapterTeaches`）；store `advanceChapter`、`resetChapter`；旗標 `ch<n>.introShown`／`outroShown`／`room.<id>.entered`；`ChapterEndScreen` 多 `nextChapter` 與 `ending`（片尾在 `chapters/ending.ts`）；`TitleFlow` 副標顯示目前章節；`PlayScreen` 全部改用目前章節 |
+| M8-5 五章劇本 | ✅ | `ch2-datacenter.ts`、`ch3-engineering.ts`、`ch4-comms.ts`、`ch5-bridge.ts`、`ch6-nova-core.ts`，各六台、各自的 `.test.ts` 用真的 Shell 跑正解（`SOLUTIONS` 表）並檢查檔案數與大小上限（40 個、20 KB）、性別指涉。撤離當晚時間軸統一：04:36:58 回滾開始、04:37:09 `unset NOVA_DIR`、04:37:12 `rm -rf "$NOVA_DIR/"`、04:37:15 2% 中止、04:40 主艙門鎖 |
+| M8-6 e2e | ✅ | `e2e/helpers/deck.ts`（`playChapter` 六章共用路線、`seedSave`、`passChapterEnd`）、`happy-path.spec.ts`（第一章從標題到進第二章）、`chapters.spec.ts`（第二到六章各一個）。playwright-cli 另外實際開過第三章開場斷電與第六章片尾截圖確認 |
+| M8-7 插圖 | ✅ | `generate-ch2-6.sh` 用 codex 背景產 36 張（五章各六間艙區加結尾過場、一張片尾），`scripts/resize-scenes.mjs` 縮圖，`story/scenes.ts` 的 `AVAILABLE_SCENES` 列已產出的 |
+
+**完成定義**：六章都能從標題一路玩到片尾（e2e 驗過）；一位新手能靠 hint 通關這點仍沒有真人驗證。
+
 ## 4. 待處理雜項
 
 不屬於任何里程碑，但會影響接手的人，做完就勾掉。
@@ -162,6 +179,7 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 - ⬜ **真人試玩**：完成定義「沒碰過終端機的人能靠 hint 通關」還沒驗證。找一位新手玩第一章，記錄卡在哪、hint 哪一段救了他。
 - ⬜ **試聽五個音效**：agent 看檔名挑的，沒人聽過，見 M6-3。
 - ⬜ **劇情文字潤稿**：六台終端機的檔案內容、NOVA 台詞、boot log、章節結尾都是 agent 初稿，`src/game/chapters/ch1-life-support.ts` 與 `src/components/title/BootLog.tsx`，改完跑 `pnpm test --run src/game/chapters` 會檢查格式與性別指涉。
+- ⬜ **第二到六章劇情潤稿與試玩**：五章劇本（`src/game/chapters/ch2-*.ts` 到 `ch6-*.ts`）全是 agent 初稿，Danny 還沒玩過。幾個 agent 留白給你決定的點：第二章冷卻日誌「三年來兩人份熱負載」的第二個人是誰沒交代（阿彬留言只說「裡面有一個是我」）；第六章 T6 NOVA 最後一句「祝旅途平安，技師」暗示它沒死透；第一章的 `day_312` 從 2027-07-26 起算其實是第 313 天（第六章沿用第一章寫法）。
 - ⬜ **淘汰的原圖只在 Danny 的 Mac 上**：`nova-portrait`、`nova-v2`、`nova-v3`、`nova-id`、`nova-mannequin`、`nova-lowres`、`technician-b` 的 `-original.png` 沒進版控也不需要，另一台電腦看不到是正常的。
 
 ## 5. 已知陷阱與環境備註
@@ -191,6 +209,8 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 - **window 的 keydown 監聽會接到「讓它掛上去的那個事件」**：PlayScreen 的暫停選單 Esc 監聽掛在 window，而且在終端機關閉（state 變更）的同一個 keydown 事件裡由 effect 重新掛回去。React 對離散事件會同步 flush effect，而 DOM 規範只禁止「同一個 target 在派送中新增的監聽」被觸發，window 是上層的另一個 target，所以同一下 Esc 關了終端機又打開暫停選單。2026-10-01 第七場踩到，修法是終端機的 Escape handler 加 `stopPropagation`。同類結構（元件 A 處理某鍵後卸載、元件 B 在 window 聽同一個鍵）都會中招，先懷疑這個。之前 e2e 的回標題測試用重試迴圈「按到暫停選單開為止」，剛好把這個 bug 蓋掉了，e2e 裡的重試迴圈要小心。
 - **暫停選單開著時 Phaser 場景沒暫停**：`game:pause` 只關角色輸入，場景照跑（燈光脈動、NOVA 對話不受影響），所以 Phaser 這邊聽的鍵（E 開終端機）要自己擋。`TerminalZones.setInteractEnabled` 由 Station 在 `game:pause`／`game:resume` 切換；之後新增 Phaser 端的按鍵都要走同一條路。
 - **e2e 在地圖上走路用「貼牆滑行」**：角色碰撞盒 20x14、速度 120 px/s、門只有一格寬（容錯 ±6 px），純計時走會偏。同時按住兩個方向鍵，被牆擋住的軸停住、另一軸沿牆滑，滑到門口自動進去；進門後用 `hud-room` 的艙區名當檢查點（`holdUntilRoom`），只有最後對齊終端機那段用計時（互動半徑 40 px，容錯 ±30 px）。兩個坑：（1）走廊上下兩排的門在同一欄（x=6、18、30），進走廊後要先橫移一段再貼牆，不然會從對面的門鑽回去；（2）離開房間要「先直走到牆再貼牆」，斜著走會在碰到牆之前就越過門口。範例在 `e2e/happy-path.spec.ts`。
+- **劇本的三個坑（第八場）**：（1）`deckTerminal()` 回傳的物件多一個 `slot`，`terminalDefinitionSchema` 是 strictObject，直接 `...deckTerminal(n, i)` 展開會驗證失敗，用 `deckTerminalIdentity(n, i)`；（2）性別檢查的正規表示式 `/[他她]|…/` 連「其他」「他們」都擋，劇本文字要改寫成「別的」「那些」；（3）每台終端機的 FS 會序列化進 localStorage，單台控制在 40 個檔案、20 KB，各章測試有檢查。前一台的成果要「預先放進」後一台的快照（每台 FS 獨立）。
+- **e2e 的平行度**：整章走完的測試靠計時貼牆滑行，六個 worker 同時跑會讓瀏覽器掉幀、角色滑過門口（第二章在 T5 進了隔壁房）。`playwright.config.ts` 本機 workers 固定 2；單跑某章用 `-g "第 2 章"`。
 - **Vitest 與 CSS Module**：`postcss.config.mjs` 用字串宣告 `@tailwindcss/postcss`，Vite 解析不了，所以 `vitest.config.mts` 設了 `css.postcss: { plugins: [] }`，單元測試不跑 Tailwind。vitest 沒開 globals，Testing Library 不會自動 cleanup，元件測試要手動 `afterEach(cleanup)`。
 - **字型尺寸**：VT323 的 x-height 偏小，終端機字級不要低於 20px；Fusion Pixel 用 12 的整數倍最清楚。Next dev 模式左下角有 Next.js 的圓形工具按鈕，會蓋住 `/play` 的設定列，正式 build 沒有。
 - **Shell 引擎的已知邊界**（M1 刻意不做，之後章節需要再補）：
@@ -211,6 +231,16 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 ## 7. 工作日誌
 
 每次 session 收工加一筆，最新在最上面。格式：日期、做了什麼、commit 範圍、下一步。
+
+### 2026-10-01（第八場，`/goal` 做到第六章）
+
+- Danny 下 `/goal`：「幫我做到 1～6 章，中間有任何不確定的就紀錄下來不要停下來，不用管 token 消耗，允許派遣平行 subagent，使用 TDD 並且要做 playwright cli 的測試，直到做完」。全程沒有再用 AskUserQuestion，自主決定記在第 8 節 #23 到 #36。
+- 契約先行後兩波平行：第一波五個 opus agent（shell 核心；head/tail/wc/grep/find；VFS 寫入與 mkdir/touch/cp/mv/rm/chmod；echo/sort/uniq/export/env/ps/top/kill；六張地圖與 Phaser 多章節），第二波五個 opus agent 各寫一章劇本。主 session 同時做 story 模組擴充（旗標、objectives 新判定、schema 新欄位）、章節註冊表、store、PlayScreen、ChapterEndScreen 片尾、標題副標、e2e 工具、整合與 commit。
+- 整合時抓到並修掉：五章撤離當晚的時間軸各寫各的（統一成第三章的版本）；`deckTerminal` 帶 `slot` 展開會被 strictObject 擋（加 `deckTerminalIdentity`）；`EMPTY_COMMAND` 的訊息對 `>` 不通順（加 `missingCommandForRedirect`）；e2e 六個 worker 同時跑會掉幀、貼牆滑行錯過門口（workers 改 2）。
+- 83 個測試檔 1636 個單元測試、tsc、lint、build 全過；e2e 18 個。playwright-cli 實際開瀏覽器看過第三章開場斷電、T1 解謎、第六章章節結束到片尾。
+- 插圖用 codex 背景產 36 張，約 100 秒一張；產完跑 `node scripts/resize-scenes.mjs` 並更新 `AVAILABLE_SCENES`。
+- commit：`e1b593c`、`95a3c91`、`084087e`、`baaa1d3`（feat）、`4b1c9ea`（test）、`c5021ae`（chore）、插圖與本檔另兩筆。未 push。
+- 下一步：Danny 試玩第二到六章、潤稿；見第 4、8、9 節。
 
 ### 2026-10-01（第七場，用 playwright-cli 走完 happy path，補整章 e2e）
 
@@ -312,6 +342,25 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 | 21 | 卡關台詞與第 9 次錯誤台詞只在**終端機內嵌**顯示，不上地圖對話框 | 這兩種反應都發生在終端機開著的時候，地圖對話框被彈窗蓋住看不到 | `PlayScreen.handlePressureReaction` |
 | 22 | 暫停選單只停角色輸入，Phaser 場景不暫停 | 場景暫停會讓終端機發光脈動、NOVA 對話框的淡出 tween 都停住；只停輸入就夠 | `Station` 的 `game:pause` handler |
 
+第八場（2026-10-01，Danny 下 `/goal` 要求做到第六章、不停下來）新增：
+
+| # | 決策 | 理由 | 推翻時要改 |
+|---|---|---|---|
+| 23 | **六個甲板共用同一張平面圖**，只換艙區 id／名稱、終端機 id／標題、配色 | 第一章的走路 e2e 路線六章都能重用；地圖設計風險降到零；世界觀可解釋成「六個標準艙段串成一環」（4.1） | `scripts/build-map.mjs` 的 `buildDeckLayout`、`events.ts` 的 `DECK_ROOMS`、`story/decks.ts`、`e2e/helpers/deck.ts` |
+| 24 | 每章固定六台終端機，T1 在出生房、T6 是出口門控制台，id／標題／艙區由 `story/decks.ts` 統一給 | 劇本、地圖、e2e 三邊對得起來，`chapters.test.ts` 會檢查 | `decks.ts` 的標題表 |
+| 25 | 過關演出由劇本宣告（`TerminalDefinition.effect`：powerRestored／openDoor／shadowFlash／flicker／blackout），經 registry 給 Station | Station 不再寫死 `ch1-t4`、`ch1-t6`；新章節不用改 Phaser | `events.ts` 的 `SolvedEffect`、`Station.runSolvedEffect` |
+| 26 | 管線、重導向、變數、萬用字元在**所有章節都開放**，不依章節鎖功能 | 4.8「未學指令開放使用」；舊的 `UNSUPPORTED_OPERATOR` 拿掉 | `parser/parse.ts`、`messages.ts` |
+| 27 | 管線裡任一指令失敗整行就停並算一次錯誤；每個指令的副作用（cd、export、kill）都套到 session（bash 是子 shell） | 對新手清楚；`cd a \| ls` 這種寫法很少見 | `shell.ts` 的 `execute` |
+| 28 | `grep` 是字面比對不是正規表示式；沒符合不算錯誤（ok true、沒輸出） | 新手不需要先學 regex；避免懲罰探索 | `commands/grep.ts` |
+| 29 | `chmod` 可以改任何檔案（不檢查擁有者）；讀取權限只看擁有者是玩家時的前三碼、否則看後三碼 | 遊戲簡化，第五章只需要「鎖著 → 解鎖」 | `types.ts` 的 `canRead`、`commands/chmod.ts` |
+| 30 | 程序是每台終端機各自的清單（`processes`），`kill` 的結果存在 shell session | 不需要全站程序表；第六章每台各自描述 | `shell/types.ts` 的 `ProcessInfo`、劇本 `processes` 欄位 |
+| 31 | 換章用整頁重載（`advanceChapter` 後 `window.location.reload()`），重玩本章只清該章（`resetChapter`） | Phaser 要換地圖、Shell 快取與 NOVA 佇列要清空，重載最乾淨；重玩不該把前幾章洗掉 | `PlayScreen.handleNextChapter`、`gameStore.resetChapter` |
+| 32 | 存檔格式版本不變（仍 v1）：`chapter` 欄位本來就有，終端機與旗標都帶章節前綴 | 不需要 migrate | — |
+| 33 | 回顧卡只列「這一章教的指令」（`chapterTeaches`），不是全部已學 | 六章累積會太長 | `chapters/index.ts` |
+| 34 | 第六章之後顯示片尾（`ending.ts`，救援船終端機逐句打字）再回標題；標題副標顯示目前章節 | 4.3 的片尾；玩家看得出自己玩到哪 | `ChapterEndScreen` 的 `ending` prop、`TitleFlow.subtitleFor` |
+| 35 | 第二到六章插圖用 codex 背景批次產（`generate-ch2-6.sh`），`story/scenes.ts` 的 `AVAILABLE_SCENES` 只列真的存在的圖，沒產出的艙區不顯示插圖卡 | 產圖要一兩小時，不能擋程式；缺圖不能變破圖 | `scenes.ts` |
+| 36 | 第一章資料夾裡的 `findTerminal` 搬到 `chapters/index.ts` 跨章節找 | id 有章節前綴不會撞 | — |
+
 ## 9. 第一版之後的候選工作
 
 沒有排定順序，Danny 決定要不要做。
@@ -319,5 +368,7 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 - **真人試玩與調整**：第 4 節的三項雜項（試玩、試聽、潤稿）。
 - **M6/M7 的小尾巴**：設定的「關閉閃爍」目前管 CRT 閃爍與燈閃，但人影閃現與鏡頭震動還是會播（決策 #10）；Phaser 內的「按 E」文字還是系統 monospace，沒換 bitmap 字型；`CommandCheatSheet` 與 `ObjectivePanel` 在 1280 以下的視窗沒測過排版。
 - **存檔格式升級**：`SAVE_VERSION` 還是 1，`migrate` 只是框架；第二章動工前決定要不要存角色位置與目前艙區。
-- **第二章**：`src/game/chapters/ch2-*.ts` 照第一章的 schema 寫，Shell 要加 `head`、`tail`、`wc`、`grep`、`find`（4.3），地圖腳本 `DEFAULT_LAYOUT` 要加資料中心。
+- **章節選擇**：存檔格式有 `chapter`，但標題畫面沒有「選章」；要做的話在 `TitleScreen` 加選單、用 `resetChapter` 加 `advanceChapter` 的組合跳章。
+- **第六章 NOVA 立繪**：`nova-core.png`（損毀多面體）已在 `public/scenes/`，但 NOVA 對話框全程用 `nova-eye`；可以在第六章核心艙改用它。
+- **shell 的已知邊界（M8 刻意不做）**：萬用字元只在路徑最後一段；`grep` 沒有正規表示式；`chmod` 不支援 `u+x,g-w` 逗號寫法與四位數字；`sort -u` 只去完全相同的行；重導向不會像 bash 先建空檔；`uniq` 只收一個檔案。
 - **部署**：`pnpm build` 已過、三個路由都是靜態，可直接上 Vercel 或任何靜態主機；還沒設 CI。

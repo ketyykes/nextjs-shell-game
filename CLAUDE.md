@@ -47,14 +47,17 @@ PORT=3001 pnpm test:e2e
 pnpm sprites:slice                # 處理腳本 SHEETS 清單全部
 pnpm sprites:slice technician-d   # 只處理指定角色
 
-# 重新產生第一章地圖 (改 scripts/build-map.mjs 的 DEFAULT_LAYOUT 後跑)
+# 重新產生六張甲板地圖 deck1 到 deck6 (改 scripts/build-map.mjs 的 buildDeckLayout 後跑；deck1 必須維持不變)
 pnpm map:build
+
+# 把 codex 產的場景原圖縮成 640x360 (public/scenes) 與 256x144 預覽 (docs/assets-draft/scenes)
+node scripts/resize-scenes.mjs
 ```
 
 ## 測試
 
 - **Vitest** (`vitest.config.mts`)：環境 jsdom，`@/` 別名已對應 `src/`，只掃 `src/**/*.{test,spec}.{ts,tsx}`，所以 `e2e/` 不會被撿到。純邏輯測試（例如 shell 引擎）在檔案頂端加 `// @vitest-environment node` 可省掉 jsdom 開銷。
-- **Playwright** (`playwright.config.ts`)：測試放 `e2e/`，只跑 chromium，`baseURL` 是 `http://localhost:${PORT ?? 3000}`，報告用 html reporter。`happy-path.spec.ts` 從標題一路解完整章（約 70 秒），地圖上走路用「貼牆滑行」而不是純計時，原因與坑見 `docs/progress.md` 第 5 節。
+- **Playwright** (`playwright.config.ts`)：測試放 `e2e/`，只跑 chromium，`baseURL` 是 `http://localhost:${PORT ?? 3000}`，報告用 html reporter。`happy-path.spec.ts` 從標題一路解完第一章再進第二章（約 80 秒），`chapters.spec.ts` 用 `seedSave` 直接種「已到第 N 章」的存檔逐章走完；走路與解謎的共用工具在 `e2e/helpers/deck.ts`，六個甲板平面圖相同所以路線共用。地圖上走路用「貼牆滑行」而不是純計時，原因與坑見 `docs/progress.md` 第 5 節。
 
 ### TDD 流程
 
@@ -98,7 +101,7 @@ src/
 │   ├── phaser/            # Phaser 4：events.ts 與 constants.ts 是契約，EventBus 零相依，scenes/ 與 objects/
 │   ├── store/             # zustand store 與 localStorage 存檔；types.ts 是存檔格式契約
 │   ├── story/             # 劇本契約：types.ts、zod schema、目標判定組合函式、劇情旗標
-│   ├── chapters/          # 劇本資料 (ch1-life-support.ts)，載入時 validateChapter
+│   ├── chapters/          # 六章劇本 (ch1-life-support.ts … ch6-nova-core.ts)，index.ts 是註冊表，ending.ts 是片尾，載入時 validateChapter
 │   └── shell/             # Shell 引擎，純 TypeScript，零 React/Phaser 相依
 │       ├── types.ts       # 所有 shell 模組的共用契約，改介面先改這裡
 │       ├── shell.ts       # 執行入口 Shell 類別 (execute、complete、toState)
@@ -110,15 +113,16 @@ src/
 │       └── commands/      # 每個指令一個檔案，index.ts 是註冊表，docs.ts 是 man 說明資料
 └── lib/
     └── utils.ts           # 工具函式 (cn 函式)
-e2e/                        # Playwright 測試 (home.spec.ts、play.spec.ts、happy-path.spec.ts 整章走完)
+e2e/                        # Playwright 測試 (home、play、happy-path 第一章、chapters 第二到六章)，helpers/deck.ts 是走路工具
 scripts/slice-sprites.mjs   # sprite sheet 切格腳本 (pnpm sprites:slice)
-scripts/build-map.mjs       # 第一章地圖產生腳本，輸出 Tiled JSON (pnpm map:build)
+scripts/build-map.mjs       # 六張甲板地圖產生腳本，輸出 Tiled JSON (pnpm map:build)
+scripts/resize-scenes.mjs   # 場景原圖縮圖腳本
 public/sprites/             # 四位角色的 32x48 sprite sheet (128x192，4x4 格)
 public/tiles/               # Buch Sci-fi Interior tileset (448x192，14x6 格，32px)
-public/maps/deck1.json      # 第一章地圖 (40x24 格)，由 build-map.mjs 產生，可用 Tiled 開啟
-public/scenes/              # NOVA 立繪 (256px) 與八張場景插圖 (640x360)，原圖在 docs/assets-draft/scenes/ 不進版控
+public/maps/deck{1..6}.json # 六章地圖 (40x24 格、同一張平面圖、艙區名不同)，由 build-map.mjs 產生，可用 Tiled 開啟
+public/scenes/              # NOVA 立繪 (256px) 與各章場景插圖 (640x360)，原圖在 docs/assets-draft/scenes/ 不進版控
 public/audio/               # 五種 CC0 音效 (Kenney)，ogg 與 mp3
-docs/assets-draft/scenes/generate.sh  # codex 批次產圖腳本 (M6-1)
+docs/assets-draft/scenes/generate.sh  # 第一章八張插圖的 codex 批次產圖腳本 (M6-1)；generate-ch2-6.sh 是第二到六章的
 docs/
 ├── game-design.md          # 設計定案 (第 7 節是遊戲程式的預定目錄結構)
 ├── progress.md             # 進度、下一步、已知陷阱
