@@ -57,6 +57,7 @@ next-env.d.ts
 
 # AI 產圖原始大圖與美術原始檔，只 commit 縮小後的預覽圖與定稿素材
 /docs/assets-draft/*-original.png
+/docs/assets-draft/scenes/*-original.png
 *.psd
 *.blend
 *.aseprite
