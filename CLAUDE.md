@@ -40,6 +40,8 @@ pnpm test
 
 # e2e 測試 (Playwright，會自動啟動 pnpm dev；本機已有 :3000 就直接沿用)
 pnpm test:e2e
+# 3000 被別的專案佔住、遊戲 dev server 在 3001 時改指埠 (next dev 與 Playwright 吃同一個 PORT)
+PORT=3001 pnpm test:e2e
 
 # 重切角色 sprite sheet (原圖在 docs/assets-draft/，輸出到 public/sprites/)
 pnpm sprites:slice                # 處理腳本 SHEETS 清單全部
@@ -152,7 +154,7 @@ npx shadcn@latest add [component-name]
 6. **動畫**: 使用 `motion` 套件，匯入路徑為 `motion/react`（例如 `import { motion } from "motion/react"`），動畫元件需搭配 `"use client"`
 7. **圖示**: lucide-react 1.x 已移除所有品牌圖示（如 GitHub、Twitter），圖示預設帶有 `aria-hidden`
 8. **除錯鉤子**: 開發模式下 `/play` 掛 `window.__kepler9.emit(事件名, payload)`，可在瀏覽器 console 直接發 EventBus 事件（例如 `puzzle:solved`）觸發演出，正式 build 不掛
-9. **Phaser**: Phaser 4 在 import 當下就讀 `window`，所以只有 `src/game/phaser/main.ts` 與 `scenes/`、`objects/` 可以 import `phaser`，React 端只能 import `@/game/phaser/EventBus`、`events`、`constants`（都零相依）。遊戲透過 `PhaserGameDynamic`（`next/dynamic` + `ssr: false`）載入，`PhaserGame` 延後一幀 `startGame` 防 StrictMode 疊兩層 canvas。官方 `phaserjs/template-nextjs` 是 Pages Router，不能照抄。更多坑見 `docs/progress.md` 第 5 節
+9. **Phaser**: Phaser 4 在 import 當下就讀 `window`，所以只有 `src/game/phaser/main.ts` 與 `scenes/`、`objects/` 可以 import `phaser`，React 端只能 import `@/game/phaser/EventBus`、`events`、`constants`（都零相依）。遊戲透過 `PhaserGameDynamic`（`next/dynamic` + `ssr: false`）載入，`PhaserGame` 延後一幀 `startGame` 防 StrictMode 疊兩層 canvas。場景裡訂閱 EventBus 或建 sound 的清理要同時掛 `SHUTDOWN` 與 `DESTROY`（`game.destroy()` 只發後者）。官方 `phaserjs/template-nextjs` 是 Pages Router，不能照抄。更多坑見 `docs/progress.md` 第 5 節
 
 ## 協作慣例
 

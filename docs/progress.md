@@ -19,9 +19,9 @@
 | 項目 | 內容 |
 |---|---|
 | 更新日期 | 2026-10-01 |
-| 最新 commit | `1ab8693 test: 卡關偵測、章節結束、標題流程、暫停與設定選單、插圖卡的單元測試與 e2e` |
-| 目前階段 | **M0 到 M7 全部完成**，第一版（第一章）可從標題玩到章節結束 |
-| 程式碼狀態 | 標題 → 選角 → boot log → 地圖，六台終端機、過關演出、NOVA 三時機台詞、卡關提示、環境反應階梯、插圖卡、五種音效、暫停與設定、章節結束畫面都有。`pnpm test --run` 55 個測試檔 805 個測試全綠，`pnpm test:e2e` 9 個全綠，`pnpm build` 通過 |
+| 最新 commit | `12e1d8f chore: Playwright 設定吃 PORT 環境變數，3000 被佔住時可指到其他埠`（前兩筆是 `7daa13e` fix 與 `581df8d` test） |
+| 目前階段 | **M0 到 M7 全部完成**，第一版（第一章）可從標題玩到章節結束；Danny 試玩中，第一個回報的 bug（回標題後音效炸掉）已修 |
+| 程式碼狀態 | 標題 → 選角 → boot log → 地圖，六台終端機、過關演出、NOVA 三時機台詞、卡關提示、環境反應階梯、插圖卡、五種音效、暫停與設定、章節結束畫面都有。`pnpm test --run` 55 個測試檔 812 個測試全綠，`PORT=3001 pnpm test:e2e` 10 個全綠，`pnpm build` 通過（第五場驗過，本場只改 Phaser 端與測試） |
 | 下一步 | 沒有排定的里程碑。建議：Danny 實際玩一輪第一章、看第 8 節的決策清單、整理劇情文字；之後的候選工作見第 9 節 |
 | 遠端 | `origin` 是 SSH 網址 `git@github.com:ketyykes/nextjs-shell-game.git`，本機與 `origin/main` 同步 |
 
@@ -182,6 +182,8 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 - **版本限制**：TypeScript 停在 6.x、ESLint 停在 9.x，原因見 `CLAUDE.md`。
 - **Vitest**：設定在 `vitest.config.mts`，只掃 `src/**/*.{test,spec}.{ts,tsx}`，環境 jsdom，`@/` 別名已設。純邏輯測試可在檔案頂端加 `// @vitest-environment node` 加速。測試共用的 fixture 檔不要用 `.test` 後綴（例如 `testFixtures.ts`），否則會被當測試跑。
 - **Phaser 4 在 import 時就讀 `window`**：任何會被 SSR 的 React 元件都不能 import 到 Phaser，連 `Phaser.Events.EventEmitter` 也不行，所以 `EventBus.ts` 是自己寫的零相依 emitter。React 端只 import `@/game/phaser/EventBus`、`events`、`constants`，不要 import `@/game/phaser`（index 會帶進 main.ts 與場景）。Phaser 的單元測試在 node 與 jsdom 都跑不起來（jsdom 沒 canvas），所以 Phaser 類別只抽純函式測（`movement.ts`、`nearby.ts`、`RoomTracker.ts`、`mapObjects.ts`），視覺行為靠 e2e 與截圖。
+- **Phaser 場景的 SHUTDOWN 與 DESTROY 是兩條路**：場景 `stop`／`restart` 走 `SHUTDOWN`，但 React 卸載時的 `game.destroy()` 只發 `DESTROY`（`Systems.destroy` 不會先 shutdown）。訂閱全域 EventBus 或建立 sound 的清理要兩個事件都掛（Station 用一個只跑一次的 `cleanup`）。2026-10-01 踩過：回標題或 Fast Refresh 重建遊戲後，舊 Station 的 `sfx:play` 訂閱還在，而 sound 已被 SoundManager 整批銷毀（`currentConfig` 變 null），下一個按鍵聲炸「Cannot set properties of null (setting 'seek')」。`AudioManager` 也多聽每個 sound 的 `DESTROY` 把它從清單拿掉當第二道保險，`audio.test.ts` 有用假 scene 重現。
+- **e2e 的埠**：`playwright.config.ts` 吃 `PORT` 環境變數（預設 3000），這台 Mac 的 3000 常被別的專案佔住、遊戲 dev server 跑在 3001 時用 `PORT=3001 pnpm test:e2e`。e2e 若在第一步就等不到 canvas 而頁面是別的網站的 404，就是撞到這個。client-side 導頁後 Next 的路由播報器（`#__next-route-announcer__`）會複誦頁面標題，`getByText("KEPLER-9")` 會撞到兩個元素，改用 `getByRole("heading")`。
 - **Phaser 鍵盤的三個坑**：（1）`createCursorKeys()` 會連 SPACE、SHIFT 一起 capture，而且 capture 是整個 window 共用，終端機輸入框會打不出空白，所以 Player 用 `addKeys` 分開註冊、WASD 不 capture；（2）`JustDown` 靠 `Key.onUp` 會清掉的旗標，keydown 與 keyup 同一幀時（自動化測試的 `press`）會漏掉，要用 `key.on("down")` 事件；（3）`game.destroy()` 是排到下一個 step 才拆 canvas，React StrictMode 同步建立再立刻 destroy 會留下兩層 canvas，`PhaserGame` 改成 `requestAnimationFrame` 延後一幀建立。
 - **地圖契約**：圖層與物件命名在 `src/game/phaser/constants.ts`，腳本 `scripts/build-map.mjs` 與 `Station.ts` 兩邊都照它；`map.test.ts` 會檢查 `deck1.json` 跟 `buildMap(DEFAULT_LAYOUT)` 一致，所以用 Tiled 手改地圖後要同步更新腳本或改測試。Tiled 1.9 以後的 `class` 欄位 Phaser 不讀，物件要用 `type`。警示條邊框是「地板的邊緣」放 `floor` 層可走，真正的牆是深色片放 `walls` 層。
 - **store 的使用規則**：`@/game/store` 的 index 帶 React hook，只能在 client component import，純邏輯或 server component 用 `@/game/store/types`。**讀檔完成前不要呼叫任何 action**（每次 `set` 都會寫 localStorage，會把預設值蓋掉存檔），依賴存檔的畫面都要先等 `useStoreHydration()` 回 true。selector 不要回傳新組的物件，多欄位用 `useShallow`。
@@ -206,6 +208,14 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 ## 7. 工作日誌
 
 每次 session 收工加一筆，最新在最上面。格式：日期、做了什麼、commit 範圍、下一步。
+
+### 2026-10-01（第六場，Danny 開始試玩，修第一個回報的 bug）
+
+- Danny 在 dev 模式回報 `AudioManager.play` 炸「Cannot set properties of null (setting 'seek')」。追到 Phaser 原始碼：`game.destroy()` → `SceneManager.destroy` → `Systems.destroy` 只發場景 `DESTROY`，不發 `SHUTDOWN`；接著 game 的 `DESTROY` 讓 `SoundManager.removeAll()` 把每個 sound 的 `currentConfig` 清成 null。Station 把 `detachAudio` 與 `audio.destroy()` 只掛在 `SHUTDOWN`，所以回標題（或 Fast Refresh）重建遊戲後，舊 Station 的 `sfx:play` 訂閱還在，送指令的按鍵聲打到死掉的 sound。
+- 修法：Station 的場景清理改成同一個只跑一次的 `cleanup` 同時掛 `SHUTDOWN` 與 `DESTROY`；`AudioManager.addSound` 多聽 sound 的 `DESTROY` 把它從清單拿掉當第二道保險。`audio.test.ts` 用假 scene 與會「destroy 後 play 就炸」的假 sound 重現；e2e 新增「過關 → Esc 暫停 → 回標題 → 繼續 → 再送指令」並收集 `pageerror`，拿掉修正跑一次確認會抓到同一句錯誤。
+- 順手：這台 Mac 的 3000 被別的專案佔住、遊戲 dev server 在 3001，`playwright.config.ts` 改吃 `PORT`；e2e 選擇器避開 Next 路由播報器。
+- 55 個測試檔 812 個單元測試、10 個 e2e 全綠。commit：`7daa13e`（fix）、`581df8d`（test）、`12e1d8f`（chore）、本檔另一筆 docs。未 push。
+- 下一步：Danny 繼續試玩，有 bug 再回報；其餘見第 4、8、9 節。
 
 ### 2026-10-01（第五場，同一個 `/goal`，做完 M5-3 到 M7）
 
