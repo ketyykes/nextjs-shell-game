@@ -37,6 +37,17 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  /* 遊戲配色，對應設計文件 4.9；顏色值在下方 :root 的 --game-* 定義 */
+  --color-game-bg: var(--game-bg);
+  --color-game-text: var(--game-text);
+  --color-game-amber: var(--game-amber);
+  --color-game-holo: var(--game-holo);
+  --color-game-success: var(--game-success);
+  --color-game-prompt: var(--game-prompt);
+  --color-game-dim: var(--game-dim);
+  /* 遊戲字型：英數字落在 VT323（或 Press Start 2P），VT323 沒有的中文字會 fallback 到 Fusion Pixel；用 font-terminal、font-title 兩個 class */
+  --font-terminal: var(--font-vt323), var(--font-fusion-pixel), monospace;
+  --font-title: var(--font-press-start), var(--font-fusion-pixel), monospace;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -65,6 +76,14 @@
 }
 
 :root {
+  /* 遊戲配色（4.9）：整體冷、死寂，跟 tileset 的藍地板與 NOVA 全息藍同一套 */
+  --game-bg: oklch(0.14 0.03 255);        /* 底色：近黑的深藍 */
+  --game-text: oklch(0.9 0.03 230);       /* 終端機主文字：冷藍白 */
+  --game-amber: oklch(0.78 0.16 75);      /* 警示、錯誤、氧氣低：琥珀 */
+  --game-holo: oklch(0.75 0.14 225);      /* NOVA 台詞、全息元素：全息藍 */
+  --game-success: oklch(0.8 0.15 165);    /* 成功、過關：青綠 */
+  --game-prompt: oklch(0.65 0.04 240);    /* 提示符：比主文字暗一階的藍灰 */
+  --game-dim: oklch(0.45 0.03 245);       /* 次要文字、邊框 */
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.129 0.042 264.695);
