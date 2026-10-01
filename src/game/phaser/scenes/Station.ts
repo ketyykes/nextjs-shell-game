@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { ASSET_KEYS, CAMERA_ZOOM, MAP_LAYERS, MAP_OBJECT_LAYER, TILESET_NAME } from "../constants";
+import { AudioManager, attachAudioEvents } from "../audio";
 import { emitGameEvent, onGameEvent } from "../EventBus";
 import type { RoomId } from "../events";
 import { airlockTilePosition, powerOnOrder, shadowFlashPosition } from "../objects/effects";
@@ -87,6 +88,14 @@ export class Station extends Phaser.Scene {
 	private appliedEffects = new Set<string>();
 	/** 終端機開著（場景暫停）時收到的過關，等場景 resume 再播，玩家關掉終端機才看得到演出。 */
 	private pendingEffects: string[] = [];
+	/**
+	 * 終端機開著（場景暫停）時收到的「燈閃一下」總長（毫秒），只留最後一次，resume 時播。
+	 * 暫停中的場景 tween 不會動，直接播只會卡在第一格，所以跟過關演出一樣先排隊。
+	 */
+	private pendingFlickerMs: number | null = null;
+
+	/** 音效的唯一出口（4.10），React 端透過 `sfx:play` 請它播。 */
+	private audio!: AudioManager;
 
 	private unsubscribers: Array<() => void> = [];
 
@@ -118,15 +127,26 @@ export class Station extends Phaser.Scene {
 		this.roomTracker = new RoomTracker(this.rooms);
 		this.lightMask = new LightMask(this, map.widthInPixels, map.heightInPixels, this.terminals);
 		this.shadowFigure = new ShadowFigure(this);
+
+		// 音量與靜音由 PlayScreen 經 registry 給初始值，之後的變動走 audio:settings 事件
+		const volume = (this.registry.get(REGISTRY_KEYS.volume) as number | undefined) ?? 1;
+		const muted = (this.registry.get(REGISTRY_KEYS.muted) as boolean | undefined) ?? false;
+		this.audio = new AudioManager(this, { volume, muted });
+		const detachAudio = attachAudioEvents(this, this.audio);
+		this.audio.play("ambient");
+
 		this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
 			this.terminalZones.destroy();
 			this.lightMask.destroy();
 			this.shadowFigure.destroy();
+			detachAudio();
+			this.audio.destroy();
 		});
 
 		// 重整後還原：先不播動畫套上已過關的最終狀態，再訂閱事件，之後補發的 puzzle:solved 會被 appliedEffects 擋掉
 		this.appliedEffects = new Set();
 		this.pendingEffects = [];
+		this.pendingFlickerMs = null;
 		this.applySolvedState(this.readSolvedTerminalsFromRegistry());
 
 		this.subscribeEvents();
@@ -249,13 +269,28 @@ export class Station extends Phaser.Scene {
 		this.collisionLayer.removeTileAt(tileX, tileY);
 	}
 
-	/** 場景 resume 時把暫停期間排隊的演出播掉。 */
+	/** 場景 resume 時把暫停期間排隊的演出播掉。過關演出先播，燈閃遇到亮燈序列會自己略過。 */
 	private flushPendingEffects(): void {
 		const pending = this.pendingEffects;
 		this.pendingEffects = [];
 		for (const terminalId of pending) {
 			this.runSolvedEffect(terminalId);
 		}
+
+		const flickerMs = this.pendingFlickerMs;
+		this.pendingFlickerMs = null;
+		if (flickerMs !== null) {
+			this.lightMask.flicker(flickerMs);
+		}
+	}
+
+	/** 環境反應階梯的「燈閃一下」（M5-4）。場景暫停中（終端機開著）先排隊，關掉終端機時才閃。 */
+	private playFlicker(durationMs: number): void {
+		if (this.scene.isPaused()) {
+			this.pendingFlickerMs = durationMs;
+			return;
+		}
+		this.lightMask.flicker(durationMs);
 	}
 
 	/** 讀 registry 的已過關清單，型別不對就當空陣列（registry 沒有型別保證）。 */
@@ -349,6 +384,21 @@ export class Station extends Phaser.Scene {
 			}),
 			onGameEvent("puzzle:solved", ({ terminalId }) => {
 				this.playSolvedEffect(terminalId);
+			}),
+			onGameEvent("ambient:flicker", ({ durationMs }) => {
+				this.playFlicker(durationMs);
+			}),
+			onGameEvent("audio:settings", ({ volume, muted }) => {
+				this.audio.setVolume(volume);
+				this.audio.setMuted(muted);
+			}),
+			// 暫停選單只停角色輸入，場景繼續跑（燈光脈動、NOVA 對話等不受影響）
+			onGameEvent("game:pause", () => {
+				this.player.setInputEnabled(false);
+			}),
+			onGameEvent("game:resume", () => {
+				this.input.keyboard?.resetKeys();
+				this.player.setInputEnabled(true);
 			}),
 		);
 

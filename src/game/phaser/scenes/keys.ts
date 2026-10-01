@@ -16,4 +16,8 @@ export const REGISTRY_KEYS = {
 	 * Station 的 `create()` 讀取並呼叫 `applySolvedState`，不播動畫直接套最終狀態。沒設等同空陣列。
 	 */
 	solvedTerminals: "solvedTerminals",
+	/** 音量，0 到 1 的數字。`AudioManager` 建構時讀取。沒設等同 1。 */
+	volume: "volume",
+	/** 是否靜音，布林值。`AudioManager` 建構時讀取。沒設等同 false。 */
+	muted: "muted",
 } as const;

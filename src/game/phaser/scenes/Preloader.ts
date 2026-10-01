@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import type { CharacterId } from "@/game/store/types";
+import type { SfxName } from "../events";
 import {
 	ASSET_KEYS,
 	ASSET_PATHS,
@@ -9,6 +10,7 @@ import {
 	SPRITE_ROW_BY_DIRECTION,
 	type Direction,
 } from "../constants";
+import { AUDIO_KEYS, AUDIO_PATHS } from "../audio";
 import { REGISTRY_KEYS, SCENE_KEYS } from "./keys";
 
 /** 載入條配色：全息藍。 */
@@ -53,11 +55,20 @@ export class Preloader extends Phaser.Scene {
 			frameWidth: SPRITE_FRAME_WIDTH,
 			frameHeight: SPRITE_FRAME_HEIGHT,
 		});
+		this.loadAudio();
 	}
 
 	create(): void {
 		this.createWalkAnimations();
 		this.scene.start(SCENE_KEYS.station);
+	}
+
+	/** 載入五種音效，同時給 ogg 與 mp3，Phaser 會挑瀏覽器支援的格式。 */
+	private loadAudio(): void {
+		const names = Object.keys(AUDIO_KEYS) as SfxName[];
+		for (const name of names) {
+			this.load.audio(AUDIO_KEYS[name], AUDIO_PATHS[name]);
+		}
 	}
 
 	/** 從 registry 讀選角，`startGame` 一定會寫入，讀不到代表呼叫端漏傳。 */

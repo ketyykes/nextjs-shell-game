@@ -22,6 +22,10 @@ export interface StartGameOptions {
 	character: CharacterId;
 	/** 已過關的終端機 id，重整後還原地圖狀態用（燈全亮、門已開），不播演出。省略等同空陣列。 */
 	solvedTerminals?: readonly string[];
+	/** 音量，0 到 1，寫進 registry 給 `AudioManager` 讀。省略等同 1。 */
+	volume?: number;
+	/** 是否靜音，寫進 registry 給 `AudioManager` 讀。省略等同 false。 */
+	muted?: boolean;
 }
 
 /** 建立遊戲並掛到 parent 底下；呼叫端負責在卸載時 `game.destroy(true)`。 */
@@ -51,6 +55,8 @@ export function startGame(parent: HTMLElement, options: StartGameOptions): Phase
 				game.registry.set(REGISTRY_KEYS.character, options.character);
 				// 拷貝一份，避免之後 store 的陣列被改動時影響到場景讀到的值
 				game.registry.set(REGISTRY_KEYS.solvedTerminals, [...(options.solvedTerminals ?? [])]);
+				game.registry.set(REGISTRY_KEYS.volume, options.volume ?? 1);
+				game.registry.set(REGISTRY_KEYS.muted, options.muted ?? false);
 			},
 		},
 	};
