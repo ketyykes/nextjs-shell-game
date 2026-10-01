@@ -1,5 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
 
+/** 本機 3000 被別的專案佔住時，用 `PORT=3001 pnpm test:e2e` 指到另一個埠；`next dev` 也吃同一個 PORT 變數。 */
+const port = process.env.PORT ?? "3000";
+const baseURL = `http://localhost:${port}`;
+
 export default defineConfig({
 	testDir: "e2e",
 	fullyParallel: true,
@@ -9,7 +13,7 @@ export default defineConfig({
 	workers: process.env.CI ? 1 : undefined,
 	reporter: "html",
 	use: {
-		baseURL: "http://localhost:3000",
+		baseURL,
 		trace: "on-first-retry",
 	},
 	projects: [
@@ -21,7 +25,7 @@ export default defineConfig({
 	// 測試前自動啟動 Next.js 開發伺服器，本機已有伺服器時直接沿用
 	webServer: {
 		command: "pnpm dev",
-		url: "http://localhost:3000",
+		url: baseURL,
 		reuseExistingServer: !process.env.CI,
 	},
 });
