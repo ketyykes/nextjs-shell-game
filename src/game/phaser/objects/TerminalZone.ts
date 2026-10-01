@@ -50,6 +50,8 @@ export class TerminalZones {
 
 	private currentTerminalId: string | null = null;
 	private isDestroyed = false;
+	/** 暫停選單或設定選單開著時為 false，按 E 不開終端機（場景本身沒暫停，鍵盤事件還會進來）。 */
+	private interactEnabled = true;
 
 	constructor(scene: Phaser.Scene, terminals: TerminalMarker[]) {
 		this.scene = scene;
@@ -89,7 +91,7 @@ export class TerminalZones {
 	 * 場景暫停後鍵盤事件不會再被處理，恢復由 Station 的 `terminal:close` handler 負責。
 	 */
 	private handleInteract(): void {
-		if (this.isDestroyed || this.currentTerminalId === null) {
+		if (this.isDestroyed || !this.interactEnabled || this.currentTerminalId === null) {
 			return;
 		}
 		if (!this.scene.scene.isActive()) {
@@ -97,6 +99,11 @@ export class TerminalZones {
 		}
 		emitGameEvent("terminal:open", { terminalId: this.currentTerminalId });
 		this.scene.scene.pause();
+	}
+
+	/** 開關 E 鍵互動。Station 在 `game:pause` 時關、`game:resume` 時開，靠近提示照常顯示。 */
+	setInteractEnabled(enabled: boolean): void {
+		this.interactEnabled = enabled;
 	}
 
 	/** 清掉 graphics、text、tween 與按鍵。可重複呼叫。 */

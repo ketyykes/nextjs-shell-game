@@ -149,6 +149,10 @@ export function useTerminalKeyboard({
 				}
 				case "Escape": {
 					event.preventDefault();
+					// 關閉是終端機自己的事，不讓 keydown 繼續冒泡到 window：
+					// PlayScreen 的暫停選單監聽掛在 window，而且會在終端機關閉的同一個事件裡重新掛回去，
+					// 不擋下來的話，這一下 Esc 會同時關終端機又打開暫停選單。
+					event.stopPropagation();
 					onClose();
 					break;
 				}

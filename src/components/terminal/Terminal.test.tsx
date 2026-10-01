@@ -178,6 +178,21 @@ describe("Terminal", () => {
 		expect(onClose).toHaveBeenCalledTimes(1);
 	});
 
+	it("按 Esc 關閉時不把 keydown 往 window 傳，地圖的暫停監聽不會跟著觸發", () => {
+		const onClose = vi.fn();
+		const windowKeyDown = vi.fn();
+		window.addEventListener("keydown", windowKeyDown);
+		try {
+			render(<Harness onClose={onClose} />);
+			pressKey("Escape");
+
+			expect(onClose).toHaveBeenCalledTimes(1);
+			expect(windowKeyDown).not.toHaveBeenCalled();
+		} finally {
+			window.removeEventListener("keydown", windowKeyDown);
+		}
+	});
+
 	it("點「[Esc] 關閉」按鈕會呼叫 onClose 一次", () => {
 		const onClose = vi.fn();
 		render(<Harness onClose={onClose} />);

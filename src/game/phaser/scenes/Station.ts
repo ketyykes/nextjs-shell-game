@@ -402,13 +402,15 @@ export class Station extends Phaser.Scene {
 				this.audio.setVolume(volume);
 				this.audio.setMuted(muted);
 			}),
-			// 暫停選單只停角色輸入，場景繼續跑（燈光脈動、NOVA 對話等不受影響）
+			// 暫停選單只停角色輸入與 E 鍵，場景繼續跑（燈光脈動、NOVA 對話等不受影響）
 			onGameEvent("game:pause", () => {
 				this.player.setInputEnabled(false);
+				this.terminalZones.setInteractEnabled(false);
 			}),
 			onGameEvent("game:resume", () => {
 				this.input.keyboard?.resetKeys();
 				this.player.setInputEnabled(true);
+				this.terminalZones.setInteractEnabled(true);
 			}),
 		);
 
