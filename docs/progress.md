@@ -19,10 +19,10 @@
 | 項目 | 內容 |
 |---|---|
 | 更新日期 | 2026-10-01 |
-| 最新 commit | `7925b2b test: 加入 store、終端機元件、CRT 效果的單元測試與 /play 的 Playwright e2e` |
-| 目前階段 | M2 終端機 UI 與 store ✅ 完成，M3 Phaser 地圖與角色 ⬜ 尚未開工 |
-| 程式碼狀態 | `/play` 可玩第一章 T1 的全部 M1 指令，重整後輸出、cwd、歷史都在。`pnpm test --run` 28 個測試檔 489 個測試全綠，`pnpm test:e2e` 5 個全綠。`src/game/phaser/` 與 `public/maps/`、`public/tiles/` 還不存在 |
-| 下一步 | M3-1 把 tileset 複製到 `public/tiles/`，然後 M3-2 用 Tiled 畫地圖，見第 3 節 |
+| 最新 commit | `fd9ef4e test: 加入 Phaser 模組、地圖契約、PhaserGame 元件的單元測試並更新 /play e2e 為走到終端機按 E` |
+| 目前階段 | M3 Phaser 地圖與角色 ✅ 完成，M4 事件橋接與 HUD ⬜ 尚未開工（M4-1 事件型別與 M4-2 開關終端機已在 M3 順手做完） |
+| 程式碼狀態 | `/play` 是完整地圖：角色走動碰撞、斷電光圈、六台終端機發光、走近按 E 開 shell 彈窗、Esc 關閉、重整接續。`pnpm test --run` 35 個測試檔 560 個測試全綠，`pnpm test:e2e` 6 個全綠 |
+| 下一步 | M4-3 過關演出與 M4-4 NOVA 對話框，見第 3 節。`Station.lightMask.setPowered(true)` 與 `collisionLayer` 已留好掛點 |
 | 遠端 | `origin` 是 SSH 網址 `git@github.com:ketyykes/nextjs-shell-game.git`，本機與 `origin/main` 同步 |
 
 ## 2. 里程碑總覽
@@ -34,7 +34,7 @@
 | M0 | 方向討論、設計文件、素材前置、工具鏈 | ✅ | 全部 |
 | M1 | Shell 引擎與單元測試 | ✅ | 3.3、4.8、8-1 |
 | M2 | 終端機 UI 與 zustand store | ✅ | 4.9、5、8-2 |
-| M3 | Phaser 地圖與角色 | ⬜ | 3.2、6.2、9、8-3 |
+| M3 | Phaser 地圖與角色 | ✅ | 3.2、6.2、9、8-3 |
 | M4 | 事件橋接與 HUD | ⬜ | 3.1、4.6、8-4 |
 | M5 | 第一章劇本 | ⬜ | 3.4、4.4、4.8、8-5 |
 | M6 | 插圖與音效 | ⬜ | 4.10、6.3、8-6 |
@@ -88,25 +88,29 @@
 
 **M2 暫時的簡化，之後要改**：第一次開 T1 就把它教的 pwd、ls、cat 算學會（M5 改成過關才學會）；終端機固定開 `ch1-t1`，關閉後只顯示「重新開啟」按鈕（M4 由 Phaser 事件開關）；配色與字型只套在 `/play`，首頁還是模板。
 
-### M3 Phaser 地圖與角色 ⬜
+### M3 Phaser 地圖與角色 ✅
 
-目標：角色能在第一章地圖走動、撞牆、走近終端機看到提示。
+目標：角色能在第一章地圖走動、撞牆、走近終端機看到提示。commit `b6df716` 到 `fd9ef4e`。
 
-- ⬜ **M3-1 素材就位**（6.1、7）：把 `docs/assets-draft/tileset-buch-scifi.png` 複製到 `public/tiles/`，sprite 已在 `public/sprites/`。
-- ⬜ **M3-2 地圖**（9）：用 Tiled 畫 40x24 格地圖存 `public/maps/deck1.json`。圖層：floor、walls、objects、collision；物件層放六台終端機 T1 到 T6 與出生點。
-- ⬜ **M3-3 Phaser 骨架**（3.2、7）：`src/game/phaser/main.ts`、`EventBus.ts`、`events.ts`、`scenes/{Boot,Preloader,Station}.ts`。`pixelArt: true`。
-- ⬜ **M3-4 PhaserGame 元件**（3.2）：client component，`next/dynamic` 加 `ssr: false`，`useLayoutEffect` 建立、卸載 `game.destroy(true)`，防 StrictMode 重複建立。官方 `phaserjs/template-nextjs` 是 Pages Router，要改寫。
-- ⬜ **M3-5 角色**（6.2）：載入 32x48 sheet，列順序 下、左、右、上，每列四幀走路循環 0-1-2-3，站立用第 0 幀。Arcade 碰撞、鏡頭放大兩倍跟隨。
-- ⬜ **M3-6 終端機互動區**（5）：靠近發光、顯示「按 E」提示。
-- ⬜ **M3-7 燈光遮罩**（4.6）：黑色遮罩挖圓跟隨角色；配電箱過關後燈一盞盞亮的演出留到 M4。
-- **完成定義**：`/play` 頁面能走動與碰撞，六台終端機位置正確。
+| 任務 | 狀態 | 產出 |
+|---|---|---|
+| M3-1 素材就位 | ✅ | `public/tiles/tileset-buch-scifi.png`；`docs/assets-draft/tileset-buch-grid.png` 是標了 0 起算格子編號的對照圖，挑 tile 時看它 |
+| M3-2 地圖 | ✅ | 改用腳本產生而非手畫：`scripts/build-map.mjs`（`pnpm map:build`）依第 9 節配置輸出 Tiled 1.10 格式的 `public/maps/deck1.json`，可直接用 Tiled 打開精修。四個 tile 層 floor、walls、objects、collision；`markers` 物件層放 spawn、T1 到 T6（type `terminal`，properties `terminalId`、`title`、`roomId`）、七個 `room` 矩形、`airlock` 門。內建 BFS 連通性檢查。房間配置表見腳本頂端的 `DEFAULT_LAYOUT` |
+| M3-3 Phaser 骨架 | ✅ | `src/game/phaser/{events,constants,EventBus,main,index}.ts`、`scenes/{keys,Boot,Preloader,Station,mapObjects}.ts`。選角透過 `game.registry` 傳給 Preloader |
+| M3-4 PhaserGame 元件 | ✅ | `src/components/game/PhaserGame.tsx` 加 `PhaserGameDynamic.tsx`（`next/dynamic` + `ssr: false`）。延後一幀才 `startGame`，StrictMode 的立即卸載不會建到第一個實例 |
+| M3-5 角色 | ✅ | `objects/Player.ts` 加純函式 `movement.ts`。方向鍵有 capture、WASD 沒有，終端機開著時 `setInputEnabled(false)` 並關掉全域 capture。腳部碰撞盒 20x14、offset (6, 34)。鏡頭 zoom 2、lerp 0.1 |
+| M3-6 終端機互動區 | ✅ | `objects/TerminalZone.ts`（發光脈動、靠近固定亮、「按 E」文字、E 鍵事件發 `terminal:open` 並暫停場景）、`objects/RoomTracker.ts`（發 `room:enter`）、純函式 `nearby.ts` |
+| M3-7 燈光遮罩 | ✅ | `objects/LightMask.ts`：RenderTexture 填黑再用徑向漸層 texture `erase` 挖洞，角色半徑 96、每台終端機半徑 40。`setPowered(true)` 1.5 秒淡出到全亮，M4 配電箱過關時呼叫 |
+| /play 整合 | ✅ | `PlayScreen.tsx` 監聽 `terminal:open`／`terminal:nearby`／`room:enter`，彈窗蓋在變暗的地圖上，Esc 發 `terminal:close`。HUD 有 O2、艙區名稱、「按 E 開啟 ○○」。T2 到 T6 先放佔位劇本（`notice.txt`），M5-2 換真的。e2e 用鍵盤從出生點走到 T1 按 E |
+
+**M3 順手做掉的 M4 項目**：M4-1 事件型別（`events.ts`）與 M4-2 開關終端機（按 E 開、Phaser 暫停、鍵盤交給 shell、Esc 關、Phaser 恢復、地圖變暗）都完成了。M4 剩 M4-3 過關演出、M4-4 NOVA 對話框、M4-5 HUD 的目標面板與已學指令側邊面板。
 
 ### M4 事件橋接與 HUD ⬜
 
 目標：地圖與終端機能來回切換，過關有演出。
 
-- ⬜ **M4-1 事件型別**（3.1）：`terminal:open`、`terminal:close`、`puzzle:solved`、`room:enter`、`sfx:play` 的名稱與 payload 集中在 `events.ts`。
-- ⬜ **M4-2 開關終端機**（4.6）：按 E 開、Phaser 暫停、鍵盤全交給 shell；Esc 關、Phaser 恢復。彈窗後面的地圖變暗但看得到。
+- ✅ **M4-1 事件型別**（3.1）：`src/game/phaser/events.ts`，M3 完成。多了 `terminal:nearby` 與 `scene:ready`。
+- ✅ **M4-2 開關終端機**（4.6）：M3 完成，見 `TerminalZone.ts` 與 `PlayScreen.tsx`。
 - ⬜ **M4-3 過關演出**（4.4）：T4 燈逐盞亮加走廊盡頭人影一幀；T6 主艙門開。
 - ⬜ **M4-4 NOVA 對話框**（4.9）：右下角固定，立繪 `nova-eye` 在左、文字在右，打字動畫，幾秒後自動淡出。
 - ⬜ **M4-5 HUD**（4.8、5）：目前目標面板、左上角 O2 百分比、已學指令側邊面板。
@@ -168,6 +172,9 @@
 - **Next.js 16 與 Phaser**：Phaser 會碰 `window`，只能在 client component 內用 `next/dynamic` 加 `ssr: false` 載入。寫 Next.js 相關程式前先讀 `node_modules/next/dist/docs/` 的對應章節，這版與訓練資料有差異。
 - **版本限制**：TypeScript 停在 6.x、ESLint 停在 9.x，原因見 `CLAUDE.md`。
 - **Vitest**：設定在 `vitest.config.mts`，只掃 `src/**/*.{test,spec}.{ts,tsx}`，環境 jsdom，`@/` 別名已設。純邏輯測試可在檔案頂端加 `// @vitest-environment node` 加速。測試共用的 fixture 檔不要用 `.test` 後綴（例如 `testFixtures.ts`），否則會被當測試跑。
+- **Phaser 4 在 import 時就讀 `window`**：任何會被 SSR 的 React 元件都不能 import 到 Phaser，連 `Phaser.Events.EventEmitter` 也不行，所以 `EventBus.ts` 是自己寫的零相依 emitter。React 端只 import `@/game/phaser/EventBus`、`events`、`constants`，不要 import `@/game/phaser`（index 會帶進 main.ts 與場景）。Phaser 的單元測試在 node 與 jsdom 都跑不起來（jsdom 沒 canvas），所以 Phaser 類別只抽純函式測（`movement.ts`、`nearby.ts`、`RoomTracker.ts`、`mapObjects.ts`），視覺行為靠 e2e 與截圖。
+- **Phaser 鍵盤的三個坑**：（1）`createCursorKeys()` 會連 SPACE、SHIFT 一起 capture，而且 capture 是整個 window 共用，終端機輸入框會打不出空白，所以 Player 用 `addKeys` 分開註冊、WASD 不 capture；（2）`JustDown` 靠 `Key.onUp` 會清掉的旗標，keydown 與 keyup 同一幀時（自動化測試的 `press`）會漏掉，要用 `key.on("down")` 事件；（3）`game.destroy()` 是排到下一個 step 才拆 canvas，React StrictMode 同步建立再立刻 destroy 會留下兩層 canvas，`PhaserGame` 改成 `requestAnimationFrame` 延後一幀建立。
+- **地圖契約**：圖層與物件命名在 `src/game/phaser/constants.ts`，腳本 `scripts/build-map.mjs` 與 `Station.ts` 兩邊都照它；`map.test.ts` 會檢查 `deck1.json` 跟 `buildMap(DEFAULT_LAYOUT)` 一致，所以用 Tiled 手改地圖後要同步更新腳本或改測試。Tiled 1.9 以後的 `class` 欄位 Phaser 不讀，物件要用 `type`。警示條邊框是「地板的邊緣」放 `floor` 層可走，真正的牆是深色片放 `walls` 層。
 - **store 的使用規則**：`@/game/store` 的 index 帶 React hook，只能在 client component import，純邏輯或 server component 用 `@/game/store/types`。**讀檔完成前不要呼叫任何 action**（每次 `set` 都會寫 localStorage，會把預設值蓋掉存檔），依賴存檔的畫面都要先等 `useStoreHydration()` 回 true。selector 不要回傳新組的物件，多欄位用 `useShallow`。
 - **Terminal 元件的整合規則**：`shell` 必須是同一個實例（`useState` 保住），每次 render 都 `new Shell` 會重置 cwd 與歷史。`entries` 由父層持有並整批替換，`clear` 會傳空陣列。掛載當下就在 `entries` 裡的 dialogue 不重播打字動畫，要播的 NOVA 台詞得在掛載後才 push。Esc 有 `preventDefault` 沒有 `stopPropagation`，之後 Phaser 或暫停選單聽 Esc 時要在終端機開著時擋掉。
 - **Vitest 與 CSS Module**：`postcss.config.mjs` 用字串宣告 `@tailwindcss/postcss`，Vite 解析不了，所以 `vitest.config.mts` 設了 `css.postcss: { plugins: [] }`，單元測試不跑 Tailwind。vitest 沒開 globals，Testing Library 不會自動 cleanup，元件測試要手動 `afterEach(cleanup)`。
@@ -190,6 +197,14 @@
 ## 7. 工作日誌
 
 每次 session 收工加一筆，最新在最上面。格式：日期、做了什麼、commit 範圍、下一步。
+
+### 2026-10-01（第三場）
+
+- 完成整個 M3，順手做掉 M4-1、M4-2。地圖改用腳本產生（Danny 問過 Tiled 是什麼後同意，可用 Tiled 開起來精修）。先定 `events.ts`、`constants.ts` 契約，平行派地圖腳本（opus）、Phaser 骨架（opus）、PhaserGame 元件（sonnet），再派 Player（opus）、互動區與燈光遮罩（sonnet），最後自己接 Station、PlayScreen 與 e2e。
+- 修了三個整合時才冒出來的問題：EventBus 改零相依、PhaserGame 延後一幀建立、按 E 改用按鍵事件，都記在第 5 節。
+- 35 個測試檔 560 個單元測試、6 個 e2e 全綠，截圖確認斷電光圈、角色、終端機發光、HUD。
+- commit：`b6df716`、`96971f1`、`a41da99`（feat）、`fd9ef4e`（test）、本檔另一筆 docs。未 push。
+- 下一步：M4-3 過關演出、M4-4 NOVA 對話框、M4-5 HUD。開工前先問範圍。
 
 ### 2026-10-01（第二場）
 

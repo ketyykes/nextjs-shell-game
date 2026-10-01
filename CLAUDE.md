@@ -44,6 +44,9 @@ pnpm test:e2e
 # 重切角色 sprite sheet (原圖在 docs/assets-draft/，輸出到 public/sprites/)
 pnpm sprites:slice                # 處理腳本 SHEETS 清單全部
 pnpm sprites:slice technician-d   # 只處理指定角色
+
+# 重新產生第一章地圖 (改 scripts/build-map.mjs 的 DEFAULT_LAYOUT 後跑)
+pnpm map:build
 ```
 
 ## 測試
@@ -69,8 +72,9 @@ src/
 ├── components/
 │   ├── ui/                # shadcn/ui 元件
 │   ├── terminal/          # Terminal 元件群：外框、輸出區、NOVA 對話、輸入列、鍵盤 hook
-│   └── game/              # PlayScreen、CrtOverlay、OxygenVignette
+│   └── game/              # PlayScreen (地圖 + 終端機彈窗 + HUD)、PhaserGame(Dynamic)、CrtOverlay、OxygenVignette
 ├── game/
+│   ├── phaser/            # Phaser 4：events.ts 與 constants.ts 是契約，EventBus 零相依，scenes/ 與 objects/
 │   ├── store/             # zustand store 與 localStorage 存檔；types.ts 是存檔格式契約
 │   ├── chapters/          # 劇本資料 (ch1-life-support.ts)，M5 會加 zod schema
 │   └── shell/             # Shell 引擎，純 TypeScript，零 React/Phaser 相依
@@ -86,7 +90,10 @@ src/
     └── utils.ts           # 工具函式 (cn 函式)
 e2e/                        # Playwright 測試 (home.spec.ts、play.spec.ts)
 scripts/slice-sprites.mjs   # sprite sheet 切格腳本 (pnpm sprites:slice)
+scripts/build-map.mjs       # 第一章地圖產生腳本，輸出 Tiled JSON (pnpm map:build)
 public/sprites/             # 四位角色的 32x48 sprite sheet (128x192，4x4 格)
+public/tiles/               # Buch Sci-fi Interior tileset (448x192，14x6 格，32px)
+public/maps/deck1.json      # 第一章地圖 (40x24 格)，由 build-map.mjs 產生，可用 Tiled 開啟
 docs/
 ├── game-design.md          # 設計定案 (第 7 節是遊戲程式的預定目錄結構)
 ├── progress.md             # 進度、下一步、已知陷阱
@@ -139,7 +146,7 @@ npx shadcn@latest add [component-name]
 5. **Tailwind CSS v4**: 沒有 `tailwind.config.js`；設定寫在 `src/app/globals.css` 的 `@import "tailwindcss"` 與 `@theme inline` 區塊，PostCSS 只掛 `@tailwindcss/postcss`
 6. **動畫**: 使用 `motion` 套件，匯入路徑為 `motion/react`（例如 `import { motion } from "motion/react"`），動畫元件需搭配 `"use client"`
 7. **圖示**: lucide-react 1.x 已移除所有品牌圖示（如 GitHub、Twitter），圖示預設帶有 `aria-hidden`
-8. **Phaser**: 會碰 `window`，只能在 client component 內用 `next/dynamic` 加 `ssr: false` 載入；用 `useLayoutEffect` 建立、卸載時 `game.destroy(true)`，並防 StrictMode 重複建立。官方 `phaserjs/template-nextjs` 是 Pages Router，不能照抄
+8. **Phaser**: Phaser 4 在 import 當下就讀 `window`，所以只有 `src/game/phaser/main.ts` 與 `scenes/`、`objects/` 可以 import `phaser`，React 端只能 import `@/game/phaser/EventBus`、`events`、`constants`（都零相依）。遊戲透過 `PhaserGameDynamic`（`next/dynamic` + `ssr: false`）載入，`PhaserGame` 延後一幀 `startGame` 防 StrictMode 疊兩層 canvas。官方 `phaserjs/template-nextjs` 是 Pages Router，不能照抄。更多坑見 `docs/progress.md` 第 5 節
 
 ## 協作慣例
 
