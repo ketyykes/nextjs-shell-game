@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { enterPlay, passChapterEnd, playChapter, seedSave, type TerminalScript } from "./helpers/deck";
+import { enterPlay, passChapterEnd, playChapter, seedSave, TERMINALS_PER_CHAPTER, type TerminalScript } from "./helpers/deck";
 
 /**
  * 第二到六章的 happy path：用 `seedSave` 直接種「已玩到第 N 章開頭」的存檔，進地圖後照 T1 到 T6 走完、每台解掉，
@@ -182,6 +182,31 @@ const CHAPTERS: ChapterScript[] = [
 		],
 	},
 ];
+
+test.describe("章節結束畫面的回訪", () => {
+	test.setTimeout(120_000);
+
+	test("看過結尾回標題後再繼續，仍能從回顧卡進入下一章", async ({ page }) => {
+		// 全部解完、outro 也播過（玩家在結束畫面選了「回標題」）的存檔
+		const solved: string[] = [];
+		for (let chapter = 1; chapter <= 2; chapter += 1) {
+			for (let index = 1; index <= TERMINALS_PER_CHAPTER; index += 1) {
+				solved.push(`ch${chapter}-t${index}`);
+			}
+		}
+		await seedSave(page, { chapter: 2, solvedTerminals: solved, flags: ["ch2.introShown", "ch2.outroShown"] });
+		await page.goto("/play");
+		await expect(page.locator("main[data-scene-ready='true']")).toBeAttached({ timeout: 20000 });
+
+		// outro 已播過：結束畫面直接從回顧卡開始，不重播台詞，玩家仍能進入下一章
+		await expect(page.getByTestId("chapter-end-recap")).toBeVisible();
+		await expect(page.getByTestId("chapter-end-outro")).toHaveCount(0);
+		await page.getByTestId("chapter-end-recap").getByRole("button", { name: "繼續" }).click();
+		await page.getByRole("button", { name: "進入第 3 章" }).click();
+		await expect(page.locator("main[data-chapter='3'][data-scene-ready='true']")).toBeAttached({ timeout: 20000 });
+		await expect(page.getByTestId("hud-room")).toHaveText("工程艙入口");
+	});
+});
 
 test.describe("第二到六章 happy path", () => {
 	test.setTimeout(180_000);

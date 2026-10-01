@@ -15,7 +15,7 @@
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { useTypewriter } from "@/components/terminal/useTypewriter";
-import { getCommandDoc } from "@/game/shell/commands/docs";
+import { getTeachDoc } from "@/game/shell/commands/docs";
 import { TEXT_SPEED_MS, type TextSpeed } from "@/game/store/types";
 
 /** 每句台詞打完後預設停留的毫秒數。 */
@@ -62,6 +62,8 @@ export interface ChapterEndScreenProps {
 	onMounted?: () => void;
 	/** 每句台詞打完後的停留毫秒數，預設 1500；測試可傳 0 */
 	lineHoldMs?: number;
+	/** outro 已經播過時傳 true：跳過台詞直接從回顧卡開始，玩家仍能走到「進入下一章」 */
+	skipOutro?: boolean;
 }
 
 interface TypingState {
@@ -77,9 +79,9 @@ function getBaseCommandName(learned: string): string {
 	return baseName ?? learned;
 }
 
-/** 查指令的一句話說明，查不到回傳空字串。 */
+/** 查教學項目（指令或 `>`、`|` 這類概念）的一句話說明，查不到回傳空字串。 */
 function getCommandSummary(learned: string): string {
-	const doc = getCommandDoc(getBaseCommandName(learned));
+	const doc = getTeachDoc(getBaseCommandName(learned));
 	if (doc === undefined) {
 		return "";
 	}
@@ -109,7 +111,7 @@ function Illustration({ src, alt }: IllustrationProps) {
 			className="flex aspect-video w-full max-w-4xl items-center justify-center border border-game-dim bg-game-holo/10"
 			data-testid="chapter-end-illustration-placeholder"
 		>
-			<span className="font-terminal text-sm text-game-dim">過場插圖（M6 產圖）</span>
+			<span className="font-terminal text-sm text-game-dim">影像訊號遺失</span>
 		</div>
 	);
 }
@@ -131,8 +133,9 @@ export function ChapterEndScreen({
 	onNextChapter,
 	onMounted,
 	lineHoldMs = DEFAULT_LINE_HOLD_MS,
+	skipOutro = false,
 }: ChapterEndScreenProps) {
-	const [phase, setPhase] = useState<Phase>("outro");
+	const [phase, setPhase] = useState<Phase>(skipOutro ? "recap" : "outro");
 	const [typing, setTyping] = useState<TypingState>({ lineIndex: 0, revealed: false });
 
 	// onMounted 只在第一次掛載呼叫一次；用 ref 防 StrictMode 的重複執行與父層每次傳新函式

@@ -6,6 +6,7 @@
  */
 
 import type { CommandDoc } from "../types";
+import { CONCEPT_DOCS } from "./docsConcepts";
 import { FILE_COMMAND_DOCS, FILE_COMMAND_ORDER } from "./docsFiles";
 import { FILTER_COMMAND_DOCS, FILTER_COMMAND_ORDER } from "./docsFilter";
 import { SYSTEM_COMMAND_DOCS, SYSTEM_COMMAND_ORDER } from "./docsSystem";
@@ -179,4 +180,19 @@ export function getCommandDoc(name: string): CommandDoc | undefined {
 		return undefined;
 	}
 	return COMMAND_DOCS[name];
+}
+
+/**
+ * 取得教學項目的說明：先查指令，再查 `>`、`|`、`$變數` 這類概念。
+ * 回顧卡與側邊面板用它，`help` 與 `man` 仍只查指令。
+ */
+export function getTeachDoc(name: string): CommandDoc | undefined {
+	const commandDoc = getCommandDoc(name);
+	if (commandDoc !== undefined) {
+		return commandDoc;
+	}
+	if (!Object.hasOwn(CONCEPT_DOCS, name)) {
+		return undefined;
+	}
+	return CONCEPT_DOCS[name];
 }

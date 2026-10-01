@@ -9,7 +9,7 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { useId, useState } from "react";
-import { getCommandDoc } from "@/game/shell/commands/docs";
+import { getTeachDoc } from "@/game/shell/commands/docs";
 
 export interface CommandCheatSheetProps {
 	/** 已學指令，順序就是學會的順序，可能含 "ls -a" 這種帶參數的字串 */
@@ -102,7 +102,7 @@ interface CommandItemProps {
 
 /** 單一已學指令：按鈕列 + 展開後的說明。 */
 function CommandItem({ command, itemId, expanded, onToggle }: CommandItemProps) {
-	const doc = getCommandDoc(getBaseCommandName(command));
+	const doc = getTeachDoc(getBaseCommandName(command));
 	const detailId = `${itemId}-detail`;
 
 	// 查不到說明時只顯示名稱，沒東西可展開

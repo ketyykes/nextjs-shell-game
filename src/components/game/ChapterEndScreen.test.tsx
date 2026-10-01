@@ -61,13 +61,14 @@ describe("ChapterEndScreen", () => {
 		expect(screen.getByText("NOVA")).toBeTruthy();
 	});
 
-	it("沒有插圖時顯示佔位文字，有插圖時顯示 img", () => {
+	it("沒有插圖時顯示世界觀內的佔位文字，有插圖時顯示 img", () => {
+		// 佔位文字不可以把「M6 產圖」這種開發內部字樣露給玩家
 		const { unmount } = render(<ChapterEndScreen {...createProps()} />);
-		expect(screen.getByText("過場插圖（M6 產圖）")).toBeTruthy();
+		expect(screen.getByText("影像訊號遺失")).toBeTruthy();
 		unmount();
 
 		render(<ChapterEndScreen {...createProps({ illustrationSrc: "/scenes/ch1-end.png" })} />);
-		expect(screen.queryByText("過場插圖（M6 產圖）")).toBeNull();
+		expect(screen.queryByText("影像訊號遺失")).toBeNull();
 		const image = screen.getByTestId("chapter-end-illustration");
 		expect(image.getAttribute("src")).toBe("/scenes/ch1-end.png");
 	});
@@ -127,6 +128,21 @@ describe("ChapterEndScreen", () => {
 		render(<ChapterEndScreen {...createProps({ learnedCommands: ["not-a-command"] })} />);
 		goToRecap();
 		expect(screen.getByText("not-a-command")).toBeTruthy();
+	});
+
+	it("outro 已播過（skipOutro）時直接從回顧卡開始，不再播台詞", () => {
+		render(<ChapterEndScreen {...createProps({ skipOutro: true })} />);
+		expect(screen.getByTestId("chapter-end-recap")).toBeTruthy();
+		expect(screen.queryByTestId("chapter-end-outro")).toBeNull();
+	});
+
+	it("回顧卡上管線、重導向與變數展開也有說明，不是空白", () => {
+		render(<ChapterEndScreen {...createProps({ learnedCommands: [">", "|", ">>", "$變數"] })} />);
+		goToRecap();
+		expect(screen.getByText("把指令的輸出寫進檔案，覆蓋原本的內容")).toBeTruthy();
+		expect(screen.getByText("把左邊指令的輸出交給右邊的指令處理")).toBeTruthy();
+		expect(screen.getByText("把指令的輸出接在檔案的結尾")).toBeTruthy();
+		expect(screen.getByText("讀出環境變數存的值")).toBeTruthy();
 	});
 
 	it("recap 按「繼續」進 done，顯示「下一章開發中」", () => {

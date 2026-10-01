@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { CHAPTER_COUNT } from "@/game/phaser/events";
+import { getTeachDoc } from "@/game/shell/commands/docs";
 import { deckTerminals } from "@/game/story/decks";
 import { CHAPTERS, chapterTeaches, FINAL_CHAPTER, findTerminal, getChapter, getNextChapter, isChapterComplete } from "./index";
 
@@ -107,5 +108,14 @@ describe("章節註冊表", () => {
 
 	it("chapterTeaches 依序去重", () => {
 		expect(chapterTeaches(CHAPTERS[0])).toEqual(["pwd", "ls", "cat", "cd", "ls -l", "cd ~", "ls -a", "history", "clear"]);
+	});
+
+	it("每章 teaches 的每個項目都查得到說明，回顧卡才不會有空白說明", () => {
+		for (const chapter of CHAPTERS) {
+			for (const teach of chapterTeaches(chapter)) {
+				const baseName = teach.trim().split(/\s+/)[0] ?? teach;
+				expect(getTeachDoc(baseName), `第 ${chapter.chapter} 章的「${teach}」查不到說明`).toBeDefined();
+			}
+		}
 	});
 });

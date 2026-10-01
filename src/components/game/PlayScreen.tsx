@@ -250,9 +250,11 @@ function PlayScreenReady() {
 		window.location.reload();
 	}, [chapter.chapter]);
 
-	// 章節結束（4.7）：六台都過關且終端機已關閉時顯示過場、NOVA 結尾台詞與指令回顧卡；旗標確保只播一次
+	// 章節結束（4.7）：六台都過關且終端機已關閉時顯示過場、NOVA 結尾台詞與指令回顧卡。
+	// outro 旗標只決定要不要重播台詞；畫面本身一定要出現，否則回標題再「繼續」會被困在已完成的甲板（第九場 B3）
 	const allSolved = isChapterComplete(chapter, progress.solvedTerminals);
-	const showChapterEnd = allSolved && openTerminal === null && storyFlags[outroShownFlag(chapter.chapter)] !== true;
+	const showChapterEnd = allSolved && openTerminal === null;
+	const outroAlreadyShown = storyFlags[outroShownFlag(chapter.chapter)] === true;
 	const nextChapter = getNextChapter(chapter.chapter);
 	const handleChapterEndMounted = useCallback(() => {
 		touchSave();
@@ -517,6 +519,7 @@ function PlayScreenReady() {
 					onMounted={handleChapterEndMounted}
 					onReturnToTitle={handleReturnToTitle}
 					onNextChapter={handleNextChapter}
+					skipOutro={outroAlreadyShown}
 				/>
 			)}
 
