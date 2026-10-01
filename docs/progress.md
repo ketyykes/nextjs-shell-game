@@ -162,7 +162,7 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 | M8-4 多章節流程 | ✅ | `chapters/index.ts` 註冊表（`getChapter`、`getNextChapter`、`findTerminal`、`isChapterComplete`、`chapterTeaches`）；store `advanceChapter`、`resetChapter`；旗標 `ch<n>.introShown`／`outroShown`／`room.<id>.entered`；`ChapterEndScreen` 多 `nextChapter` 與 `ending`（片尾在 `chapters/ending.ts`）；`TitleFlow` 副標顯示目前章節；`PlayScreen` 全部改用目前章節 |
 | M8-5 五章劇本 | ✅ | `ch2-datacenter.ts`、`ch3-engineering.ts`、`ch4-comms.ts`、`ch5-bridge.ts`、`ch6-nova-core.ts`，各六台、各自的 `.test.ts` 用真的 Shell 跑正解（`SOLUTIONS` 表）並檢查檔案數與大小上限（40 個、20 KB）、性別指涉。撤離當晚時間軸統一：04:36:58 回滾開始、04:37:09 `unset NOVA_DIR`、04:37:12 `rm -rf "$NOVA_DIR/"`、04:37:15 2% 中止、04:40 主艙門鎖 |
 | M8-6 e2e | ✅ | `e2e/helpers/deck.ts`（`playChapter` 六章共用路線、`seedSave`、`passChapterEnd`）、`happy-path.spec.ts`（第一章從標題到進第二章）、`chapters.spec.ts`（第二到六章各一個）。playwright-cli 另外實際開過第三章開場斷電與第六章片尾截圖確認 |
-| M8-7 插圖 | ✅ | `generate-ch2-6.sh` 用 codex 背景產 36 張（五章各六間艙區加結尾過場、一張片尾），`scripts/resize-scenes.mjs` 縮圖，`story/scenes.ts` 的 `AVAILABLE_SCENES` 列已產出的 |
+| M8-7 插圖 | 🔄 | `generate-ch2-6.sh` 用 codex 背景產 36 張（五章各六間艙區加結尾過場、一張片尾），產到第 24 張 codex 額度用完，剩 12 張見第 4 節；`scripts/resize-scenes.mjs` 縮圖，`story/scenes.ts` 的 `AVAILABLE_SCENES` 列已產出的、`scenes.test.ts` 跟目錄比對 |
 
 **完成定義**：六章都能從標題一路玩到片尾（e2e 驗過）；一位新手能靠 hint 通關這點仍沒有真人驗證。
 
@@ -179,6 +179,12 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 - ⬜ **真人試玩**：完成定義「沒碰過終端機的人能靠 hint 通關」還沒驗證。找一位新手玩第一章，記錄卡在哪、hint 哪一段救了他。
 - ⬜ **試聽五個音效**：agent 看檔名挑的，沒人聽過，見 M6-3。
 - ⬜ **劇情文字潤稿**：六台終端機的檔案內容、NOVA 台詞、boot log、章節結尾都是 agent 初稿，`src/game/chapters/ch1-life-support.ts` 與 `src/components/title/BootLog.tsx`，改完跑 `pnpm test --run src/game/chapters` 會檢查格式與性別指涉。
+- ⬜ **補產 12 張插圖**：2026-10-01 23:00 codex 用量額度用完（「try again at Oct 2nd, 2026 3:14 AM」），第五章後三間 `br_security`、`br_escape`、`br_exit`、`ch5_outro`、第六章六間 `nv_*`、`ch6_outro`、`ending` 都沒產。額度回來後：
+  ```bash
+  cd docs/assets-draft/scenes && ./generate-ch2-6.sh   # 只會補缺的
+  node scripts/resize-scenes.mjs
+  ```
+  再把名字加進 `src/game/story/scenes.ts` 的 `AVAILABLE_SCENES`（`scenes.test.ts` 會提醒），缺圖時插圖卡不顯示、片尾用佔位塊，遊戲照常可玩。
 - ⬜ **第二到六章劇情潤稿與試玩**：五章劇本（`src/game/chapters/ch2-*.ts` 到 `ch6-*.ts`）全是 agent 初稿，Danny 還沒玩過。幾個 agent 留白給你決定的點：第二章冷卻日誌「三年來兩人份熱負載」的第二個人是誰沒交代（阿彬留言只說「裡面有一個是我」）；第六章 T6 NOVA 最後一句「祝旅途平安，技師」暗示它沒死透；第一章的 `day_312` 從 2027-07-26 起算其實是第 313 天（第六章沿用第一章寫法）。
 - ⬜ **淘汰的原圖只在 Danny 的 Mac 上**：`nova-portrait`、`nova-v2`、`nova-v3`、`nova-id`、`nova-mannequin`、`nova-lowres`、`technician-b` 的 `-original.png` 沒進版控也不需要，另一台電腦看不到是正常的。
 
@@ -238,7 +244,7 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 - 契約先行後兩波平行：第一波五個 opus agent（shell 核心；head/tail/wc/grep/find；VFS 寫入與 mkdir/touch/cp/mv/rm/chmod；echo/sort/uniq/export/env/ps/top/kill；六張地圖與 Phaser 多章節），第二波五個 opus agent 各寫一章劇本。主 session 同時做 story 模組擴充（旗標、objectives 新判定、schema 新欄位）、章節註冊表、store、PlayScreen、ChapterEndScreen 片尾、標題副標、e2e 工具、整合與 commit。
 - 整合時抓到並修掉：五章撤離當晚的時間軸各寫各的（統一成第三章的版本）；`deckTerminal` 帶 `slot` 展開會被 strictObject 擋（加 `deckTerminalIdentity`）；`EMPTY_COMMAND` 的訊息對 `>` 不通順（加 `missingCommandForRedirect`）；e2e 六個 worker 同時跑會掉幀、貼牆滑行錯過門口（workers 改 2）。
 - 83 個測試檔 1636 個單元測試、tsc、lint、build 全過；e2e 18 個。playwright-cli 實際開瀏覽器看過第三章開場斷電、T1 解謎、第六章章節結束到片尾。
-- 插圖用 codex 背景產 36 張，約 100 秒一張；產完跑 `node scripts/resize-scenes.mjs` 並更新 `AVAILABLE_SCENES`。
+- 插圖用 codex 背景產，約 100 秒一張，產到第 24 張額度用完（12 張待補，見第 4 節）；已產的跑過 `node scripts/resize-scenes.mjs` 並列進 `AVAILABLE_SCENES`。
 - commit：`e1b593c`、`95a3c91`、`084087e`、`baaa1d3`（feat）、`4b1c9ea`（test）、`c5021ae`（chore）、插圖與本檔另兩筆。未 push。
 - 下一步：Danny 試玩第二到六章、潤稿；見第 4、8、9 節。
 
