@@ -38,6 +38,33 @@ export async function holdUntilRoom(page: Page, keys: string[], room: string, ti
 	}
 }
 
+/**
+ * 最後對齊終端機：計時走的那一小段在瀏覽器掉幀時會走不夠（Phaser 的 delta 有上限，模擬時間比牆上時鐘慢），
+ * 所以看不到「按 E」就左右各退一點再試，最多幾次。互動半徑 40 px，每次微調 150 ms 約 18 px。
+ * 這只修正走路位置，不重試遊戲邏輯，不會蓋掉終端機本身的 bug。
+ */
+async function alignToTerminal(page: Page, title: string): Promise<void> {
+	const hint = page.getByTestId("interact-hint");
+	const expected = `按 E 開啟 ${title}`;
+	const nudges: Array<[string, number]> = [
+		["ArrowRight", 150],
+		["ArrowLeft", 300],
+		["ArrowRight", 450],
+		["ArrowLeft", 600],
+		["ArrowUp", 200],
+		["ArrowRight", 300],
+	];
+	for (const [key, ms] of nudges) {
+		const text = await hint.textContent().catch(() => null);
+		if (text === expected) {
+			return;
+		}
+		await hold(page, [key], ms);
+		await page.waitForTimeout(150);
+	}
+	await expect(hint).toHaveText(expected);
+}
+
 /** 站在終端機旁按 E，打一串指令，確認目標數進到 solvedCount/6，再用 Esc 關掉。 */
 export async function solveTerminal(
 	page: Page,
@@ -45,7 +72,7 @@ export async function solveTerminal(
 	commands: string[],
 	solvedCount: number,
 ): Promise<void> {
-	await expect(page.getByTestId("interact-hint")).toHaveText(`按 E 開啟 ${title}`);
+	await alignToTerminal(page, title);
 	await page.keyboard.press("e");
 	await expect(page.getByTestId("terminal-modal")).toBeVisible();
 	const input = page.getByLabel("指令輸入");
