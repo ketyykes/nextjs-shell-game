@@ -23,6 +23,14 @@ export interface GameEventMap {
 	"sfx:play": { sound: SfxName };
 	/** Phaser 發：Station 場景建立完成，React 可以開始互動。 */
 	"scene:ready": { sceneKey: string };
+	/** React 發：環境反應階梯（4.8）第 3 次錯誤的「燈閃一下」，Phaser 讓畫面暗一下再亮。 */
+	"ambient:flicker": { durationMs: number };
+	/** React 發：設定選單改了音量或靜音，Phaser 的 AudioManager 即時套用。 */
+	"audio:settings": { volume: number; muted: boolean };
+	/** React 發：暫停選單或設定選單開啟，Phaser 停住角色輸入。 */
+	"game:pause": { reason: "menu" };
+	/** React 發：選單關閉，Phaser 恢復角色輸入。 */
+	"game:resume": { reason: "menu" };
 }
 
 export type GameEventName = keyof GameEventMap;

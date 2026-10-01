@@ -1,5 +1,6 @@
 /**
- * 過關演出用的純函式（M4-3）：亮燈順序、人影閃現位置、主艙門格座標。
+ * 過關演出用的純函式（M4-3）：亮燈順序、人影閃現位置、主艙門格座標；
+ * 以及環境反應階梯「燈閃一下」的播法判斷與時間切分（M5-4）。
  *
  * 刻意不 import Phaser，讓 Vitest 在 node 環境直接測。
  * Station 場景把地圖資料傳進來，拿算好的結果去驅動 LightMask、ShadowFigure 與 tile 圖層。
@@ -96,4 +97,57 @@ export function airlockTilePosition(door: Pick<DoorMarker, "x" | "y">): { tileX:
 		tileX: Math.floor(door.x / TILE_SIZE),
 		tileY: Math.floor(door.y / TILE_SIZE),
 	};
+}
+
+// ---------------------------------------------------------------------------
+// 環境反應階梯：燈閃一下（M5-4）
+// ---------------------------------------------------------------------------
+
+/** 一次「燈閃一下」裡暗下去的次數。 */
+export const FLICKER_PULSES = 3;
+
+/** 每一段（暗下去或亮回來）最短的毫秒數，避免 durationMs 太小時 tween 長度變 0。 */
+const FLICKER_MIN_LEG_MS = 16;
+
+/**
+ * 燈閃怎麼播：
+ * - `skip`：亮燈序列或通電淡出進行中，或已經在閃，不打擾。
+ * - `mask`：還在斷電，遮罩整層再暗到全黑幾次。
+ * - `camera`：已通電、遮罩隱藏，改用鏡頭黑色 flash 做暗一下。
+ */
+export type FlickerMode = "skip" | "mask" | "camera";
+
+export interface FlickerConditions {
+	/** `powerOnSequence` 進行中（艙區一間間亮起）。 */
+	sequenceRunning: boolean;
+	/** 已呼叫 `setPowered(true)`。 */
+	isPowered: boolean;
+	/** 通電淡出完成、遮罩已隱藏。 */
+	isFullyLit: boolean;
+	/** 上一次燈閃還沒結束。 */
+	isFlickering: boolean;
+}
+
+/** 依燈光遮罩目前的狀態決定燈閃的播法。 */
+export function flickerMode(conditions: FlickerConditions): FlickerMode {
+	if (conditions.sequenceRunning || conditions.isFlickering) {
+		return "skip";
+	}
+	if (conditions.isFullyLit) {
+		return "camera";
+	}
+	// 已通電但還在淡出：不要跟淡出的 tween 搶遮罩
+	if (conditions.isPowered) {
+		return "skip";
+	}
+	return "mask";
+}
+
+/**
+ * yoyo tween 單段（暗下去或亮回來）的毫秒數：總長 `durationMs` 平均分給 `pulses` 次暗下去再亮回來。
+ * Phaser tween 的 duration 是單段長度，yoyo 加 repeat 後總長是 `duration × 2 × pulses`。
+ */
+export function flickerLegDuration(durationMs: number, pulses = FLICKER_PULSES): number {
+	const safePulses = Math.max(1, Math.trunc(pulses));
+	return Math.max(FLICKER_MIN_LEG_MS, Math.round(durationMs / (safePulses * 2)));
 }

@@ -51,6 +51,7 @@ const novaScriptSchema = z.strictObject({
 	onEnterRoom: lineListSchema.optional(),
 	onOpen: lineListSchema.optional(),
 	onSolved: lineListSchema.optional(),
+	onStuck: lineListSchema.optional(),
 });
 
 export const terminalDefinitionSchema = z.strictObject({
@@ -75,6 +76,7 @@ export const chapterDefinitionSchema = z
 		title: nonEmptyString,
 		intro: lineListSchema.optional(),
 		outro: lineListSchema.optional(),
+		novaErrorLines: lineListSchema.optional(),
 		terminals: z.array(terminalDefinitionSchema).min(1, { error: "章節至少要有一台終端機" }),
 	})
 	.superRefine((chapter, ctx) => {

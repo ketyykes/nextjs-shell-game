@@ -113,6 +113,11 @@ export interface TerminalSessionRecord {
 	shell: ShellSessionState;
 	/** 輸出區的內容，重新整理後要還原畫面用。 */
 	transcript: OutputEntry[];
+	/**
+	 * 環境反應階梯（4.8）的累積錯誤次數，過關後歸零，跨重整保留。
+	 * 選填：舊存檔沒有這個欄位就當 0。`saveTerminalSession` 傳入的紀錄沒帶這個欄位時會保留原值。
+	 */
+	errorCount?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -151,10 +156,13 @@ export interface GameActions {
 	restoreOxygen: () => void;
 
 	// 終端機 session
+	/** 整筆覆蓋；只有 `errorCount` 例外：傳入的紀錄沒帶時保留原值，避免存 shell 狀態時把階梯計數洗掉。 */
 	saveTerminalSession: (terminalId: string, record: TerminalSessionRecord) => void;
 	/** 只更新輸出紀錄，不動 shell 狀態；超過 `TRANSCRIPT_LIMIT` 時裁掉最舊的。 */
 	appendTranscript: (terminalId: string, entries: OutputEntry[]) => void;
 	clearTranscript: (terminalId: string) => void;
+	/** 更新環境反應階梯的累積錯誤次數，不動 shell 與 transcript；沒有 session 時略過。 */
+	setTerminalErrorCount: (terminalId: string, count: number) => void;
 
 	// 劇情旗標
 	setFlag: (flag: string) => void;

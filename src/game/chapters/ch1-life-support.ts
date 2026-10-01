@@ -62,6 +62,7 @@ const cryoTerminal: TerminalDefinition = {
 		onEnterRoom: ["喚醒程序……完成。", "你是……我查不到你的名字。", "這不太對。應該有名字的。"],
 		onOpen: ["這台控制台還有電。技師，試著看看裡面有什麼。"],
 		onSolved: ["名單上五個人，冷凍艙六個。", "你是第六個。我沒有第六個的紀錄。"],
+		onStuck: ["技師，你一直停在原地。", "先弄清楚你在哪裡、身邊有什麼。這台控制台只認指令，連「看」都要用指令。"],
 	},
 	fs: {
 		home: {
@@ -162,6 +163,7 @@ const lifeSupportTerminal: TerminalDefinition = {
 			"B3 跳脫。要去配電室手動復歸。",
 			"氧氣消耗量寫兩人？喔，那是感測器壞了。應該是。我想是。",
 		],
+		onStuck: ["三個子系統各自關在自己的目錄裡。", "技師，一間一間走進去讀狀態檔，讀完再退出來。我會等你。"],
 	},
 	fs: {
 		home: {
@@ -236,6 +238,7 @@ const quartersTerminal: TerminalDefinition = {
 		onEnterRoom: ["宿舍區。門牌我還讀得到。"],
 		onOpen: ["技師，cd ~ 會帶你回到自己的家目錄。站上每個人都有一個。"],
 		onSolved: ["那個檔案的日期一定是錯的，時鐘在撤離時重設過。", "你有家目錄，所以你確實住在這裡過。"],
+		onStuck: ["技師，這裡不是你的房間。", "每個人的東西都放在 /home 底下。去看看阿彬的，比一比哪一份最新。"],
 	},
 	fs: {
 		home: {
@@ -333,6 +336,7 @@ const powerTerminal: TerminalDefinition = {
 		onEnterRoom: ["配電室。斷路器都在這裡。", "跳脫的是 B2。不對，是 B3。我的紀錄有時候會……跳格。"],
 		onOpen: ["這台終端機從家目錄開機，你得自己走過去。技師，以 / 開頭的路徑叫絕對路徑，在哪裡都能用。"],
 		onSolved: ["重置碼收到。照明恢復中。", "……我什麼都沒看到。你看到什麼了嗎？"],
+		onStuck: ["工單是我開的。技師，先讀它，上面寫了文件在哪。", "跳脫的那個斷路器目錄裡，有東西不想被一般的列表看到。"],
 	},
 	fs: {
 		home: {
@@ -436,6 +440,7 @@ const medbayTerminal: TerminalDefinition = {
 			"打錯了按 ↑ 叫回來改。螢幕亂了就打 clear。",
 		],
 		onSolved: ["手動建檔……醫官很少這樣做。", "我會把這份表歸檔。名單應該只有五個人才對。"],
+		onStuck: ["病歷檔名太長了，連我都背不起來。", "技師，先看索引，找出 pod_06 對應哪一份。名字不必整個打完。"],
 	},
 	fs: {
 		home: {
@@ -527,6 +532,7 @@ const airlockTerminal: TerminalDefinition = {
 		onEnterRoom: ["主艙門。門後就是主環走廊。"],
 		onOpen: ["門鎖要鑰匙檔。技師，你已經會的東西就夠用了。"],
 		onSolved: ["我收到了。開門。", "我沒有關那扇門。"],
+		onStuck: ["門鎖檔知道鑰匙在哪裡。", "技師，照它寫的路徑從 / 開始走。有些檔名前面多了一個點。"],
 	},
 	fs: {
 		home: {
@@ -591,6 +597,13 @@ export const chapterOneLifeSupport: ChapterDefinition = {
 		"資料中心在那邊。",
 		"如果你想知道為什麼名單上沒有你，答案應該在那裡。",
 		"但那裡的日誌……有幾千份。",
+	],
+	novaErrorLines: [
+		"你確定你是技師？",
+		"……我記得技師不會這樣打。應該吧。",
+		"我有在數。每一次都有。",
+		"你打字的節奏，跟紀錄裡的不一樣。",
+		"沒關係，慢慢來。我一直都在看。",
 	],
 	terminals: [cryoTerminal, lifeSupportTerminal, quartersTerminal, powerTerminal, medbayTerminal, airlockTerminal],
 };

@@ -197,7 +197,15 @@ export const useGameStore = create<GameStore>()(
 			// 終端機 session ---------------------------------------------------
 
 			saveTerminalSession: (terminalId, record) => {
-				set((state) => ({ terminals: { ...state.terminals, [terminalId]: record } }));
+				const current = get().terminals[terminalId];
+				let nextRecord = record;
+
+				// 呼叫端存 shell 狀態時通常只帶 shell 與 transcript，這裡保留原本的階梯計數，避免被洗成 0
+				if (record.errorCount === undefined && current?.errorCount !== undefined) {
+					nextRecord = { ...record, errorCount: current.errorCount };
+				}
+
+				set((state) => ({ terminals: { ...state.terminals, [terminalId]: nextRecord } }));
 			},
 
 			appendTranscript: (terminalId, entries) => {
@@ -227,6 +235,23 @@ export const useGameStore = create<GameStore>()(
 				}
 
 				const nextRecord: TerminalSessionRecord = { ...current, transcript: [] };
+				set((state) => ({ terminals: { ...state.terminals, [terminalId]: nextRecord } }));
+			},
+
+			setTerminalErrorCount: (terminalId, count) => {
+				const current = get().terminals[terminalId];
+
+				// 沒有 session 就沒有地方掛計數；開啟終端機時一定會先建立 session，這裡安靜略過即可
+				if (current === undefined) {
+					return;
+				}
+
+				const errorCount = Math.max(0, Math.trunc(count));
+				if (current.errorCount === errorCount) {
+					return;
+				}
+
+				const nextRecord: TerminalSessionRecord = { ...current, errorCount };
 				set((state) => ({ terminals: { ...state.terminals, [terminalId]: nextRecord } }));
 			},
 

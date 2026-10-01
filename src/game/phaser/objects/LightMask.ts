@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { LIGHT_RADIUS, TERMINAL_INTERACT_RADIUS } from "../constants";
 import type { RoomId } from "../events";
 import type { RectData, TerminalMarker } from "../scenes/mapObjects";
+import { FLICKER_PULSES, flickerLegDuration, flickerMode } from "./effects";
 
 /** 黑色遮罩的不透明度。不是 1，讓牆的輪廓在極暗處隱約可見，維持恐怖氣氛又不至於完全迷路。 */
 const DARKNESS_ALPHA = 0.92;
@@ -19,6 +20,9 @@ const POWER_FADE_DURATION = 1500;
 
 /** 單一艙區亮起的淡入時間，毫秒。短到像「啪」一聲開燈，又不至於生硬。 */
 const ROOM_LIGHT_DURATION = 200;
+
+/** 燈閃時蓋在最上面的黑色層最高 alpha：1 是全黑，連玩家與終端機的光圈都一起暗掉。 */
+const FLICKER_PEAK_ALPHA = 1;
 
 /** 艙區挖亮用的顏色：erase 只看 alpha，顏色無所謂，用白色方便除錯時目視。 */
 const ROOM_ERASE_COLOR = 0xffffff;
@@ -70,6 +74,10 @@ export class LightMask {
 	private sequencePromise: Promise<void> | null = null;
 	/** 等「整層淡出完成」的 resolve 們；destroy 或反向斷電時也會放行，避免呼叫端卡住。 */
 	private fullyLitWaiters: Array<() => void> = [];
+
+	/** 環境反應階梯的「燈閃一下」：`level` 0 到 1，重畫時在洞挖完之後再蓋一層這個 alpha 的黑。 */
+	private readonly flickerState = { level: 0 };
+	private flickerTween: Phaser.Tweens.Tween | null = null;
 
 	private playerKey = "";
 	private terminalKey = "";
@@ -140,6 +148,8 @@ export class LightMask {
 		if (this.sequencePromise !== null) {
 			return this.sequencePromise;
 		}
+		// 燈閃到一半就開始亮燈：先收掉，讓第一間艙區亮起時畫面是正常的斷電狀態
+		this.stopFlicker();
 
 		const steps: PowerOnRoom[] = [];
 		for (const roomId of order) {
@@ -194,6 +204,7 @@ export class LightMask {
 
 		this.fadeTween?.stop();
 		this.fadeTween = null;
+		this.stopFlicker();
 
 		if (powered && immediate) {
 			this.cancelSequence();
@@ -234,6 +245,55 @@ export class LightMask {
 		});
 	}
 
+	/**
+	 * 環境反應階梯第 3 次錯誤的「燈閃一下」（4.8），總長約 `durationMs`。
+	 *
+	 * - 斷電中：在遮罩最上層蓋一層黑，從 0 拉到全黑再回來，共 `FLICKER_PULSES` 次（yoyo + repeat），
+	 *   連玩家與終端機的光圈也一起暗，像整條電路抖了一下。
+	 * - 已通電（遮罩已隱藏）：改用鏡頭的黑色 flash 暗一下。
+	 * - 亮燈序列或通電淡出進行中、或上一次還沒閃完：略過，不跟 `powerOnSequence` 搶遮罩。
+	 * - tween 掛在場景上，場景暫停時不會動；Station 會在暫停期間先排隊，resume 時再呼叫。
+	 */
+	flicker(durationMs: number): void {
+		if (this.isDestroyed) {
+			return;
+		}
+
+		const mode = flickerMode({
+			sequenceRunning: this.sequencePromise !== null,
+			isPowered: this.isPowered,
+			isFullyLit: this.isFullyLit,
+			isFlickering: this.flickerTween !== null,
+		});
+
+		if (mode === "skip") {
+			return;
+		}
+
+		if (mode === "camera") {
+			this.scene.cameras.main.flash(durationMs, 0, 0, 0);
+			return;
+		}
+
+		this.flickerState.level = 0;
+		this.flickerTween = this.scene.tweens.add({
+			targets: this.flickerState,
+			level: FLICKER_PEAK_ALPHA,
+			duration: flickerLegDuration(durationMs),
+			ease: "Quad.easeOut",
+			yoyo: true,
+			repeat: FLICKER_PULSES - 1,
+			onUpdate: () => {
+				this.needsRedraw = true;
+			},
+			onComplete: () => {
+				this.flickerTween = null;
+				this.flickerState.level = 0;
+				this.needsRedraw = true;
+			},
+		});
+	}
+
 	/** 清掉遮罩與 tween。漸層 texture 留在 TextureManager（很小，場景重啟時重用）。 */
 	destroy(): void {
 		if (this.isDestroyed) {
@@ -243,6 +303,7 @@ export class LightMask {
 
 		this.fadeTween?.stop();
 		this.fadeTween = null;
+		this.stopFlicker();
 		this.cancelSequence();
 		this.litRooms = [];
 		this.resolveFullyLitWaiters();
@@ -284,6 +345,17 @@ export class LightMask {
 			},
 		});
 		this.roomTweens.push(tween);
+	}
+
+	/** 停掉進行中的燈閃，黑色層歸零並標記重畫。 */
+	private stopFlicker(): void {
+		if (this.flickerTween === null) {
+			return;
+		}
+		this.flickerTween.stop();
+		this.flickerTween = null;
+		this.flickerState.level = 0;
+		this.needsRedraw = true;
 	}
 
 	/** 取消排程中的序列計時器與艙區淡入 tween（不 resolve 等待者，由呼叫端決定）。 */
@@ -381,6 +453,11 @@ export class LightMask {
 			this.overlay.erase(this.terminalKey, terminal.x, terminal.y);
 		}
 		this.eraseLitRooms();
+
+		// 燈閃：洞挖完再蓋一層黑，光圈也一起暗
+		if (this.flickerState.level > 0) {
+			this.overlay.fill(0x000000, this.flickerState.level);
+		}
 
 		this.overlay.render();
 	}

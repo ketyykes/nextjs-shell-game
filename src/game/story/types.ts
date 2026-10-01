@@ -50,6 +50,11 @@ export interface NovaScript {
 	onOpen?: string[];
 	/** 過關時：先在終端機內嵌顯示，關閉後地圖對話框再說一次最後一句。 */
 	onSolved?: string[];
+	/**
+	 * 卡關時（連續五次錯誤或三分鐘沒進展，4.8）：NOVA 用劇情口吻給方向，內容等同 hint 第一段。
+	 * 沒寫就直接用 `hints[0]` 套 NOVA 的口頭禪。
+	 */
+	onStuck?: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -84,6 +89,11 @@ export interface ChapterDefinition {
 	intro?: string[];
 	/** 全部終端機過關後的結尾台詞（4.4 結尾鉤子）。 */
 	outro?: string[];
+	/**
+	 * 環境反應階梯第 9 次錯誤時 NOVA 說的話（4.8：「你確定你是技師？」這類），依序輪流用。
+	 * 沒寫就用 `src/game/story/pressure.ts` 的預設句。
+	 */
+	novaErrorLines?: string[];
 	terminals: TerminalDefinition[];
 }
 
