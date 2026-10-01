@@ -76,7 +76,8 @@ src/
 ├── game/
 │   ├── phaser/            # Phaser 4：events.ts 與 constants.ts 是契約，EventBus 零相依，scenes/ 與 objects/
 │   ├── store/             # zustand store 與 localStorage 存檔；types.ts 是存檔格式契約
-│   ├── chapters/          # 劇本資料 (ch1-life-support.ts)，M5 會加 zod schema
+│   ├── story/             # 劇本契約：types.ts、zod schema、目標判定組合函式、劇情旗標
+│   ├── chapters/          # 劇本資料 (ch1-life-support.ts)，載入時 validateChapter
 │   └── shell/             # Shell 引擎，純 TypeScript，零 React/Phaser 相依
 │       ├── types.ts       # 所有 shell 模組的共用契約，改介面先改這裡
 │       ├── shell.ts       # 執行入口 Shell 類別 (execute、complete、toState)
@@ -94,6 +95,7 @@ scripts/build-map.mjs       # 第一章地圖產生腳本，輸出 Tiled JSON (p
 public/sprites/             # 四位角色的 32x48 sprite sheet (128x192，4x4 格)
 public/tiles/               # Buch Sci-fi Interior tileset (448x192，14x6 格，32px)
 public/maps/deck1.json      # 第一章地圖 (40x24 格)，由 build-map.mjs 產生，可用 Tiled 開啟
+public/scenes/              # NOVA 立繪 (nova-eye、nova-core，256px)，之後放 codex 產的場景插圖
 docs/
 ├── game-design.md          # 設計定案 (第 7 節是遊戲程式的預定目錄結構)
 ├── progress.md             # 進度、下一步、已知陷阱

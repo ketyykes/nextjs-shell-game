@@ -19,10 +19,10 @@
 | 項目 | 內容 |
 |---|---|
 | 更新日期 | 2026-10-01 |
-| 最新 commit | `fd9ef4e test: 加入 Phaser 模組、地圖契約、PhaserGame 元件的單元測試並更新 /play e2e 為走到終端機按 E` |
-| 目前階段 | M3 Phaser 地圖與角色 ✅ 完成，M4 事件橋接與 HUD ⬜ 尚未開工（M4-1 事件型別與 M4-2 開關終端機已在 M3 順手做完） |
-| 程式碼狀態 | `/play` 是完整地圖：角色走動碰撞、斷電光圈、六台終端機發光、走近按 E 開 shell 彈窗、Esc 關閉、重整接續。`pnpm test --run` 35 個測試檔 560 個測試全綠，`pnpm test:e2e` 6 個全綠 |
-| 下一步 | M4-3 過關演出與 M4-4 NOVA 對話框，見第 3 節。`Station.lightMask.setPowered(true)` 與 `collisionLayer` 已留好掛點 |
+| 最新 commit | `6d5ce2a test: 加入劇本 schema、目標判定、第一章正解序列、NOVA 對話框、HUD、演出純函式的測試與過關 e2e` |
+| 目前階段 | M4 事件橋接與 HUD ✅ 完成，M5 第一章劇本 🔄 進行中（M5-1、M5-2 完成，剩 M5-3 卡關偵測、M5-4 環境反應階梯、M5-5 章節結束） |
+| 程式碼狀態 | `/play` 可從 T1 玩到 T6：六台終端機有真的檔案系統與目標判定，過關回氧、學指令、NOVA 說話、T4 燈逐間亮加人影、T6 開門。`pnpm test --run` 44 個測試檔 671 個測試全綠，`pnpm test:e2e` 7 個全綠 |
+| 下一步 | M5-3 卡關偵測，見第 3 節。第 8 節有這輪自主執行的決策，Danny 回來先看那裡 |
 | 遠端 | `origin` 是 SSH 網址 `git@github.com:ketyykes/nextjs-shell-game.git`，本機與 `origin/main` 同步 |
 
 ## 2. 里程碑總覽
@@ -35,8 +35,8 @@
 | M1 | Shell 引擎與單元測試 | ✅ | 3.3、4.8、8-1 |
 | M2 | 終端機 UI 與 zustand store | ✅ | 4.9、5、8-2 |
 | M3 | Phaser 地圖與角色 | ✅ | 3.2、6.2、9、8-3 |
-| M4 | 事件橋接與 HUD | ⬜ | 3.1、4.6、8-4 |
-| M5 | 第一章劇本 | ⬜ | 3.4、4.4、4.8、8-5 |
+| M4 | 事件橋接與 HUD | ✅ | 3.1、4.6、8-4 |
+| M5 | 第一章劇本 | 🔄 | 3.4、4.4、4.8、8-5 |
 | M6 | 插圖與音效 | ⬜ | 4.10、6.3、8-6 |
 | M7 | 存檔、標題畫面與設定 | ⬜ | 4.7、8-7 |
 
@@ -105,23 +105,25 @@
 
 **M3 順手做掉的 M4 項目**：M4-1 事件型別（`events.ts`）與 M4-2 開關終端機（按 E 開、Phaser 暫停、鍵盤交給 shell、Esc 關、Phaser 恢復、地圖變暗）都完成了。M4 剩 M4-3 過關演出、M4-4 NOVA 對話框、M4-5 HUD 的目標面板與已學指令側邊面板。
 
-### M4 事件橋接與 HUD ⬜
+### M4 事件橋接與 HUD ✅
 
-目標：地圖與終端機能來回切換，過關有演出。
+目標：地圖與終端機能來回切換，過關有演出。commit `e2bac61` 到 `6d5ce2a`（與 M5-1、M5-2 同一批）。
 
-- ✅ **M4-1 事件型別**（3.1）：`src/game/phaser/events.ts`，M3 完成。多了 `terminal:nearby` 與 `scene:ready`。
-- ✅ **M4-2 開關終端機**（4.6）：M3 完成，見 `TerminalZone.ts` 與 `PlayScreen.tsx`。
-- ⬜ **M4-3 過關演出**（4.4）：T4 燈逐盞亮加走廊盡頭人影一幀；T6 主艙門開。
-- ⬜ **M4-4 NOVA 對話框**（4.9）：右下角固定，立繪 `nova-eye` 在左、文字在右，打字動畫，幾秒後自動淡出。
-- ⬜ **M4-5 HUD**（4.8、5）：目前目標面板、左上角 O2 百分比、已學指令側邊面板。
-- **完成定義**：從地圖開終端機解一題，關掉後看到演出。
+| 任務 | 狀態 | 產出 |
+|---|---|---|
+| M4-1 事件型別 | ✅ | `src/game/phaser/events.ts`，M3 完成。多了 `terminal:nearby` 與 `scene:ready` |
+| M4-2 開關終端機 | ✅ | M3 完成，見 `TerminalZone.ts` 與 `PlayScreen.tsx` |
+| M4-3 過關演出 | ✅ | `objects/effects.ts`（純函式：亮燈順序、人影位置、門格座標）、`ShadowFigure.ts`、`LightMask.powerOnSequence`。T4：0ms 配電室亮、450ms 走廊亮、650ms 人影在**視野邊緣**閃 120ms 加鏡頭微震、之後每 450ms 亮一間、2900ms 整層淡出。T6：移除門 tile 與阻擋格、鏡頭閃全息藍。終端機開著時演出延到關閉才播。重整後由 `startGame` 的 `solvedTerminals` 經 registry 直接套最終狀態，不播動畫 |
+| M4-4 NOVA 對話框 | ✅ | `NovaDialogue.tsx` 加 `useNovaQueue.ts`。右下角固定、立繪 `public/scenes/nova-eye.png`、打字動畫、停留時間依字數（4 到 9 秒）、淡出後 `onShown` 推進佇列；同前綴只說一次 |
+| M4-5 HUD | ✅ | `ObjectivePanel.tsx`（左下角目前目標、過關打勾 3 秒、`n/6` 進度）、`CommandCheatSheet.tsx`（右側可展開的已學指令，點指令看 man 說明）、O2 在 `PlayScreen` 的 `Hud` |
+| 過關流程 | ✅ | `PlayScreen.handleExecuted`：錯誤扣氧；成功且 `evaluateObjective` 為 true 就 `markTerminalSolved`、`restoreOxygen`、`learnCommand`（存完整的 `ls -a` 字串，shell 只學指令名）、`touchSave`、發 `puzzle:solved`、NOVA 過關台詞內嵌進終端機、關閉後地圖對話框再說最後一句 |
 
-### M5 第一章劇本 ⬜
+### M5 第一章劇本 🔄
 
 目標：從 T1 玩到 T6 通關。
 
-- ⬜ **M5-1 schema 與旗標**（3.4、7）：`src/game/story/{schema,flags,objectives}.ts`，zod 定義章節與終端機 schema。
-- ⬜ **M5-2 ch1-life-support.ts**（4.4）：六台終端機各自的初始 FS、目標判定函式、三段式 hint、NOVA 台詞與觸發條件、進房台詞。所有文字不得指涉主角性別、年齡、名字，NOVA 叫玩家「技師」。
+- ✅ **M5-1 schema 與旗標**（3.4、7）：`src/game/story/{types,schema,objectives,flags,rooms,index}.ts`。zod 4 `strictObject`，多餘欄位也擋；`validateChapter` 在劇本模組載入時就跑。目標判定組合函式：`commandIs`、`catFile`、`cdInto`、`lsWithFlag`、`outputContains`、`all`、`any`；PlayScreen 用 `createObjectiveContext` 加 `evaluateObjective`。
+- ✅ **M5-2 ch1-life-support.ts**（4.4）：六台終端機的檔案系統、目標、三段式 hint、NOVA 三時機台詞、章節 `intro`／`outro` 都寫了，測試用真的 Shell 跑每台的正解序列並檢查文字不含性別指涉。正解序列表見 `src/game/chapters/ch1-life-support.test.ts`。劇情文字是初稿，Danny 可直接改檔案內容，測試會抓格式錯誤。
 - ⬜ **M5-3 卡關偵測**（4.8）：同一台終端機連續五次錯誤或三分鐘沒進展，NOVA 用劇情台詞給 hint 第一段的內容。
 - ⬜ **M5-4 環境反應階梯與氧氣值**（4.8）：3 次燈閃、6 次遠處門聲、9 次 NOVA 台詞；每次錯誤 O2 掉 1%，最低 5%，過關回 100%。
 - ⬜ **M5-5 章節結束**（4.7）：過場插圖、NOVA 結尾台詞、指令回顧卡、自動存檔、「第二章開發中」回標題。
@@ -130,7 +132,7 @@
 ### M6 插圖與音效 ⬜
 
 - ⬜ **M6-1 codex 產圖**（6.3）：還缺六個艙區各一張場景插圖與開場、結尾兩張過場，共 8 張。NOVA 立繪與 sprite 已完成。用 `-i` 附 `nova-eye-original.png` 或 tileset 預覽當風格參考，提示詞放 stdin，見第 5 節陷阱。
-- ⬜ **M6-2 素材搬移**：`nova-eye`、`nova-core` 縮小版搬到 `public/scenes/`。
+- ✅ **M6-2 素材搬移**：`nova-eye`、`nova-core` 256px 預覽版已在 `public/scenes/`（M4 做 NOVA 對話框時順手搬）。
 - ⬜ **M6-3 音效**（4.10）：Kenney Sci-fi Sounds 與 Interface Sounds 挑五種：環境嗡鳴、按鍵、門開、電力恢復、NOVA blip。Phaser SoundManager 為唯一出口，React 透過 `sfx:play` 請 Phaser 播。
 - **完成定義**：八張圖接上對應終端機與過場；五種音效可在設定靜音。
 
@@ -198,6 +200,14 @@
 
 每次 session 收工加一筆，最新在最上面。格式：日期、做了什麼、commit 範圍、下一步。
 
+### 2026-10-01（第四場，Danny 下 `/goal` 要求一路做完、疑問照建議並記錄）
+
+- 完成 M4 全部與 M5-1、M5-2。契約先行（`src/game/story/types.ts`、Shell 的 `fs` getter），四個 agent 同時做：劇本 schema 與六台劇本（opus）、NOVA 對話框（sonnet）、HUD 兩個面板（sonnet）、Phaser 演出（opus）；我接 PlayScreen 的過關流程與 NOVA 三時機，加 e2e。
+- 自主決定的事項全部記在第 8 節。
+- 44 個測試檔 671 個單元測試、7 個 e2e 全綠。截圖驗證 T4 燈逐間亮、人影在視野邊緣閃一幀、T6 門開、重整後直接全亮。
+- commit：`e2bac61`、`3b70d49`、`606c69c`（feat）、`6d5ce2a`（test）、本檔另一筆 docs。未 push。
+- 下一步：M5-3 卡關偵測、M5-4 環境反應階梯、M5-5 章節結束。
+
 ### 2026-10-01（第三場）
 
 - 完成整個 M3，順手做掉 M4-1、M4-2。地圖改用腳本產生（Danny 問過 Tiled 是什麼後同意，可用 Tiled 開起來精修）。先定 `events.ts`、`constants.ts` 契約，平行派地圖腳本（opus）、Phaser 骨架（opus）、PhaserGame 元件（sonnet），再派 Player（opus）、互動區與燈光遮罩（sonnet），最後自己接 Station、PlayScreen 與 e2e。
@@ -235,3 +245,23 @@
 - 寫 `scripts/slice-sprites.mjs` 重切四張 sprite sheet 到 `public/sprites/`。
 - commit `277d044` 到 `c1e75ce` 共七筆，remote 改 SSH 後 push 成功。
 - 下一步：M1 Shell 引擎。
+
+## 8. 自主執行時的決策（待 Danny 確認）
+
+2026-10-01 Danny 下 `/goal`「一路做完，疑問照建議並記錄」，之後沒有再用 AskUserQuestion。以下是我自己拍板的事，每一條都可以推翻，推翻時連帶要改的地方寫在括號裡。
+
+| # | 決策 | 理由 | 推翻時要改 |
+|---|---|---|---|
+| 1 | 已學指令存**完整字串**（`ls -a`、`cd ~`），shell 的 `help` 只學指令名 | 側邊面板要顯示「ls -a」才看得出這台教的是旗標；`help` 只認指令名 | `PlayScreen.toCommandName`、`CommandCheatSheet` |
+| 2 | 指令在**過關後**才算學會，不是開終端機就學 | 4.8 說每台終端機引入新概念，過關代表學會；M3 的「開了就學」是臨時簡化 | `PlayScreen.handleExecuted` |
+| 3 | 人影閃現位置夾在**鏡頭視野邊緣**，不是走廊真正的盡頭 | 鏡頭放大兩倍只看得到 15 格，走廊 33 格寬，玩家在中段時真盡頭在畫面外，玩家根本看不到那一幀 | `effects.shadowFlashPosition` 的第三參數、`Station.SHADOW_VIEW_MARGIN` |
+| 4 | 終端機開著時過關，Phaser 演出**延到關閉終端機才播** | 場景暫停中播不了，而且玩家正盯著終端機；關掉後看到燈亮比較有戲 | `Station.playSolvedEffect` 的排隊邏輯 |
+| 5 | NOVA 過關台詞：全部內嵌在終端機輸出區，關閉後地圖對話框**只重說最後一句** | 避免同一段話在兩個地方完整播兩次 | `PlayScreen.pendingSolvedLineRef` |
+| 6 | 進艙區台詞每間**只說一次**，用 `ch1.room.<id>.entered` 旗標跨重整去重；開場 `intro` 用 `ch1.introShown`；結尾 `outro` 六台全過後用 `ch1.outroShown` | 重複觸發會很吵 | `PlayScreen` 三個 useEffect |
+| 7 | 開發模式掛 `window.__kepler9.emit` 除錯鉤子，正式 build 不掛 | 用鍵盤走到 T4 的自動化太脆弱，直接發事件才能截圖驗證演出；之後除錯也方便 | `PlayScreen` 第一個 useEffect |
+| 8 | T6 過關時若 T4 還沒過，也把燈全亮 | 存檔漏了 T4 時玩家摸黑走出去很怪；正常流程 T4 一定先過 | `Station.playSolvedEffect` 的 `ch1-t6` 分支 |
+| 9 | `startGame` 多一個選填 `solvedTerminals`，經 `game.registry` 給 Station 還原狀態 | registry 要 `new Phaser.Game` 之後才有，`startGame` 前沒辦法 set | `main.ts`、`PhaserGame.tsx` |
+| 10 | 設定的「關閉閃爍」目前**管不到 Phaser 的人影閃現與鏡頭震動** | M7-5 做設定選單時一起接，到時加 registry key 或事件 | 列在 M7-5 |
+| 11 | zod schema 用 `strictObject`，劇本多打一個欄位就報錯 | 3.4 要求「欄位打錯會直接報錯」，寬鬆物件抓不到打錯的欄位名 | `schema.ts` |
+| 12 | 阿彬的本名**沒寫**，病歷寫「慣用稱呼：阿彬」 | 設計說本名只在病歷出現一次，但沒定名字，不擅自編 | `ch1-life-support.ts` T5 的病歷檔 |
+| 13 | `day_900.txt` 的 mtime 比喚醒排程被改的時間早 16 分鐘 | 若兩者相同會讓人以為排程是阿彬改的，跟核心真相衝突 | 同上 T3 |
