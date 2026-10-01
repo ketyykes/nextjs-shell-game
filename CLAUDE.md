@@ -54,7 +54,7 @@ pnpm map:build
 ## 測試
 
 - **Vitest** (`vitest.config.mts`)：環境 jsdom，`@/` 別名已對應 `src/`，只掃 `src/**/*.{test,spec}.{ts,tsx}`，所以 `e2e/` 不會被撿到。純邏輯測試（例如 shell 引擎）在檔案頂端加 `// @vitest-environment node` 可省掉 jsdom 開銷。
-- **Playwright** (`playwright.config.ts`)：測試放 `e2e/`，只跑 chromium，`baseURL` 是 `http://localhost:3000`，報告用 html reporter。
+- **Playwright** (`playwright.config.ts`)：測試放 `e2e/`，只跑 chromium，`baseURL` 是 `http://localhost:${PORT ?? 3000}`，報告用 html reporter。`happy-path.spec.ts` 從標題一路解完整章（約 70 秒），地圖上走路用「貼牆滑行」而不是純計時，原因與坑見 `docs/progress.md` 第 5 節。
 
 ### TDD 流程
 
@@ -110,7 +110,7 @@ src/
 │       └── commands/      # 每個指令一個檔案，index.ts 是註冊表，docs.ts 是 man 說明資料
 └── lib/
     └── utils.ts           # 工具函式 (cn 函式)
-e2e/                        # Playwright 測試 (home.spec.ts、play.spec.ts)
+e2e/                        # Playwright 測試 (home.spec.ts、play.spec.ts、happy-path.spec.ts 整章走完)
 scripts/slice-sprites.mjs   # sprite sheet 切格腳本 (pnpm sprites:slice)
 scripts/build-map.mjs       # 第一章地圖產生腳本，輸出 Tiled JSON (pnpm map:build)
 public/sprites/             # 四位角色的 32x48 sprite sheet (128x192，4x4 格)

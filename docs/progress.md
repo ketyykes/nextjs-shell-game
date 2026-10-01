@@ -19,9 +19,9 @@
 | 項目 | 內容 |
 |---|---|
 | 更新日期 | 2026-10-01 |
-| 最新 commit | `12e1d8f chore: Playwright 設定吃 PORT 環境變數，3000 被佔住時可指到其他埠`（前兩筆是 `7daa13e` fix 與 `581df8d` test） |
-| 目前階段 | **M0 到 M7 全部完成**，第一版（第一章）可從標題玩到章節結束；Danny 試玩中，第一個回報的 bug（回標題後音效炸掉）已修 |
-| 程式碼狀態 | 標題 → 選角 → boot log → 地圖，六台終端機、過關演出、NOVA 三時機台詞、卡關提示、環境反應階梯、插圖卡、五種音效、暫停與設定、章節結束畫面都有。`pnpm test --run` 55 個測試檔 812 個測試全綠，`PORT=3001 pnpm test:e2e` 10 個全綠，`pnpm build` 通過（第五場驗過，本場只改 Phaser 端與測試） |
+| 最新 commit | `f809f5c test: 第一章 happy path e2e，從標題一路解完六台終端機到章節結束再回標題`（前一筆 `df08d7d` 是 fix） |
+| 目前階段 | **M0 到 M7 全部完成**，第一版（第一章）可從標題玩到章節結束；Danny 試玩中。第七場用 playwright-cli 走完整條 happy path，抓到並修掉兩個 Esc／E 鍵的 bug，整條流程已有 e2e 守著 |
+| 程式碼狀態 | 標題 → 選角 → boot log → 地圖，六台終端機、過關演出、NOVA 三時機台詞、卡關提示、環境反應階梯、插圖卡、五種音效、暫停與設定、章節結束畫面都有。`pnpm test --run` 55 個測試檔 813 個測試全綠，`PORT=3001 pnpm test:e2e` 13 個全綠（含 `happy-path.spec.ts` 整章走完約 70 秒），`pnpm build` 通過（第五場驗過，之後只改 Phaser 端、鍵盤處理與測試） |
 | 下一步 | 沒有排定的里程碑。建議：Danny 實際玩一輪第一章、看第 8 節的決策清單、整理劇情文字；之後的候選工作見第 9 節 |
 | 遠端 | `origin` 是 SSH 網址 `git@github.com:ketyykes/nextjs-shell-game.git`，本機與 `origin/main` 同步 |
 
@@ -187,7 +187,10 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 - **Phaser 鍵盤的三個坑**：（1）`createCursorKeys()` 會連 SPACE、SHIFT 一起 capture，而且 capture 是整個 window 共用，終端機輸入框會打不出空白，所以 Player 用 `addKeys` 分開註冊、WASD 不 capture；（2）`JustDown` 靠 `Key.onUp` 會清掉的旗標，keydown 與 keyup 同一幀時（自動化測試的 `press`）會漏掉，要用 `key.on("down")` 事件；（3）`game.destroy()` 是排到下一個 step 才拆 canvas，React StrictMode 同步建立再立刻 destroy 會留下兩層 canvas，`PhaserGame` 改成 `requestAnimationFrame` 延後一幀建立。
 - **地圖契約**：圖層與物件命名在 `src/game/phaser/constants.ts`，腳本 `scripts/build-map.mjs` 與 `Station.ts` 兩邊都照它；`map.test.ts` 會檢查 `deck1.json` 跟 `buildMap(DEFAULT_LAYOUT)` 一致，所以用 Tiled 手改地圖後要同步更新腳本或改測試。Tiled 1.9 以後的 `class` 欄位 Phaser 不讀，物件要用 `type`。警示條邊框是「地板的邊緣」放 `floor` 層可走，真正的牆是深色片放 `walls` 層。
 - **store 的使用規則**：`@/game/store` 的 index 帶 React hook，只能在 client component import，純邏輯或 server component 用 `@/game/store/types`。**讀檔完成前不要呼叫任何 action**（每次 `set` 都會寫 localStorage，會把預設值蓋掉存檔），依賴存檔的畫面都要先等 `useStoreHydration()` 回 true。selector 不要回傳新組的物件，多欄位用 `useShallow`。
-- **Terminal 元件的整合規則**：`shell` 必須是同一個實例（`useState` 保住），每次 render 都 `new Shell` 會重置 cwd 與歷史。`entries` 由父層持有並整批替換，`clear` 會傳空陣列。掛載當下就在 `entries` 裡的 dialogue 不重播打字動畫，要播的 NOVA 台詞得在掛載後才 push。Esc 有 `preventDefault` 沒有 `stopPropagation`，之後 Phaser 或暫停選單聽 Esc 時要在終端機開著時擋掉。
+- **Terminal 元件的整合規則**：`shell` 必須是同一個實例（`useState` 保住），每次 render 都 `new Shell` 會重置 cwd 與歷史。`entries` 由父層持有並整批替換，`clear` 會傳空陣列。掛載當下就在 `entries` 裡的 dialogue 不重播打字動畫，要播的 NOVA 台詞得在掛載後才 push。Esc 有 `preventDefault` 也有 `stopPropagation`（原因見下一條）。
+- **window 的 keydown 監聽會接到「讓它掛上去的那個事件」**：PlayScreen 的暫停選單 Esc 監聽掛在 window，而且在終端機關閉（state 變更）的同一個 keydown 事件裡由 effect 重新掛回去。React 對離散事件會同步 flush effect，而 DOM 規範只禁止「同一個 target 在派送中新增的監聽」被觸發，window 是上層的另一個 target，所以同一下 Esc 關了終端機又打開暫停選單。2026-10-01 第七場踩到，修法是終端機的 Escape handler 加 `stopPropagation`。同類結構（元件 A 處理某鍵後卸載、元件 B 在 window 聽同一個鍵）都會中招，先懷疑這個。之前 e2e 的回標題測試用重試迴圈「按到暫停選單開為止」，剛好把這個 bug 蓋掉了，e2e 裡的重試迴圈要小心。
+- **暫停選單開著時 Phaser 場景沒暫停**：`game:pause` 只關角色輸入，場景照跑（燈光脈動、NOVA 對話不受影響），所以 Phaser 這邊聽的鍵（E 開終端機）要自己擋。`TerminalZones.setInteractEnabled` 由 Station 在 `game:pause`／`game:resume` 切換；之後新增 Phaser 端的按鍵都要走同一條路。
+- **e2e 在地圖上走路用「貼牆滑行」**：角色碰撞盒 20x14、速度 120 px/s、門只有一格寬（容錯 ±6 px），純計時走會偏。同時按住兩個方向鍵，被牆擋住的軸停住、另一軸沿牆滑，滑到門口自動進去；進門後用 `hud-room` 的艙區名當檢查點（`holdUntilRoom`），只有最後對齊終端機那段用計時（互動半徑 40 px，容錯 ±30 px）。兩個坑：（1）走廊上下兩排的門在同一欄（x=6、18、30），進走廊後要先橫移一段再貼牆，不然會從對面的門鑽回去；（2）離開房間要「先直走到牆再貼牆」，斜著走會在碰到牆之前就越過門口。範例在 `e2e/happy-path.spec.ts`。
 - **Vitest 與 CSS Module**：`postcss.config.mjs` 用字串宣告 `@tailwindcss/postcss`，Vite 解析不了，所以 `vitest.config.mts` 設了 `css.postcss: { plugins: [] }`，單元測試不跑 Tailwind。vitest 沒開 globals，Testing Library 不會自動 cleanup，元件測試要手動 `afterEach(cleanup)`。
 - **字型尺寸**：VT323 的 x-height 偏小，終端機字級不要低於 20px；Fusion Pixel 用 12 的整數倍最清楚。Next dev 模式左下角有 Next.js 的圓形工具按鈕，會蓋住 `/play` 的設定列，正式 build 沒有。
 - **Shell 引擎的已知邊界**（M1 刻意不做，之後章節需要再補）：
@@ -208,6 +211,15 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 ## 7. 工作日誌
 
 每次 session 收工加一筆，最新在最上面。格式：日期、做了什麼、commit 範圍、下一步。
+
+### 2026-10-01（第七場，用 playwright-cli 走完 happy path，補整章 e2e）
+
+- Danny 要求用 playwright-cli 把 happy path 測過一遍、有錯就修。用 `run-code` 在真瀏覽器走標題 → 選角 → boot log → 地圖 → 六台終端機，發現兩個 bug：（1）關終端機的那一下 Esc 會順便打開暫停選單（window 監聽在同一個事件裡被重新掛回去）；（2）暫停選單開著時按 E 還能把終端機開在選單底下。都先寫紅燈測試再修：`Terminal.test.tsx` 驗 Esc 不往 window 傳，`play.spec.ts` 新增兩個 e2e，回標題測試拿掉掩蓋 bug 的重試迴圈。
+- 新增 `e2e/happy-path.spec.ts`：從標題一路解完六台終端機（照劇本順序），看到章節結束的 outro → 回顧卡 → 回標題，存檔還在、`pageerror` 為空。走路用貼牆滑行，細節寫在第 5 節。HUD 艙區名加 `data-testid="hud-room"`。
+- 55 個測試檔 813 個單元測試、13 個 e2e 全綠，tsc 與 lint 乾淨。commit：`df08d7d`（fix）、`f809f5c`（test）、本檔另一筆 docs。未 push。
+- 一次觀察到但沒重現的現象：剛改完 Phaser 端檔案立刻跑 e2e，回標題測試在新遊戲裡看到進度 0/6（存檔像被重置）；之後重跑三次與整套都過，推測是 Turbopack 編譯新模組撞上測試中的導頁。再遇到就先排除 HMR 再查。
+- 工作樹裡有一筆不是我改的 `.gitignore` 變更（擋 playwright-cli 的根目錄截圖與 storage state），沒一起 commit。
+- 下一步：Danny 繼續試玩；其餘見第 4、8、9 節。
 
 ### 2026-10-01（第六場，Danny 開始試玩，修第一個回報的 bug）
 
