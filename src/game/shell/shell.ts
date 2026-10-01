@@ -59,6 +59,11 @@ export class Shell {
 		return this.currentCwd;
 	}
 
+	/** 這個 session 的檔案系統，目標判定用它解析路徑；指令仍透過 context 拿。 */
+	get fs(): ShellOptions["fs"] {
+		return this.options.fs;
+	}
+
 	get home(): string {
 		return this.options.home ?? HOME_DIR;
 	}
