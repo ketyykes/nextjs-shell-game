@@ -113,6 +113,46 @@ test.describe("/play 地圖與終端機", () => {
 		await expect(page.getByTestId("terminal-modal")).toBeVisible();
 	});
 
+	test("回標題再繼續（Phaser 遊戲重建）後送指令不會因舊場景殘留的音效訂閱而炸", async ({ page }) => {
+		const pageErrors: string[] = [];
+		page.on("pageerror", (error) => pageErrors.push(error.message));
+
+		// 先過一關讓存檔有 savedAt，回標題才看得到「繼續」
+		await openCryoTerminal(page);
+		const input = page.getByLabel("指令輸入");
+		await input.fill("cat wake_up.txt");
+		await input.press("Enter");
+		await expect(page.getByTestId("objective-checkbox")).toHaveText("☑");
+		await page.keyboard.press("Escape");
+		await expect(page.getByTestId("terminal-modal")).toBeHidden();
+
+		// 暫停選單 → 回標題：PlayScreen 卸載、舊的 Phaser 遊戲 destroy；再按「繼續」建新遊戲
+		// 終端機剛關掉時 PlayScreen 的 Esc 監聽還在重掛，太快按會漏掉，所以沒開就再按一次
+		let pauseOpened = false;
+		for (let attempt = 0; attempt < 3 && !pauseOpened; attempt += 1) {
+			await page.waitForTimeout(200);
+			await page.keyboard.press("Escape");
+			pauseOpened = await page
+				.getByTestId("pause-menu")
+				.waitFor({ timeout: 1000 })
+				.then(() => true)
+				.catch(() => false);
+		}
+		await expect(page.getByTestId("pause-menu")).toBeVisible();
+		await page.getByRole("dialog", { name: "暫停選單" }).getByText("回標題").click();
+		// client-side 導頁後 Next 的路由播報器也會念「KEPLER-9」，用 heading 角色避免撞到
+		await expect(page.getByRole("heading", { name: "KEPLER-9" })).toBeVisible();
+		await page.getByRole("button", { name: "繼續" }).click();
+
+		// 送指令會發 sfx:play（按鍵聲），舊場景若沒清乾淨會在這裡炸 Cannot set properties of null (setting 'seek')
+		await openCryoTerminal(page);
+		const inputAfter = page.getByLabel("指令輸入");
+		await inputAfter.fill("ls");
+		await inputAfter.press("Enter");
+		await expect(page.getByText("wake_up.txt", { exact: true })).toBeVisible();
+		expect(pageErrors).toEqual([]);
+	});
+
 	test("重新整理後輸出紀錄、工作目錄與歷史都還在", async ({ page }) => {
 		await openCryoTerminal(page);
 		const input = page.getByLabel("指令輸入");
