@@ -135,13 +135,23 @@ export class Station extends Phaser.Scene {
 		const detachAudio = attachAudioEvents(this, this.audio);
 		this.audio.play("ambient");
 
-		this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+		// 場景重啟走 SHUTDOWN；`game.destroy()` 只發 DESTROY 不發 SHUTDOWN（Phaser 的 Systems.destroy 不會先 shutdown），
+		// 兩條路都要清，否則 React 重建遊戲後（例如 Fast Refresh、換角色）舊場景的 sfx:play 訂閱還掛在全域 EventBus 上，
+		// 而舊 sound 已被 SoundManager 銷毀（currentConfig 變 null），下一個音效會炸「Cannot set properties of null (setting 'seek')」。
+		let cleanedUp = false;
+		const cleanup = (): void => {
+			if (cleanedUp) {
+				return;
+			}
+			cleanedUp = true;
 			this.terminalZones.destroy();
 			this.lightMask.destroy();
 			this.shadowFigure.destroy();
 			detachAudio();
 			this.audio.destroy();
-		});
+		};
+		this.events.once(Phaser.Scenes.Events.SHUTDOWN, cleanup);
+		this.events.once(Phaser.Scenes.Events.DESTROY, cleanup);
 
 		// 重整後還原：先不播動畫套上已過關的最終狀態，再訂閱事件，之後補發的 puzzle:solved 會被 appliedEffects 擋掉
 		this.appliedEffects = new Set();

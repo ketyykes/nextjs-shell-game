@@ -53,23 +53,33 @@ export class AudioManager {
 	constructor(scene: Phaser.Scene, options: AudioManagerOptions) {
 		this.scene = scene;
 		this.sounds = {
-			ambient: this.addSound(AUDIO_KEYS.ambient, { loop: true, volume: AMBIENT_VOLUME }),
-			key: this.addSound(AUDIO_KEYS.key, { volume: SFX_VOLUME }),
-			door: this.addSound(AUDIO_KEYS.door, { volume: SFX_VOLUME }),
-			power: this.addSound(AUDIO_KEYS.power, { volume: SFX_VOLUME }),
-			"nova-blip": this.addSound(AUDIO_KEYS["nova-blip"], { volume: SFX_VOLUME }),
+			ambient: this.addSound("ambient", { loop: true, volume: AMBIENT_VOLUME }),
+			key: this.addSound("key", { volume: SFX_VOLUME }),
+			door: this.addSound("door", { volume: SFX_VOLUME }),
+			power: this.addSound("power", { volume: SFX_VOLUME }),
+			"nova-blip": this.addSound("nova-blip", { volume: SFX_VOLUME }),
 		};
 		this.setVolume(options.volume);
 		this.setMuted(options.muted);
 	}
 
-	/** 只在 cache 裡真的有這個 key 時才建 sound，否則印 warn 並回傳 undefined。 */
-	private addSound(key: string, config: Phaser.Types.Sound.SoundConfig): Phaser.Sound.BaseSound | undefined {
+	/**
+	 * 只在 cache 裡真的有這個 key 時才建 sound，否則印 warn 並回傳 undefined。
+	 *
+	 * sound 也可能不是由我們銷毀，而是 `game.destroy()` 時 SoundManager 整批 `removeAll()`；
+	 * 被銷毀的 sound 再 `play()` 會因內部 `currentConfig` 已是 null 而炸，所以一收到它的 DESTROY 就從清單拿掉。
+	 */
+	private addSound(name: SfxName, config: Phaser.Types.Sound.SoundConfig): Phaser.Sound.BaseSound | undefined {
+		const key = AUDIO_KEYS[name];
 		if (!this.scene.cache.audio.exists(key)) {
 			console.warn(`[AudioManager] 音效 ${key} 不在 cache 裡，這個音效會被略過`);
 			return undefined;
 		}
-		return this.scene.sound.add(key, config);
+		const sound = this.scene.sound.add(key, config);
+		sound.once(Phaser.Sound.Events.DESTROY, () => {
+			this.sounds[name] = undefined;
+		});
+		return sound;
 	}
 
 	/**
