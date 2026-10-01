@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "test": "vitest",
     "test:e2e": "playwright test",
-    "sprites:slice": "node scripts/slice-sprites.mjs"
+    "sprites:slice": "node scripts/slice-sprites.mjs",
+    "map:build": "node scripts/build-map.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
