@@ -1,11 +1,6 @@
-import React from "react";
-import { Button } from "@/components/ui/button";
-const HomePage = () => {
-	return (
-		<div>
-			<Button>Click me</Button>
-		</div>
-	);
-};
+import { TitleFlow } from "@/components/title/TitleFlow";
 
-export default HomePage;
+/** 標題畫面。流程（標題、選角、boot log）都在 client component `TitleFlow` 裡。 */
+export default function HomePage() {
+	return <TitleFlow />;
+}

@@ -11,14 +11,20 @@
  */
 
 import { AnimatePresence, motion } from "motion/react";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ChapterEndScreen } from "@/components/game/ChapterEndScreen";
 import { CommandCheatSheet } from "@/components/game/CommandCheatSheet";
 import { CrtOverlay } from "@/components/game/CrtOverlay";
 import { NovaDialogue } from "@/components/game/NovaDialogue";
 import { ObjectivePanel } from "@/components/game/ObjectivePanel";
 import { OxygenVignette } from "@/components/game/OxygenVignette";
+import { PauseMenu } from "@/components/game/PauseMenu";
 import { PhaserGameDynamic } from "@/components/game/PhaserGameDynamic";
+import { SceneCard, type SceneCardMessage } from "@/components/game/SceneCard";
+import { SettingsMenu } from "@/components/title/SettingsMenu";
 import { useNovaQueue } from "@/components/game/useNovaQueue";
+import { useTerminalPressure } from "@/components/game/useTerminalPressure";
 import { Terminal } from "@/components/terminal";
 import { chapterOneLifeSupport, findTerminal } from "@/game/chapters/ch1-life-support";
 import { emitGameEvent, onGameEvent } from "@/game/phaser/EventBus";
@@ -33,6 +39,8 @@ import {
 	STORY_FLAGS,
 	type TerminalDefinition,
 } from "@/game/story";
+import { FLICKER_DURATION_MS, novaErrorLine, stuckLines, type PressureReaction } from "@/game/story/pressure";
+import { OUTRO_SCENE_IMAGE, sceneImageForRoom } from "@/game/story/scenes";
 import { selectOxygen, selectProgress, selectSettings, useGameStore, useStoreHydration } from "@/game/store";
 import type { CharacterId, OutputEntry, SettingsState, TerminalSessionRecord } from "@/game/store/types";
 
@@ -135,6 +143,8 @@ function PlayScreenReady() {
 	const appendTranscript = useGameStore((state) => state.appendTranscript);
 	const touchSave = useGameStore((state) => state.touchSave);
 	const updateSettings = useGameStore((state) => state.updateSettings);
+	const setTerminalErrorCount = useGameStore((state) => state.setTerminalErrorCount);
+	const router = useRouter();
 
 	const [openTerminal, setOpenTerminal] = useState<OpenTerminal | null>(null);
 	const [nearbyTerminal, setNearbyTerminal] = useState<TerminalDefinition | null>(null);
@@ -142,7 +152,11 @@ function PlayScreenReady() {
 	const [justSolvedId, setJustSolvedId] = useState<string | null>(null);
 	const [cheatSheetOpen, setCheatSheetOpen] = useState(false);
 	const [sceneReady, setSceneReady] = useState(false);
+	const [paused, setPaused] = useState(false);
+	const [settingsOpen, setSettingsOpen] = useState(false);
+	const [sceneCard, setSceneCard] = useState<SceneCardMessage | null>(null);
 	const nova = useNovaQueue();
+	const handleSceneCardShown = useCallback(() => setSceneCard(null), []);
 
 	// 每台終端機一個 Shell 實例，整個遊玩期間保留。只在事件 handler 裡存取，不在 render 期間碰 ref。
 	const shellsRef = useRef(new Map<string, Shell>());
@@ -163,26 +177,130 @@ function PlayScreenReady() {
 		};
 	}, []);
 
-	// 開場台詞：只在第一次進遊戲時說（M7-3 的 boot log 做好後會接在它後面）
+	// 開場台詞：第一句已在標題流程的 boot log 說過，進地圖後接著說其餘句子，只在第一次進遊戲時說
 	useEffect(() => {
 		if (storyFlags[STORY_FLAGS.introShown] === true) {
 			return;
 		}
 		setFlag(STORY_FLAGS.introShown);
-		nova.enqueue("intro", chapterOneLifeSupport.intro ?? []);
+		nova.enqueue("intro", (chapterOneLifeSupport.intro ?? []).slice(1));
 	}, [nova, setFlag, storyFlags]);
 
-	// 結尾台詞：六台都過關後說一次（M5-5 章節結束畫面做好後會改成過場）
+	// 暫停選單（4.7）：地圖上按 Esc 開啟；終端機開著、章節結束畫面或設定選單顯示中時不處理（它們各自處理 Esc）
+	const pauseBlocked = openTerminal !== null || settingsOpen;
 	useEffect(() => {
-		const allSolved = chapterOneLifeSupport.terminals.every((terminal) =>
-			progress.solvedTerminals.includes(terminal.id),
-		);
-		if (!allSolved || storyFlags[STORY_FLAGS.outroShown] === true) {
+		if (paused || pauseBlocked) {
 			return;
 		}
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (event.key !== "Escape" || event.repeat) {
+				return;
+			}
+			event.preventDefault();
+			setPaused(true);
+		};
+		window.addEventListener("keydown", handleKeyDown);
+		return () => {
+			window.removeEventListener("keydown", handleKeyDown);
+		};
+	}, [pauseBlocked, paused]);
+
+	// 暫停或設定選單開著時讓 Phaser 停住角色輸入
+	const menuOpen = paused || settingsOpen;
+	useEffect(() => {
+		if (!menuOpen) {
+			return;
+		}
+		emitGameEvent("game:pause", { reason: "menu" });
+		return () => {
+			emitGameEvent("game:resume", { reason: "menu" });
+		};
+	}, [menuOpen]);
+
+	const handleRestartChapter = useCallback(() => {
+		// 重玩本章：清進度與終端機但保留設定與外觀，重新載入讓 Phaser 與 Shell 快取都重建
+		const store = useGameStore.getState();
+		const character = store.progress.character;
+		store.resetSave();
+		if (character !== null) {
+			store.setCharacter(character);
+		}
+		store.touchSave();
+		window.location.reload();
+	}, []);
+
+	// 章節結束（4.7）：六台都過關且終端機已關閉時顯示過場、NOVA 結尾台詞與指令回顧卡；旗標確保只播一次
+	const allSolved = chapterOneLifeSupport.terminals.every((terminal) =>
+		progress.solvedTerminals.includes(terminal.id),
+	);
+	const showChapterEnd = allSolved && openTerminal === null && storyFlags[STORY_FLAGS.outroShown] !== true;
+	const handleChapterEndMounted = useCallback(() => {
+		touchSave();
+	}, [touchSave]);
+	const handleReturnToTitle = useCallback(() => {
 		setFlag(STORY_FLAGS.outroShown);
-		nova.enqueue("outro", chapterOneLifeSupport.outro ?? []);
-	}, [nova, progress.solvedTerminals, setFlag, storyFlags]);
+		router.push("/");
+	}, [router, setFlag]);
+
+	// 設定選單改音量或靜音時即時通知 Phaser 的 AudioManager
+	useEffect(() => {
+		emitGameEvent("audio:settings", { volume: settings.volume, muted: settings.muted });
+	}, [settings.muted, settings.volume]);
+
+	// 卡關偵測與環境反應階梯（4.8）：只對開著且未過關的終端機計數
+	const pressureTerminalId =
+		openTerminal !== null && !progress.solvedTerminals.includes(openTerminal.definition.id)
+			? openTerminal.definition.id
+			: null;
+	const handlePressureReaction = useCallback(
+		(reaction: PressureReaction) => {
+			if (openTerminal === null) {
+				return;
+			}
+			const definition = openTerminal.definition;
+			switch (reaction.type) {
+				case "flicker":
+					// 光敏安全選項：關閉閃爍時不發
+					if (useGameStore.getState().settings.flickerEnabled) {
+						emitGameEvent("ambient:flicker", { durationMs: FLICKER_DURATION_MS });
+					}
+					return;
+				case "door":
+					emitGameEvent("sfx:play", { sound: "door" });
+					return;
+				case "nova": {
+					const text = novaErrorLine(chapterOneLifeSupport.novaErrorLines, reaction.lineIndex);
+					appendTranscript(
+						definition.id,
+						createDialogueEntries(`nova-error-${definition.id}-${reaction.lineIndex}-${Date.now()}`, [text]),
+					);
+					return;
+				}
+				case "stuck":
+					appendTranscript(
+						definition.id,
+						createDialogueEntries(`nova-stuck-${definition.id}-${Date.now()}`, stuckLines(definition)),
+					);
+					return;
+			}
+		},
+		[appendTranscript, openTerminal],
+	);
+	const handleErrorCountChange = useCallback(
+		(count: number) => {
+			if (pressureTerminalId !== null) {
+				setTerminalErrorCount(pressureTerminalId, count);
+			}
+		},
+		[pressureTerminalId, setTerminalErrorCount],
+	);
+	const pressure = useTerminalPressure({
+		terminalId: pressureTerminalId,
+		initialErrorCount:
+			pressureTerminalId !== null ? (useGameStore.getState().terminals[pressureTerminalId]?.errorCount ?? 0) : 0,
+		onReaction: handlePressureReaction,
+		onErrorCountChange: handleErrorCountChange,
+	});
 
 	// Phaser → React 的事件
 	useEffect(() => {
@@ -214,10 +332,16 @@ function PlayScreenReady() {
 				return;
 			}
 			store.setFlag(flag);
+			// 第一次進艙區：先秀插圖卡，再讓 NOVA 說進房台詞
+			const image = sceneImageForRoom(roomId);
+			if (image !== undefined) {
+				setSceneCard({ id: `room-${roomId}`, src: image, title: ROOM_NAMES[roomId], subtitle: "Kepler-9" });
+			}
 			const terminal = chapterOneLifeSupport.terminals.find((item) => item.roomId === roomId);
 			const lines = terminal?.nova?.onEnterRoom ?? [];
 			if (lines.length > 0) {
 				nova.enqueue(`room-${roomId}`, lines);
+				emitGameEvent("sfx:play", { sound: "nova-blip" });
 			}
 		});
 		return () => {
@@ -244,12 +368,18 @@ function PlayScreenReady() {
 	/** 指令執行後：錯誤扣氧氣；成功且達成目標就走過關流程。 */
 	const handleExecuted = useCallback(
 		(definition: TerminalDefinition, shell: Shell, execution: ShellExecution) => {
+			// 按鍵聲（4.10）：每送出一道指令響一次，每個按鍵都響太吵
+			emitGameEvent("sfx:play", { sound: "key" });
+			const store = useGameStore.getState();
+			const alreadySolved = store.progress.solvedTerminals.includes(definition.id);
+			if (!alreadySolved) {
+				pressure.recordExecution(execution.isError);
+			}
 			if (execution.isError) {
 				loseOxygen();
 				return;
 			}
-			const store = useGameStore.getState();
-			if (store.progress.solvedTerminals.includes(definition.id)) {
+			if (alreadySolved) {
 				return;
 			}
 			const context = createObjectiveContext(definition.id, execution, shell.fs, shell.home);
@@ -258,6 +388,7 @@ function PlayScreenReady() {
 			}
 
 			// 過關：記錄、回氧、學會這台教的指令、存檔、通知 Phaser 播演出
+			pressure.reset();
 			markTerminalSolved(definition.id);
 			restoreOxygen();
 			for (const teach of definition.teaches) {
@@ -278,7 +409,7 @@ function PlayScreenReady() {
 				};
 			}
 		},
-		[appendTranscript, learnCommand, loseOxygen, markTerminalSolved, restoreOxygen, touchSave],
+		[appendTranscript, learnCommand, loseOxygen, markTerminalSolved, pressure, restoreOxygen, touchSave],
 	);
 
 	const character = progress.character ?? DEFAULT_CHARACTER;
@@ -304,6 +435,8 @@ function PlayScreenReady() {
 			<PhaserGameDynamic
 				character={character}
 				solvedTerminals={initialSolvedTerminals}
+				volume={settings.volume}
+				muted={settings.muted}
 				className="flex h-full w-full items-center justify-center"
 			/>
 
@@ -334,7 +467,31 @@ function PlayScreenReady() {
 				)}
 			</AnimatePresence>
 
-			<DevSettingsBar settings={settings} onChange={updateSettings} />
+			{showChapterEnd && (
+				<ChapterEndScreen
+					chapterNumber={chapterOneLifeSupport.chapter}
+					chapterTitle={chapterOneLifeSupport.title}
+					outroLines={chapterOneLifeSupport.outro ?? []}
+					learnedCommands={progress.learnedCommands}
+					textSpeed={settings.textSpeed}
+					illustrationSrc={OUTRO_SCENE_IMAGE}
+					onMounted={handleChapterEndMounted}
+					onReturnToTitle={handleReturnToTitle}
+				/>
+			)}
+
+			<SceneCard card={sceneCard} onShown={handleSceneCardShown} />
+
+			<PauseMenu
+				open={paused && !settingsOpen}
+				onResume={() => setPaused(false)}
+				onReturnToTitle={() => router.push("/")}
+				onRestartChapter={handleRestartChapter}
+				onOpenSettings={() => setSettingsOpen(true)}
+			/>
+			{settingsOpen && (
+				<SettingsMenu settings={settings} onChange={updateSettings} onClose={() => setSettingsOpen(false)} />
+			)}
 
 			<OxygenVignette oxygen={oxygen} />
 			<CrtOverlay
@@ -436,34 +593,6 @@ function Hud({ oxygen, room, nearbyTerminal, terminalOpen }: HudProps) {
 					按 E 開啟 {nearbyTerminal.title}
 				</div>
 			)}
-		</div>
-	);
-}
-
-interface DevSettingsBarProps {
-	settings: SettingsState;
-	onChange: (patch: Partial<SettingsState>) => void;
-}
-
-/** 暫時的設定列，驗證 CRT 三個開關各自可關；M7-5 做正式設定選單後移除。 */
-function DevSettingsBar({ settings, onChange }: DevSettingsBarProps) {
-	const toggles: Array<{ key: keyof SettingsState; label: string }> = [
-		{ key: "scanlinesEnabled", label: "掃描線" },
-		{ key: "vignetteEnabled", label: "暗角" },
-		{ key: "flickerEnabled", label: "閃爍" },
-	];
-	return (
-		<div className="absolute bottom-3 left-20 z-30 flex gap-6 text-base text-game-dim">
-			{toggles.map((toggle) => (
-				<label key={toggle.key} className="flex cursor-pointer items-center gap-2">
-					<input
-						type="checkbox"
-						checked={settings[toggle.key] === true}
-						onChange={(event) => onChange({ [toggle.key]: event.target.checked })}
-					/>
-					{toggle.label}
-				</label>
-			))}
 		</div>
 	);
 }

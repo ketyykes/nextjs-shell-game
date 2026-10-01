@@ -11,6 +11,9 @@ export interface PhaserGameProps {
 	character: CharacterId;
 	/** 建立當下已過關的終端機，Station 用它直接套最終狀態（燈亮、門開）不播動畫；之後變動不會重建遊戲 */
 	solvedTerminals?: readonly string[];
+	/** 建立當下的音量（0 到 1）與靜音；之後的變動走 `audio:settings` 事件，不會重建遊戲 */
+	volume?: number;
+	muted?: boolean;
 	className?: string;
 	/** 遊戲建立後呼叫，整合者用來拿 game 實例（例如之後要 pause） */
 	onGameCreated?: (game: Phaser.Game) => void;
@@ -20,17 +23,19 @@ export interface PhaserGameProps {
  * 在 React 裡建立與銷毀 Phaser 遊戲的容器元件。
  * 只能在瀏覽器端執行，請透過 `PhaserGameDynamic`（next/dynamic + ssr: false）載入。
  */
-export function PhaserGame({ character, solvedTerminals, className, onGameCreated }: PhaserGameProps) {
+export function PhaserGame({ character, solvedTerminals, volume, muted, className, onGameCreated }: PhaserGameProps) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const gameRef = useRef<Phaser.Game | null>(null);
 	const onGameCreatedRef = useRef(onGameCreated);
 	const solvedTerminalsRef = useRef(solvedTerminals);
+	const audioRef = useRef({ volume, muted });
 
-	// 保存最新的 callback 與過關清單，避免它們變動時觸發遊戲重建
+	// 保存最新的 callback、過關清單與音訊設定，避免它們變動時觸發遊戲重建
 	useLayoutEffect(() => {
 		onGameCreatedRef.current = onGameCreated;
 		solvedTerminalsRef.current = solvedTerminals;
-	}, [onGameCreated, solvedTerminals]);
+		audioRef.current = { volume, muted };
+	}, [onGameCreated, solvedTerminals, volume, muted]);
 
 	useLayoutEffect(() => {
 		// Phaser 會碰 window，保險起見只在瀏覽器端建立
@@ -51,7 +56,12 @@ export function PhaserGame({ character, solvedTerminals, className, onGameCreate
 			if (cancelled || gameRef.current) {
 				return;
 			}
-			const game = startGame(container, { character, solvedTerminals: solvedTerminalsRef.current ?? [] });
+			const game = startGame(container, {
+				character,
+				solvedTerminals: solvedTerminalsRef.current ?? [],
+				volume: audioRef.current.volume,
+				muted: audioRef.current.muted,
+			});
 			gameRef.current = game;
 			onGameCreatedRef.current?.(game);
 		});
