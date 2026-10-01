@@ -20,6 +20,8 @@ const BACKGROUND_COLOR = "#0b1020";
 
 export interface StartGameOptions {
 	character: CharacterId;
+	/** 已過關的終端機 id，重整後還原地圖狀態用（燈全亮、門已開），不播演出。省略等同空陣列。 */
+	solvedTerminals?: readonly string[];
 }
 
 /** 建立遊戲並掛到 parent 底下；呼叫端負責在卸載時 `game.destroy(true)`。 */
@@ -47,6 +49,8 @@ export function startGame(parent: HTMLElement, options: StartGameOptions): Phase
 			// preBoot 在任何場景啟動前執行，選角在這裡寫進 registry，Preloader 用 `this.registry.get("character")` 讀
 			preBoot: (game) => {
 				game.registry.set(REGISTRY_KEYS.character, options.character);
+				// 拷貝一份，避免之後 store 的陣列被改動時影響到場景讀到的值
+				game.registry.set(REGISTRY_KEYS.solvedTerminals, [...(options.solvedTerminals ?? [])]);
 			},
 		},
 	};
