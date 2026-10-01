@@ -10,6 +10,11 @@ export default defineConfig({
 			"@": fileURLToPath(new URL("./src", import.meta.url)),
 		},
 	},
+	css: {
+		// 以內嵌空設定略過 postcss.config.mjs：Next 用字串形式宣告插件，Vite 無法解析；
+		// 單元測試不需要 Tailwind 轉換，CSS Module 只要能被 import 即可
+		postcss: { plugins: [] },
+	},
 	test: {
 		environment: "jsdom",
 		// 只掃 src 底下的單元測試，避免撿到 e2e/ 的 Playwright 測試
