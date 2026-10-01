@@ -103,10 +103,39 @@ const cryoTerminal: TerminalDefinition = {
 	},
 };
 
+/**
+ * T2 到 T6 的佔位定義，讓地圖上每台終端機都開得起來。
+ * M5-2 會換成真正的檔案系統、hint 與 NOVA 台詞。
+ */
+function createPlaceholderTerminal(id: string, title: string, teaches: string[]): TerminalDefinition {
+	return {
+		id,
+		title,
+		teaches,
+		initialCwd: "/home/tech",
+		banner: [`KEPLER-9 ${title}`, "低功率模式。"],
+		hints: ["這台終端機的謎題還在建置中，先用 ls 與 cat 看看裡面有什麼。"],
+		fs: {
+			home: {
+				tech: {
+					"notice.txt": `${title}：系統維護中，劇情將於第五里程碑開放。\n`,
+				},
+			},
+		},
+	};
+}
+
 export const chapterOneLifeSupport: ChapterDefinition = {
 	chapter: 1,
 	title: "冷凍艙與維生艙",
-	terminals: [cryoTerminal],
+	terminals: [
+		cryoTerminal,
+		createPlaceholderTerminal("ch1-t2", "維生系統監控台", ["cd"]),
+		createPlaceholderTerminal("ch1-t3", "宿舍終端機", ["ls"]),
+		createPlaceholderTerminal("ch1-t4", "配電箱", ["ls"]),
+		createPlaceholderTerminal("ch1-t5", "醫療艙終端機", ["history", "clear"]),
+		createPlaceholderTerminal("ch1-t6", "艙門控制台", []),
+	],
 };
 
 /** 依 id 找終端機定義，找不到回傳 undefined。 */
