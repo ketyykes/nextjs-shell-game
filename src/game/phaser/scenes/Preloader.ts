@@ -12,6 +12,7 @@ import {
 } from "../constants";
 import { AUDIO_KEYS, AUDIO_PATHS } from "../audio";
 import { REGISTRY_KEYS, SCENE_KEYS } from "./keys";
+import { parseChapter } from "./mapObjects";
 
 /** 載入條配色：全息藍。 */
 const PROGRESS_BAR_COLOR = 0x5fb3e8;
@@ -35,7 +36,7 @@ function toPublicUrl(path: string): string {
 }
 
 /**
- * 載入第一章所有資源並建立全域動畫，完成後進 Station。
+ * 載入目前章節的甲板地圖與共用資源、建立全域動畫，完成後進 Station。
  *
  * 動畫放這裡建立而不是 Station，Station 重啟時才不會重複建立。
  */
@@ -48,9 +49,11 @@ export class Preloader extends Phaser.Scene {
 		this.createProgressBar();
 
 		const character = this.readCharacter();
+		// 六個甲板共用 `ASSET_KEYS.map` 這個 key；換章時 React 會銷毀重建整個遊戲，cache 不會殘留上一章的圖
+		const chapter = parseChapter(this.registry.get(REGISTRY_KEYS.chapter));
 
 		this.load.image(ASSET_KEYS.tileset, toPublicUrl(ASSET_PATHS.tileset));
-		this.load.tilemapTiledJSON(ASSET_KEYS.map, toPublicUrl(ASSET_PATHS.map));
+		this.load.tilemapTiledJSON(ASSET_KEYS.map, toPublicUrl(ASSET_PATHS.map(chapter)));
 		this.load.spritesheet(ASSET_KEYS.player, toPublicUrl(ASSET_PATHS.playerSprite(character)), {
 			frameWidth: SPRITE_FRAME_WIDTH,
 			frameHeight: SPRITE_FRAME_HEIGHT,

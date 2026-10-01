@@ -8,7 +8,21 @@
  */
 
 import { MAP_OBJECT_TYPES } from "../constants";
-import { ROOM_NAMES, type RoomId } from "../events";
+import { CHAPTER_COUNT, ROOM_NAMES, type RoomId } from "../events";
+
+/**
+ * 解析 registry 的 `chapter`（registry 沒有型別保證），決定載入哪一張甲板地圖。
+ * 不是 1 到 `CHAPTER_COUNT` 的整數就當第 1 章。
+ */
+export function parseChapter(value: unknown): number {
+	if (typeof value !== "number" || !Number.isInteger(value)) {
+		return 1;
+	}
+	if (value < 1 || value > CHAPTER_COUNT) {
+		return 1;
+	}
+	return value;
+}
 
 // ---------------------------------------------------------------------------
 // 輸入：Tiled JSON 的物件資料

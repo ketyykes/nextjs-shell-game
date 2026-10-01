@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useRef } from "react";
 import type Phaser from "phaser";
+import type { SolvedEffect } from "@/game/phaser/events";
 import { startGame } from "@/game/phaser/main";
 import type { CharacterId } from "@/game/store/types";
 import { cn } from "@/lib/utils";
@@ -9,6 +10,12 @@ import { cn } from "@/lib/utils";
 export interface PhaserGameProps {
 	/** 玩家選擇的角色，變動時會銷毀並重建遊戲 */
 	character: CharacterId;
+	/** 目前章節（1 到 6），決定載入哪一張甲板地圖；變動時會銷毀並重建遊戲 */
+	chapter: number;
+	/** 建立當下是否斷電（只有角色周圍一圈光），省略等同 false；之後變動不會重建遊戲 */
+	startDark?: boolean;
+	/** 建立當下的終端機過關演出表，省略等同空物件；之後變動不會重建遊戲 */
+	terminalEffects?: Readonly<Record<string, SolvedEffect>>;
 	/** 建立當下已過關的終端機，Station 用它直接套最終狀態（燈亮、門開）不播動畫；之後變動不會重建遊戲 */
 	solvedTerminals?: readonly string[];
 	/** 建立當下的音量（0 到 1）與靜音；之後的變動走 `audio:settings` 事件，不會重建遊戲 */
@@ -23,19 +30,31 @@ export interface PhaserGameProps {
  * 在 React 裡建立與銷毀 Phaser 遊戲的容器元件。
  * 只能在瀏覽器端執行，請透過 `PhaserGameDynamic`（next/dynamic + ssr: false）載入。
  */
-export function PhaserGame({ character, solvedTerminals, volume, muted, className, onGameCreated }: PhaserGameProps) {
+export function PhaserGame({
+	character,
+	chapter,
+	startDark,
+	terminalEffects,
+	solvedTerminals,
+	volume,
+	muted,
+	className,
+	onGameCreated,
+}: PhaserGameProps) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const gameRef = useRef<Phaser.Game | null>(null);
 	const onGameCreatedRef = useRef(onGameCreated);
 	const solvedTerminalsRef = useRef(solvedTerminals);
 	const audioRef = useRef({ volume, muted });
+	const sceneSetupRef = useRef({ startDark, terminalEffects });
 
-	// 保存最新的 callback、過關清單與音訊設定，避免它們變動時觸發遊戲重建
+	// 保存最新的 callback、過關清單、場景初始設定與音訊設定，避免它們變動時觸發遊戲重建
 	useLayoutEffect(() => {
 		onGameCreatedRef.current = onGameCreated;
 		solvedTerminalsRef.current = solvedTerminals;
 		audioRef.current = { volume, muted };
-	}, [onGameCreated, solvedTerminals, volume, muted]);
+		sceneSetupRef.current = { startDark, terminalEffects };
+	}, [onGameCreated, solvedTerminals, volume, muted, startDark, terminalEffects]);
 
 	useLayoutEffect(() => {
 		// Phaser 會碰 window，保險起見只在瀏覽器端建立
@@ -58,6 +77,9 @@ export function PhaserGame({ character, solvedTerminals, volume, muted, classNam
 			}
 			const game = startGame(container, {
 				character,
+				chapter,
+				startDark: sceneSetupRef.current.startDark ?? false,
+				terminalEffects: sceneSetupRef.current.terminalEffects ?? {},
 				solvedTerminals: solvedTerminalsRef.current ?? [],
 				volume: audioRef.current.volume,
 				muted: audioRef.current.muted,
@@ -66,7 +88,7 @@ export function PhaserGame({ character, solvedTerminals, volume, muted, classNam
 			onGameCreatedRef.current?.(game);
 		});
 
-		// character 變動時 cleanup 也會先跑，確保舊遊戲先銷毀再用新選角重建。
+		// character 或 chapter 變動時 cleanup 也會先跑，確保舊遊戲先銷毀再用新選角或新章節重建。
 		return () => {
 			cancelled = true;
 			window.cancelAnimationFrame(frame);
@@ -76,7 +98,7 @@ export function PhaserGame({ character, solvedTerminals, volume, muted, classNam
 				gameRef.current = null;
 			}
 		};
-	}, [character]);
+	}, [character, chapter]);
 
 	return <div ref={containerRef} className={cn("relative", className)} data-testid="phaser-container" />;
 }

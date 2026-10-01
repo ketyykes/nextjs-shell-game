@@ -20,4 +20,13 @@ export const REGISTRY_KEYS = {
 	volume: "volume",
 	/** 是否靜音，布林值。`AudioManager` 建構時讀取。沒設等同 false。 */
 	muted: "muted",
+	/** 目前章節（1 到 6），Preloader 用它載入 `maps/deck{n}.json`。沒設等同 1。 */
+	chapter: "chapter",
+	/** 開場是否斷電（只有角色周圍一圈光），布林值。Station 建遮罩時讀。沒設等同 false（全亮）。 */
+	startDark: "startDark",
+	/**
+	 * 終端機 id → `SolvedEffect` 的對照表（`Record<string, SolvedEffect>`），
+	 * Station 收到 `puzzle:solved` 或重整還原時查它決定演出。沒設等同空物件。
+	 */
+	terminalEffects: "terminalEffects",
 } as const;

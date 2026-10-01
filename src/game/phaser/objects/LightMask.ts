@@ -189,15 +189,17 @@ export class LightMask {
 	 * 配電箱過關後呼叫（M4 用）。
 	 * `true`：1.5 秒內把遮罩淡出到全亮，淡出期間光圈仍會跟著玩家，完成後停止重畫並隱藏。
 	 * `false`：反向，遮罩立即顯示並淡入回斷電狀態。
-	 * `immediate`：只對 `true` 有效，不播淡出直接全亮（重整後還原存檔用）。
+	 * `immediate`：不播淡入淡出，`true` 直接全亮、`false` 直接回到斷電（開場全亮與重整後還原存檔用）。
 	 */
 	setPowered(powered: boolean, immediate = false): void {
 		if (this.isDestroyed) {
 			return;
 		}
-		// 已經在淡出中又要求立即全亮：允許跳過剩下的淡出
-		const skipRemainingFade = powered && immediate && this.isPowered && !this.isFullyLit;
-		if (powered === this.isPowered && !skipRemainingFade) {
+		// 已經在淡出（淡入）中又要求立即完成：允許跳過剩下的動畫
+		const skipRemainingFade = immediate && powered === this.isPowered && this.fadeTween !== null;
+		// 亮燈序列跑到一半要斷電（例如同一章先供電再全滅）：isPowered 還是 false，但要把序列收掉
+		const interruptSequence = !powered && this.sequencePromise !== null;
+		if (powered === this.isPowered && !skipRemainingFade && !interruptSequence) {
 			return;
 		}
 		this.isPowered = powered;
@@ -234,6 +236,10 @@ export class LightMask {
 		this.isFullyLit = false;
 		this.needsRedraw = true;
 		this.overlay.setVisible(true);
+		if (immediate) {
+			this.overlay.setAlpha(1);
+			return;
+		}
 		this.fadeTween = this.scene.tweens.add({
 			targets: this.overlay,
 			alpha: 1,

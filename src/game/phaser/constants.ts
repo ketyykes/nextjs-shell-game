@@ -1,7 +1,7 @@
 /**
  * Phaser 端的共用常數：資源 key、檔案路徑、地圖圖層與物件的命名契約。
  *
- * `scripts/build-map.mjs` 產生的 `public/maps/deck1.json` 必須遵守這裡的命名，
+ * `scripts/build-map.mjs` 產生的 `public/maps/deck1.json` 到 `deck6.json` 必須遵守這裡的命名，
  * Station 場景照這些名字讀圖層與物件。改名要兩邊一起改。
  * 這個檔案不可以 import Phaser，讓腳本與測試也能引用（腳本是 .mjs，用字面值對照即可）。
  */
@@ -33,13 +33,15 @@ export const PLAYER_SPEED = 120;
 
 export const ASSET_KEYS = {
 	tileset: "scifi-tiles",
-	map: "deck1",
+	/** 地圖 key，六個甲板共用同一個 key，Preloader 依章節載入不同檔案。 */
+	map: "deck",
 	player: "technician",
 } as const;
 
 export const ASSET_PATHS = {
 	tileset: "tiles/tileset-buch-scifi.png",
-	map: "maps/deck1.json",
+	/** 第 n 章的地圖，由 `scripts/build-map.mjs` 產生（`pnpm map:build` 一次產六張）。 */
+	map: (chapter: number) => `maps/deck${chapter}.json`,
 	/** 四個外觀共用同一個 key，依選角載入不同檔案。 */
 	playerSprite: (character: CharacterId) => `sprites/technician-${character}.png`,
 } as const;
@@ -73,7 +75,7 @@ export const MAP_OBJECT_TYPES = {
 	terminal: "terminal",
 	/** 艙區範圍矩形，properties 含 `roomId`，玩家進入時發 `room:enter`。 */
 	room: "room",
-	/** 門的位置，properties 含 `doorId`，第一章只有 `airlock` 是鎖的。 */
+	/** 鎖門的位置，properties 含 `doorId`；每個甲板的出口門 doorId 都是 `airlock`（`EXIT_DOOR_ID`）。 */
 	door: "door",
 } as const;
 

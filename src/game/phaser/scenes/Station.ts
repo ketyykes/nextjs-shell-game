@@ -2,8 +2,15 @@ import Phaser from "phaser";
 import { ASSET_KEYS, CAMERA_ZOOM, MAP_LAYERS, MAP_OBJECT_LAYER, TILESET_NAME } from "../constants";
 import { AudioManager, attachAudioEvents } from "../audio";
 import { emitGameEvent, onGameEvent } from "../EventBus";
-import type { RoomId } from "../events";
-import { airlockTilePosition, powerOnOrder, shadowFlashPosition } from "../objects/effects";
+import type { RoomId, SolvedEffect } from "../events";
+import {
+	airlockTilePosition,
+	findCorridorRoomId,
+	parseTerminalEffects,
+	powerOnOrder,
+	resolveSolvedState,
+	shadowFlashPosition,
+} from "../objects/effects";
 import { LightMask } from "../objects/LightMask";
 import { Player } from "../objects/Player";
 import { RoomTracker } from "../objects/RoomTracker";
@@ -30,18 +37,8 @@ const CAMERA_FOLLOW_LERP = 0.1;
 /** 這些 tile index 不碰撞：-1 是空格，0 保留給「無 tile」。 */
 const NON_COLLIDING_INDEXES = [-1, 0];
 
-// ---- 過關演出（M4-3） ----
+// ---- 過關演出（M4-3；哪台終端機播哪種演出由劇本經 registry 的 `terminalEffects` 決定） ----
 
-/** 配電箱：過關後燈一盞盞亮起、走廊盡頭人影閃現（設計文件 4.4 第 4 列）。 */
-const POWER_TERMINAL_ID = "ch1-t4";
-/** 艙門控制台：過關後主艙門打開（設計文件 4.4 第 6 列）。 */
-const AIRLOCK_TERMINAL_ID = "ch1-t6";
-/** 主艙門在地圖 `markers` 層的 doorId。 */
-const AIRLOCK_DOOR_ID = "airlock";
-/** 亮燈序列的起點艙區。 */
-const POWER_ROOM_ID: RoomId = "power";
-/** 人影出現在這間艙區亮起的那一刻。 */
-const SHADOW_ROOM_ID: RoomId = "corridor";
 /** 亮燈序列每間艙區的間隔（ms）。 */
 const POWER_ON_STEP_MS = 450;
 /** 人影夾在視野內時離畫面邊緣的距離（px），避免剛好貼在邊上被裁掉。 */
@@ -49,9 +46,11 @@ const SHADOW_VIEW_MARGIN = 48;
 /** 開門時鏡頭閃一下全息藍（#5fb3e8 = 95, 179, 232），毫秒。 */
 const DOOR_FLASH_DURATION = 300;
 const HOLOGRAM_BLUE_RGB = { red: 95, green: 179, blue: 232 } as const;
+/** `flicker` 演出的燈閃總長（ms），與環境反應階梯的燈閃同一種效果。 */
+const SOLVED_FLICKER_MS = 600;
 
 /**
- * 第一章的太空站甲板一。
+ * 目前章節的太空站甲板（六個甲板共用同一張平面圖，Preloader 依章節載入對應的地圖）。
  *
  * 負責地圖、圖層碰撞、物件標記、鏡頭、玩家角色、終端機互動區、艙區偵測、斷電燈光遮罩與過關演出。
  * 跟 React 的溝通全部走 EventBus（設計文件 3.1）。
@@ -69,6 +68,8 @@ export class Station extends Phaser.Scene {
 	public terminals: TerminalMarker[] = [];
 	public rooms: StationRoom[] = [];
 	public doors: DoorMarker[] = [];
+	/** 這個甲板的走廊艙區（`corridor` 或 `<前綴>_corridor`），人影出現的地方。 */
+	private corridorRoomId: RoomId | undefined;
 
 	public player!: Player;
 
@@ -76,10 +77,13 @@ export class Station extends Phaser.Scene {
 	private terminalZones!: TerminalZones;
 	/** 艙區偵測：玩家走進新艙區時發 `room:enter`。 */
 	private roomTracker!: RoomTracker;
-	/** 斷電燈光遮罩：角色周圍一圈光，配電箱過關後 `powerOnSequence` 一間間亮起再全亮。 */
+	/** 燈光遮罩：斷電時只有角色周圍一圈光；`powerRestored` 演出時 `powerOnSequence` 一間間亮起再全亮。 */
 	public lightMask!: LightMask;
-	/** 走廊盡頭的人影，配電箱過關時閃現一幀。 */
+	/** 走廊盡頭的人影，`powerRestored` 與 `shadowFlash` 演出時閃現一幀。 */
 	private shadowFigure!: ShadowFigure;
+
+	/** 終端機 id → 過關演出，`create()` 從 registry 讀（劇本宣告，PlayScreen 經 `startGame` 傳入）。 */
+	private terminalEffects: Record<string, SolvedEffect> = {};
 
 	/**
 	 * 已套用過的過關演出（終端機 id）。`puzzle:solved` 重複發（例如重整後從存檔補發）時不重播。
@@ -112,6 +116,7 @@ export class Station extends Phaser.Scene {
 
 		this.createLayers(map, tileset);
 		this.readMarkers(map);
+		this.terminalEffects = parseTerminalEffects(this.registry.get(REGISTRY_KEYS.terminalEffects));
 
 		this.physics.world.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
 
@@ -126,6 +131,10 @@ export class Station extends Phaser.Scene {
 		this.terminalZones = new TerminalZones(this, this.terminals);
 		this.roomTracker = new RoomTracker(this.rooms);
 		this.lightMask = new LightMask(this, map.widthInPixels, map.heightInPixels, this.terminals);
+		// 只有劇本要求開場斷電的章節才摸黑，其餘一開始就全亮（不播淡出）
+		if (!this.readStartDarkFromRegistry()) {
+			this.lightMask.setPowered(true, true);
+		}
 		this.shadowFigure = new ShadowFigure(this);
 
 		// 音量與靜音由 PlayScreen 經 registry 給初始值，之後的變動走 audio:settings 事件
@@ -173,7 +182,7 @@ export class Station extends Phaser.Scene {
 	}
 
 	/**
-	 * 播放某台終端機的過關演出。重複呼叫同一個 id 只會播一次。
+	 * 播放某台終端機的過關演出（查 `terminalEffects`，沒宣告就什麼都不做）。重複呼叫同一個 id 只會播一次。
 	 *
 	 * 場景暫停中（玩家還在終端機裡）先排隊，等 `terminal:close` 讓場景 resume 時再播，
 	 * 這樣燈亮與人影不會在終端機彈窗後面悄悄播完。音效也一起延後，讓聲音與畫面同步。
@@ -192,71 +201,125 @@ export class Station extends Phaser.Scene {
 	}
 
 	/**
-	 * 重整後還原用：不播動畫，直接套用已過關終端機的最終狀態。
+	 * 重整後還原用：不播動畫，直接套用已過關終端機的最終狀態（依清單順序，見 `resolveSolvedState`）。
 	 *
-	 * - 配電箱已過關：遮罩立即全亮。
-	 * - 艙門控制台已過關：主艙門 tile 與阻擋格直接移除。
+	 * - `powerRestored`：遮罩立即全亮。
+	 * - `openDoor`：鎖門 tile 與阻擋格直接移除，並全亮。
+	 * - `blackout`：遮罩立即回到斷電。與上面兩種誰在清單後面誰說了算。
+	 * - `shadowFlash`、`flicker`：一次性演出，不還原。
 	 * 套過的 id 會記進 `appliedEffects`，之後再收到同一個 `puzzle:solved` 不會重播。
 	 */
 	applySolvedState(solvedTerminalIds: readonly string[]): void {
+		const freshIds: string[] = [];
 		for (const terminalId of solvedTerminalIds) {
 			if (this.appliedEffects.has(terminalId)) {
 				continue;
 			}
 			this.appliedEffects.add(terminalId);
+			freshIds.push(terminalId);
+		}
 
-			if (terminalId === POWER_TERMINAL_ID) {
-				this.lightMask.setPowered(true, true);
-			} else if (terminalId === AIRLOCK_TERMINAL_ID) {
-				this.openAirlockDoor();
-				// 門開了代表電早就恢復，存檔若漏了 T4 也不要讓玩家摸黑
-				this.lightMask.setPowered(true, true);
-			}
+		const state = resolveSolvedState(freshIds, this.terminalEffects);
+		for (const doorId of state.openDoorIds) {
+			this.openLockedDoor(doorId);
+		}
+		if (state.power === "on") {
+			this.lightMask.setPowered(true, true);
+		} else if (state.power === "off") {
+			this.lightMask.setPowered(false, true);
 		}
 	}
 
-	/** 依終端機 id 分派演出。只在場景執行中呼叫。 */
-	private runSolvedEffect(terminalId: string): void {
-		if (terminalId === POWER_TERMINAL_ID) {
-			this.playPowerRestored();
-			return;
+	/** 查終端機的過關演出，沒宣告回傳 undefined（用 hasOwn 避免撞到 Object 原型上的屬性）。 */
+	private findEffect(terminalId: string): SolvedEffect | undefined {
+		if (!Object.prototype.hasOwnProperty.call(this.terminalEffects, terminalId)) {
+			return undefined;
 		}
-		if (terminalId === AIRLOCK_TERMINAL_ID) {
-			this.playAirlockOpened();
-			return;
-		}
-		// 其他終端機（T1、T2、T3、T5）在地圖上沒有對應的變化，過關回饋由 React 端的終端機畫面負責，
-		// Phaser 這裡刻意不發音效，避免與終端機自己的過關提示疊在一起。
+		return this.terminalEffects[terminalId];
 	}
 
 	/**
-	 * 配電箱過關：燈從配電室一間一間亮起，走廊亮起那一刻在走廊盡頭閃現人影。
+	 * 依演出種類分派。只在場景執行中呼叫。
+	 * 沒宣告演出的終端機在地圖上沒有變化，過關回饋由 React 端的終端機畫面負責，
+	 * Phaser 這裡刻意不發音效，避免與終端機自己的過關提示疊在一起。
+	 */
+	private runSolvedEffect(terminalId: string): void {
+		const effect = this.findEffect(terminalId);
+		if (effect === undefined) {
+			return;
+		}
+
+		switch (effect.kind) {
+			case "powerRestored":
+				this.playPowerRestored(terminalId);
+				return;
+			case "openDoor":
+				this.playDoorOpened(effect.doorId);
+				return;
+			case "shadowFlash":
+				this.flashShadowInCorridor();
+				return;
+			case "flicker":
+				this.lightMask.flicker(SOLVED_FLICKER_MS);
+				return;
+			case "blackout":
+				// 不播音效：安靜地變黑最恐怖
+				this.lightMask.setPowered(false);
+				return;
+			default: {
+				const unknownEffect: never = effect;
+				console.warn("[Station] 未知的過關演出", unknownEffect);
+			}
+		}
+	}
+
+	/**
+	 * 供電恢復：燈從那台終端機所在的艙區一間一間亮起，走廊亮起那一刻在走廊盡頭閃現人影。
 	 * 演出期間不鎖輸入，玩家可以繼續走。
 	 */
-	private playPowerRestored(): void {
+	private playPowerRestored(terminalId: string): void {
 		emitGameEvent("sfx:play", { sound: "power" });
 
-		const order = powerOnOrder(
-			this.rooms.map((room) => room.roomId),
-			POWER_ROOM_ID,
-		);
-		const corridor = this.rooms.find((room) => room.roomId === SHADOW_ROOM_ID);
+		const roomIds = this.rooms.map((room) => room.roomId);
+		const terminal = this.terminals.find((item) => item.terminalId === terminalId);
+		let fromRoomId: RoomId | undefined = terminal?.roomId;
+		if (fromRoomId === undefined) {
+			// 終端機不在這張地圖上（劇本與地圖對不上）：從走廊開始亮，至少演出還看得到
+			console.warn(`[Station] 地圖裡找不到終端機「${terminalId}」，亮燈改從走廊開始`);
+			fromRoomId = this.corridorRoomId;
+		}
+
+		let order: RoomId[] = roomIds;
+		if (fromRoomId !== undefined) {
+			order = powerOnOrder(roomIds, fromRoomId);
+		}
 
 		void this.lightMask.powerOnSequence(this.rooms, order, POWER_ON_STEP_MS, (roomId) => {
-			if (roomId !== SHADOW_ROOM_ID || corridor === undefined) {
+			if (roomId !== this.corridorRoomId) {
 				return;
 			}
-			// 位置在這一刻才算，取離玩家當下位置較遠的那一端，但夾在鏡頭看得到的範圍內（視野半寬減去一點邊）
-			const viewHalfWidth = this.cameras.main.width / CAMERA_ZOOM / 2 - SHADOW_VIEW_MARGIN;
-			const position = shadowFlashPosition(corridor.rect, this.player.x, viewHalfWidth);
-			void this.shadowFigure.flashAt(position.x, position.y);
+			this.flashShadowInCorridor();
 		});
 	}
 
-	/** 艙門控制台過關：門開、鏡頭閃全息藍、還沒亮的燈一起淡亮（「走廊燈亮向遠方」）。 */
-	private playAirlockOpened(): void {
+	/**
+	 * 走廊盡頭的人影閃一幀（ShadowFigure 會順便微震鏡頭）。
+	 * 位置在這一刻才算，取離玩家當下位置較遠的那一端，但夾在鏡頭看得到的範圍內（視野半寬減去一點邊）。
+	 */
+	private flashShadowInCorridor(): void {
+		const corridor = this.rooms.find((room) => room.roomId === this.corridorRoomId);
+		if (corridor === undefined) {
+			return;
+		}
+		const viewHalfWidth = this.cameras.main.width / CAMERA_ZOOM / 2 - SHADOW_VIEW_MARGIN;
+		const position = shadowFlashPosition(corridor.rect, this.player.x, viewHalfWidth);
+		void this.shadowFigure.flashAt(position.x, position.y);
+	}
+
+	/** 開鎖門：門開、鏡頭閃全息藍、還沒亮的燈一起淡亮（「走廊燈亮向遠方」）。 */
+	private playDoorOpened(doorId: string): void {
 		emitGameEvent("sfx:play", { sound: "door" });
-		this.openAirlockDoor();
+		this.openLockedDoor(doorId);
 		this.cameras.main.flash(
 			DOOR_FLASH_DURATION,
 			HOLOGRAM_BLUE_RGB.red,
@@ -266,11 +329,11 @@ export class Station extends Phaser.Scene {
 		this.lightMask.setPowered(true);
 	}
 
-	/** 移除主艙門的紅門 tile 與隱形阻擋格。重複呼叫無害（空格再移除一次不會怎樣）。 */
-	private openAirlockDoor(): void {
-		const door = this.doors.find((item) => item.doorId === AIRLOCK_DOOR_ID);
+	/** 移除鎖門的紅門 tile 與隱形阻擋格。重複呼叫無害（空格再移除一次不會怎樣）。 */
+	private openLockedDoor(doorId: string): void {
+		const door = this.doors.find((item) => item.doorId === doorId);
 		if (door === undefined) {
-			console.warn(`[Station] 地圖裡找不到 doorId「${AIRLOCK_DOOR_ID}」的門，無法開門`);
+			console.warn(`[Station] 地圖裡找不到 doorId「${doorId}」的門，無法開門`);
 			return;
 		}
 
@@ -301,6 +364,11 @@ export class Station extends Phaser.Scene {
 			return;
 		}
 		this.lightMask.flicker(durationMs);
+	}
+
+	/** 讀 registry 的開場斷電旗標，只有明確的 `true` 才摸黑（registry 沒有型別保證）。 */
+	private readStartDarkFromRegistry(): boolean {
+		return this.registry.get(REGISTRY_KEYS.startDark) === true;
 	}
 
 	/** 讀 registry 的已過關清單，型別不對就當空陣列（registry 沒有型別保證）。 */
@@ -371,6 +439,7 @@ export class Station extends Phaser.Scene {
 			roomId: room.roomId,
 			rect: new Phaser.Geom.Rectangle(room.rect.x, room.rect.y, room.rect.width, room.rect.height),
 		}));
+		this.corridorRoomId = findCorridorRoomId(this.rooms.map((room) => room.roomId));
 	}
 
 	/**

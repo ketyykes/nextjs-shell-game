@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import {
+	parseChapter,
 	parseMapMarkers,
 	readProperty,
 	toCenter,
@@ -146,5 +147,22 @@ describe("parseMapMarkers", () => {
 	it("出生點超過一個時丟錯", () => {
 		const objects = [...createFixtureObjects(), { id: 99, type: "spawn", x: 0, y: 0 }];
 		expect(() => parseMapMarkers(objects)).toThrowError(/2 個出生點/);
+	});
+});
+
+describe("parseChapter", () => {
+	it("1 到 6 的整數原樣回傳", () => {
+		for (const chapter of [1, 2, 3, 4, 5, 6]) {
+			expect(parseChapter(chapter)).toBe(chapter);
+		}
+	});
+
+	it("沒設、型別不對或超出範圍時當第 1 章", () => {
+		expect(parseChapter(undefined)).toBe(1);
+		expect(parseChapter("2")).toBe(1);
+		expect(parseChapter(0)).toBe(1);
+		expect(parseChapter(7)).toBe(1);
+		expect(parseChapter(2.5)).toBe(1);
+		expect(parseChapter(Number.NaN)).toBe(1);
 	});
 });

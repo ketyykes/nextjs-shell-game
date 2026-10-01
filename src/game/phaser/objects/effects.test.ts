@@ -1,13 +1,16 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import type { RoomId } from "../events";
+import type { RoomId, SolvedEffect } from "../events";
 import {
 	airlockTilePosition,
+	findCorridorRoomId,
 	FLICKER_PULSES,
 	flickerLegDuration,
 	flickerMode,
+	parseTerminalEffects,
 	POWER_ON_ORDER,
 	powerOnOrder,
+	resolveSolvedState,
 	SHADOW_INSET,
 	shadowFlashPosition,
 } from "./effects";
@@ -53,6 +56,122 @@ describe("powerOnOrder", () => {
 
 	it("空陣列回傳空陣列", () => {
 		expect(powerOnOrder([], "power")).toEqual([]);
+	});
+
+	it("其他甲板依同一張平面圖的位置排序（第二章從冷卻機房出發）", () => {
+		const deck2: RoomId[] = ["dc_entry", "dc_exit", "dc_racks", "dc_corridor", "dc_cooling", "dc_logs", "dc_backup"];
+		expect(powerOnOrder(deck2, "dc_cooling")).toEqual([
+			"dc_cooling",
+			"dc_corridor",
+			"dc_backup",
+			"dc_racks",
+			"dc_exit",
+			"dc_logs",
+			"dc_entry",
+		]);
+	});
+
+	it("起點是其他位置時排第一個，其餘照位置順序（第六章從監控室出發）", () => {
+		const deck6: RoomId[] = ["nv_entry", "nv_monitor", "nv_corridor", "nv_core"];
+		expect(powerOnOrder(deck6, "nv_monitor")).toEqual(["nv_monitor", "nv_core", "nv_corridor", "nv_entry"]);
+	});
+});
+
+describe("findCorridorRoomId", () => {
+	it("第一章的走廊 id 就叫 corridor", () => {
+		expect(findCorridorRoomId(ALL_ROOMS)).toBe("corridor");
+	});
+
+	it("其他甲板找 _corridor 結尾的艙區", () => {
+		expect(findCorridorRoomId(["dc_entry", "dc_corridor", "dc_exit"])).toBe("dc_corridor");
+		expect(findCorridorRoomId(["nv_core", "nv_corridor"])).toBe("nv_corridor");
+	});
+
+	it("沒有走廊時回傳 undefined", () => {
+		expect(findCorridorRoomId(["cryo", "power"])).toBeUndefined();
+	});
+});
+
+describe("parseTerminalEffects", () => {
+	it("合法的對照表原樣（拷貝）回傳", () => {
+		const input = {
+			"ch1-t4": { kind: "powerRestored" },
+			"ch1-t6": { kind: "openDoor", doorId: "airlock" },
+			"ch2-t3": { kind: "shadowFlash" },
+			"ch2-t5": { kind: "flicker" },
+			"ch6-t4": { kind: "blackout" },
+		};
+		const result = parseTerminalEffects(input);
+		expect(result).toEqual(input);
+		expect(result).not.toBe(input);
+	});
+
+	it("不是物件（undefined、null、陣列、字串）時回傳空物件", () => {
+		expect(parseTerminalEffects(undefined)).toEqual({});
+		expect(parseTerminalEffects(null)).toEqual({});
+		expect(parseTerminalEffects([{ kind: "flicker" }])).toEqual({});
+		expect(parseTerminalEffects("powerRestored")).toEqual({});
+	});
+
+	it("丟掉格式不對的項目：未知 kind、openDoor 缺 doorId、值不是物件", () => {
+		const result = parseTerminalEffects({
+			"ch1-t1": { kind: "explode" },
+			"ch1-t2": { kind: "openDoor" },
+			"ch1-t3": { kind: "openDoor", doorId: "" },
+			"ch1-t4": "powerRestored",
+			"ch1-t5": null,
+			"ch1-t6": { kind: "openDoor", doorId: "airlock" },
+		});
+		expect(result).toEqual({ "ch1-t6": { kind: "openDoor", doorId: "airlock" } });
+	});
+
+	it("只保留需要的欄位", () => {
+		expect(parseTerminalEffects({ a: { kind: "flicker", extra: 1 } })).toEqual({ a: { kind: "flicker" } });
+	});
+});
+
+describe("resolveSolvedState", () => {
+	const effects: Record<string, SolvedEffect> = {
+		"ch1-t4": { kind: "powerRestored" },
+		"ch1-t6": { kind: "openDoor", doorId: "airlock" },
+		"ch1-t3": { kind: "shadowFlash" },
+		"ch1-t5": { kind: "flicker" },
+		"ch6-t4": { kind: "blackout" },
+	};
+
+	it("沒有任何燈光相關的過關時燈光不變", () => {
+		expect(resolveSolvedState(["ch1-t1", "ch1-t3", "ch1-t5"], effects)).toEqual({
+			power: "unchanged",
+			openDoorIds: [],
+		});
+	});
+
+	it("powerRestored 過關後全亮", () => {
+		expect(resolveSolvedState(["ch1-t1", "ch1-t4"], effects)).toEqual({ power: "on", openDoorIds: [] });
+	});
+
+	it("openDoor 過關後開門並全亮", () => {
+		expect(resolveSolvedState(["ch1-t6"], effects)).toEqual({ power: "on", openDoorIds: ["airlock"] });
+	});
+
+	it("blackout 在清單後面時最後是黑的", () => {
+		expect(resolveSolvedState(["ch1-t4", "ch6-t4"], effects)).toEqual({ power: "off", openDoorIds: [] });
+	});
+
+	it("blackout 之後又 powerRestored 時最後是亮的", () => {
+		expect(resolveSolvedState(["ch6-t4", "ch1-t4"], effects)).toEqual({ power: "on", openDoorIds: [] });
+	});
+
+	it("同一扇門只列一次", () => {
+		const twoDoors: Record<string, SolvedEffect> = {
+			a: { kind: "openDoor", doorId: "airlock" },
+			b: { kind: "openDoor", doorId: "airlock" },
+		};
+		expect(resolveSolvedState(["a", "b"], twoDoors).openDoorIds).toEqual(["airlock"]);
+	});
+
+	it("沒宣告演出的終端機不影響結果", () => {
+		expect(resolveSolvedState(["unknown"], effects)).toEqual({ power: "unchanged", openDoorIds: [] });
 	});
 });
 
