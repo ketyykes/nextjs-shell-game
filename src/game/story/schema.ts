@@ -54,6 +54,29 @@ const novaScriptSchema = z.strictObject({
 	onStuck: lineListSchema.optional(),
 });
 
+/** 過關演出，跟 `events.ts` 的 `SolvedEffect` 一對一。 */
+const solvedEffectSchema = z.discriminatedUnion("kind", [
+	z.strictObject({ kind: z.literal("powerRestored") }),
+	z.strictObject({ kind: z.literal("openDoor"), doorId: nonEmptyString }),
+	z.strictObject({ kind: z.literal("shadowFlash") }),
+	z.strictObject({ kind: z.literal("flicker") }),
+	z.strictObject({ kind: z.literal("blackout") }),
+]);
+
+const positiveInt = z.number().int({ error: "必須是整數" }).positive({ error: "必須是正整數" });
+
+/** 虛擬程序，跟 `shell/types.ts` 的 `ProcessInfo` 一對一。 */
+const processInfoSchema = z.strictObject({
+	pid: positiveInt,
+	user: nonEmptyString,
+	cpu: z.number().min(0),
+	mem: z.number().min(0),
+	started: nonEmptyString,
+	command: nonEmptyString,
+	ignoresTerm: z.boolean().optional(),
+	protected: z.boolean().optional(),
+});
+
 export const terminalDefinitionSchema = z.strictObject({
 	id: z.string().regex(TERMINAL_ID_PATTERN, { error: "終端機 id 格式必須是 ch<數字>-t<數字>，例如 ch1-t1" }),
 	title: nonEmptyString,
@@ -68,12 +91,22 @@ export const terminalDefinitionSchema = z.strictObject({
 	banner: lineListSchema.optional(),
 	objective: objectiveSchema,
 	nova: novaScriptSchema.optional(),
+	effect: solvedEffectSchema.optional(),
+	env: z.record(z.string(), z.string()).optional(),
+	processes: z.array(processInfoSchema).optional(),
+});
+
+const chapterMapSchema = z.strictObject({
+	deck: positiveInt,
+	startDark: z.boolean({ error: "startDark 必須是布林值" }),
 });
 
 export const chapterDefinitionSchema = z
 	.strictObject({
 		chapter: z.number().int({ error: "chapter 必須是整數" }).positive({ error: "chapter 必須是正整數" }),
 		title: nonEmptyString,
+		deckName: nonEmptyString,
+		map: chapterMapSchema,
 		intro: lineListSchema.optional(),
 		outro: lineListSchema.optional(),
 		novaErrorLines: lineListSchema.optional(),

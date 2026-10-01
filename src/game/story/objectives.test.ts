@@ -5,13 +5,22 @@ import type { ShellExecution } from "@/game/shell/types";
 import {
 	all,
 	any,
+	anyCommandIs,
 	catFile,
 	cdInto,
 	commandIs,
+	commandTouches,
+	commandHasOption,
 	createObjectiveContext,
+	envEquals,
 	evaluateObjective,
+	fileAbsent,
+	fileContains,
+	fileExists,
 	lsWithFlag,
+	noProcessMatching,
 	outputContains,
+	redirectsTo,
 } from "./objectives";
 import type { ObjectiveCheck, ObjectiveContext, TerminalDefinition } from "./types";
 
@@ -34,7 +43,7 @@ const fs = VirtualFileSystem.fromSnapshot({
 
 /** 手組一次執行結果；預設成功、沒有輸出、cwd 在家目錄。 */
 function execution(input: string, overrides: Partial<ShellExecution> = {}): ShellExecution {
-	return { input, lines: [], isError: false, clearScreen: false, cwd: HOME, ...overrides };
+	return { input, lines: [], isError: false, clearScreen: false, cwd: HOME, env: {}, processes: [], ...overrides };
 }
 
 /** 從輸入組出判定用的 context。 */
@@ -198,6 +207,7 @@ describe("createObjectiveContext", () => {
 		expect(context).toEqual({
 			terminalId: "ch1-t4",
 			command: { name: "ls", args: ["-la", "/home"] },
+			pipeline: { commands: [{ name: "ls", args: ["-la", "/home"] }], redirect: null },
 			execution: exec,
 			fs,
 			home: HOME,
@@ -206,11 +216,76 @@ describe("createObjectiveContext", () => {
 		expect(context.fs).toBe(fs);
 	});
 
-	it("空輸入、引號沒關、全形字元、管線都給 null command", () => {
+	it("空輸入、引號沒關、全形字元都給 null command 與 null pipeline", () => {
 		expect(contextOf("").command).toBeNull();
+		expect(contextOf("").pipeline).toBeNull();
 		expect(contextOf("   ").command).toBeNull();
 		expect(contextOf('cat "wake_up.txt').command).toBeNull();
 		expect(contextOf("cat　wake_up.txt").command).toBeNull();
-		expect(contextOf("ls | cat").command).toBeNull();
+	});
+
+	it("管線的 command 是第一個指令", () => {
+		expect(contextOf("ls | cat").command).toEqual({ name: "ls", args: [] });
+	});
+});
+
+describe("管線與重導向", () => {
+	it("createObjectiveContext 帶完整管線，command 是第一個指令", () => {
+		const context = contextOf("cat a.log | grep ERROR | wc -l");
+		expect(context.command?.name).toBe("cat");
+		expect(context.pipeline?.commands.map((command) => command.name)).toEqual(["cat", "grep", "wc"]);
+		expect(context.pipeline?.redirect).toBeNull();
+	});
+
+	it("anyCommandIs 看整條管線", () => {
+		expect(anyCommandIs("grep")(contextOf("cat a.log | grep ERROR"))).toBe(true);
+		expect(anyCommandIs("sort")(contextOf("cat a.log | grep ERROR"))).toBe(false);
+		expect(anyCommandIs("cat")(contextOf(""))).toBe(false);
+	});
+
+	it("commandTouches 任一同名指令的參數解析後等於目標", () => {
+		const check = commandTouches("grep", "/home/abin/day_900.txt");
+		expect(check(contextOf("cat x | grep 聲音 ../abin/day_900.txt"))).toBe(true);
+		expect(check(contextOf("grep 聲音 wake_up.txt"))).toBe(false);
+	});
+
+	it("commandHasOption 支援合併旗標", () => {
+		expect(commandHasOption("grep", "-r")(contextOf("grep -rn ERROR logs"))).toBe(true);
+		expect(commandHasOption("grep", "-r")(contextOf("grep -n ERROR logs"))).toBe(false);
+		expect(commandHasOption("rm", "-r")(contextOf("rm -rf old"))).toBe(true);
+	});
+
+	it("redirectsTo 比對重導向目標與種類", () => {
+		expect(redirectsTo("/home/tech/out.txt")(contextOf("sort parts > out.txt"))).toBe(true);
+		expect(redirectsTo("/home/tech/out.txt", "append")(contextOf("sort parts > out.txt"))).toBe(false);
+		expect(redirectsTo("/home/tech/out.txt", "append")(contextOf("echo hi >> out.txt"))).toBe(true);
+		expect(redirectsTo("/home/tech/out.txt")(contextOf("sort parts"))).toBe(false);
+	});
+});
+
+describe("檔案系統與環境狀態", () => {
+	it("fileExists、fileAbsent 看執行後的檔案系統", () => {
+		expect(fileExists("/home/tech/wake_up.txt")(contextOf("ls"))).toBe(true);
+		expect(fileExists("/home/tech/nope")(contextOf("ls"))).toBe(false);
+		expect(fileAbsent("/home/tech/nope")(contextOf("ls"))).toBe(true);
+		expect(fileAbsent("/home/tech/wake_up.txt")(contextOf("ls"))).toBe(false);
+	});
+
+	it("fileContains 讀檔案內容", () => {
+		expect(fileContains("/home/abin/day_900.txt", "不要相信")(contextOf("ls"))).toBe(true);
+		expect(fileContains("/home/abin/day_900.txt", "相信我")(contextOf("ls"))).toBe(false);
+		expect(fileContains("/home/abin/missing.txt", "x")(contextOf("ls"))).toBe(false);
+	});
+
+	it("envEquals 看執行後的環境變數", () => {
+		expect(envEquals("NOVA_DIR", "/opt/nova")(contextOf("export NOVA_DIR=/opt/nova", { env: { NOVA_DIR: "/opt/nova" } }))).toBe(true);
+		expect(envEquals("NOVA_DIR", "/opt/nova")(contextOf("export NOVA_DIR=/tmp", { env: { NOVA_DIR: "/tmp" } }))).toBe(false);
+		expect(envEquals("NOVA_DIR", "/opt/nova")(contextOf("ls"))).toBe(false);
+	});
+
+	it("noProcessMatching 看執行後的程序清單", () => {
+		const nova = { pid: 1, user: "nova", cpu: 1, mem: 1, started: "2028-06-02T04:40:00Z", command: "/opt/nova/nova --core" };
+		expect(noProcessMatching("nova --core")(contextOf("kill -9 1", { processes: [] }))).toBe(true);
+		expect(noProcessMatching("nova --core")(contextOf("kill 1", { processes: [nova] }))).toBe(false);
 	});
 });

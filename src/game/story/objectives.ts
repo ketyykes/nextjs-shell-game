@@ -9,7 +9,7 @@
  */
 
 import { parseCommandLine } from "@/game/shell/parser";
-import type { ShellExecution, VirtualFs } from "@/game/shell/types";
+import { FsError, type ParsedCommand, type Redirect, type ShellExecution, type VirtualFs } from "@/game/shell/types";
 import type { ObjectiveCheck, ObjectiveContext, TerminalDefinition } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -112,6 +112,95 @@ export function outputContains(text: string): ObjectiveCheck {
 }
 
 // ---------------------------------------------------------------------------
+// 管線與重導向（第四章起）
+// ---------------------------------------------------------------------------
+
+/** 管線裡所有叫 `name` 的指令。 */
+function commandsNamed(context: ObjectiveContext, name: string): ParsedCommand[] {
+	const commands = context.pipeline?.commands ?? [];
+	return commands.filter((command) => command.name === name);
+}
+
+/** 管線裡任一個指令叫 `name`（`cat a | grep x` 的 `grep` 也算）。 */
+export function anyCommandIs(name: string): ObjectiveCheck {
+	return (context) => commandsNamed(context, name).length > 0;
+}
+
+/**
+ * 管線裡任一個叫 `name` 的指令，其路徑參數解析後等於目標。
+ * 選項（`-` 開頭）會先去掉，所以 `grep -r 聲音 /home/abin` 也抓得到目錄。
+ */
+export function commandTouches(name: string, absolutePath: string): ObjectiveCheck {
+	return (context) =>
+		commandsNamed(context, name).some((command) => {
+			const { paths } = splitOptionsAndPaths(command.args);
+			return anyArgResolvesTo(context, paths, absolutePath);
+		});
+}
+
+/** 管線裡任一個叫 `name` 的指令帶了 `-x` 這個短選項，支援合併寫法（`-rf` 含 `-r`）。 */
+export function commandHasOption(name: string, option: string): ObjectiveCheck {
+	const letter = option.replace(/^-/, "");
+	return (context) =>
+		commandsNamed(context, name).some((command) => {
+			const { options } = splitOptionsAndPaths(command.args);
+			return options.some((item) => !item.startsWith("--") && item.slice(1).includes(letter));
+		});
+}
+
+/** 這一行有把輸出重導向到目標檔案；給 `kind` 時還要種類相符（`>` 是 overwrite、`>>` 是 append）。 */
+export function redirectsTo(absolutePath: string, kind?: Redirect["kind"]): ObjectiveCheck {
+	return (context) => {
+		const redirect = context.pipeline?.redirect ?? null;
+		if (redirect === null) {
+			return false;
+		}
+		if (kind !== undefined && redirect.kind !== kind) {
+			return false;
+		}
+		return context.fs.resolvePath(context.execution.cwd, redirect.target) === absolutePath;
+	};
+}
+
+// ---------------------------------------------------------------------------
+// 執行後的狀態（檔案、變數、程序）
+// ---------------------------------------------------------------------------
+
+/** 執行後目標路徑存在（`mkdir`、`touch`、`cp`、`mv`、`>` 的結果）。 */
+export function fileExists(absolutePath: string): ObjectiveCheck {
+	return (context) => context.fs.exists("/", absolutePath);
+}
+
+/** 執行後目標路徑不存在（`rm`、`mv` 走之後）。 */
+export function fileAbsent(absolutePath: string): ObjectiveCheck {
+	return (context) => !context.fs.exists("/", absolutePath);
+}
+
+/** 執行後目標檔案存在而且內容含有 `text`；不存在、是目錄或沒權限都算不成立。 */
+export function fileContains(absolutePath: string, text: string): ObjectiveCheck {
+	return (context) => {
+		try {
+			return context.fs.readFile("/", absolutePath).includes(text);
+		} catch (error) {
+			if (error instanceof FsError) {
+				return false;
+			}
+			throw error;
+		}
+	};
+}
+
+/** 執行後環境變數 `name` 等於 `value`。 */
+export function envEquals(name: string, value: string): ObjectiveCheck {
+	return (context) => context.execution.env[name] === value;
+}
+
+/** 執行後程序清單裡沒有任何 `command` 含有 `commandText` 的程序（`kill` 的結果）。 */
+export function noProcessMatching(commandText: string): ObjectiveCheck {
+	return (context) => !context.execution.processes.some((process) => process.command.includes(commandText));
+}
+
+// ---------------------------------------------------------------------------
 // 組合
 // ---------------------------------------------------------------------------
 
@@ -151,11 +240,14 @@ export function createObjectiveContext(
 	fs: VirtualFs,
 	home: string,
 ): ObjectiveContext {
-	const parsed = parseCommandLine(execution.input);
+	// 用執行後的環境變數重新解析，`cat $NOVA_DIR/log` 這種寫法判定時才看得到真正的路徑
+	const parsed = parseCommandLine(execution.input, { env: execution.env });
 	let command: ObjectiveContext["command"] = null;
+	let pipeline: ObjectiveContext["pipeline"] = null;
 	if (parsed.ok) {
 		command = parsed.command;
+		pipeline = parsed.pipeline;
 	}
 
-	return { terminalId, command, execution, fs, home };
+	return { terminalId, command, pipeline, execution, fs, home };
 }

@@ -172,6 +172,15 @@ export interface GameActions {
 	resetSave: () => void;
 	/** 蓋上 `savedAt`，每台終端機過關與章節結束時呼叫。 */
 	touchSave: () => void;
+
+	// 章節
+	/** 章節結束按「進入下一章」：`chapter` 加一、氧氣回滿、蓋上 `savedAt`。 */
+	advanceChapter: () => void;
+	/**
+	 * 重玩本章：清掉該章（`ch<n>-` 開頭）的終端機 session 與過關紀錄、該章（`ch<n>.` 開頭）的旗標，氧氣回滿。
+	 * 已學指令、外觀、設定與其他章節的進度都保留。
+	 */
+	resetChapter: (chapter: number) => void;
 }
 
 export type GameStore = SaveData & GameActions;

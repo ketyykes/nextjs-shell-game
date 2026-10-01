@@ -13,7 +13,7 @@ import { BootLog } from "@/components/title/BootLog";
 import { CharacterSelect } from "@/components/title/CharacterSelect";
 import { SettingsMenu } from "@/components/title/SettingsMenu";
 import { TitleScreen } from "@/components/title/TitleScreen";
-import { chapterOneLifeSupport } from "@/game/chapters/ch1-life-support";
+import { chapterOneLifeSupport, getChapter } from "@/game/chapters";
 import { INTRO_SCENE_IMAGE } from "@/game/story/scenes";
 import { selectHasSave, selectProgress, selectSettings, useGameStore, useStoreHydration } from "@/game/store";
 import type { CharacterId } from "@/game/store/types";
@@ -30,6 +30,15 @@ const INTRO_CARD = {
 
 /** 開場 boot log 最後接的 NOVA 第一句，其餘句子進地圖後由 PlayScreen 排進對話框。 */
 const NOVA_FIRST_LINE = chapterOneLifeSupport.intro?.[0] ?? "技師，聽得到嗎？";
+
+const CHINESE_NUMERALS = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
+
+/** 標題副標：有存檔顯示目前進度的章節，例如「資料中心 · 第二章」。 */
+function subtitleFor(chapter: number): string {
+	const definition = getChapter(chapter);
+	const numeral = CHINESE_NUMERALS[definition.chapter] ?? String(definition.chapter);
+	return `${definition.deckName} · 第${numeral}章`;
+}
 
 export function TitleFlow() {
 	const hydrated = useStoreHydration();
@@ -104,6 +113,7 @@ function TitleFlowReady() {
 		<>
 			<TitleScreen
 				hasSave={hasSave}
+				subtitle={subtitleFor(hasSave ? progress.chapter : 1)}
 				onContinue={goToPlay}
 				onNewGame={handleNewGame}
 				onOpenSettings={() => setSettingsOpen(true)}

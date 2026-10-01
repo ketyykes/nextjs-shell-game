@@ -12,6 +12,7 @@
  * 檔尾在模組載入時就跑 `validateChapter`，劇本格式寫錯會直接丟錯。
  */
 
+import { EXIT_DOOR_ID } from "@/game/phaser/events";
 import { all, catFile, commandIs } from "@/game/story/objectives";
 import { validateChapter } from "@/game/story/schema";
 import type { ChapterDefinition, TerminalDefinition } from "./types";
@@ -332,6 +333,8 @@ const powerTerminal: TerminalDefinition = {
 		title: "找到 B3 斷路器的重置碼",
 		check: catFile("/deck1/systems/power/breakers/B3/.override"),
 	},
+	// 讀到重置碼，燈一盞盞亮起，走廊盡頭人影站一幀（4.4 第 4 列）
+	effect: { kind: "powerRestored" },
 	nova: {
 		onEnterRoom: ["配電室。斷路器都在這裡。", "跳脫的是 B2。不對，是 B3。我的紀錄有時候會……跳格。"],
 		onOpen: ["這台終端機從家目錄開機，你得自己走過去。技師，以 / 開頭的路徑叫絕對路徑，在哪裡都能用。"],
@@ -528,6 +531,8 @@ const airlockTerminal: TerminalDefinition = {
 		title: "用鑰匙檔打開主艙門",
 		check: catFile("/home/tech/pod_06/.key"),
 	},
+	// 門開，走廊燈亮向遠方（4.4 第 6 列）
+	effect: { kind: "openDoor", doorId: EXIT_DOOR_ID },
 	nova: {
 		onEnterRoom: ["主艙門。門後就是主環走廊。"],
 		onOpen: ["門鎖要鑰匙檔。技師，你已經會的東西就夠用了。"],
@@ -592,6 +597,9 @@ const airlockTerminal: TerminalDefinition = {
 export const chapterOneLifeSupport: ChapterDefinition = {
 	chapter: 1,
 	title: "冷凍艙與維生艙",
+	deckName: "冷凍艙",
+	// 第一章開場斷電，只有角色周圍一圈光，配電箱（T4）過關才亮
+	map: { deck: 1, startDark: true },
 	intro: ["……連線建立。站務系統 NOVA，低功率模式。", "冷凍艙偵測到一個生命跡象。", "技師，聽得到嗎？先別急著動，燈還不穩。"],
 	outro: [
 		"資料中心在那邊。",
@@ -607,11 +615,6 @@ export const chapterOneLifeSupport: ChapterDefinition = {
 	],
 	terminals: [cryoTerminal, lifeSupportTerminal, quartersTerminal, powerTerminal, medbayTerminal, airlockTerminal],
 };
-
-/** 依 id 找終端機定義，找不到回傳 undefined。 */
-export function findTerminal(id: string): TerminalDefinition | undefined {
-	return chapterOneLifeSupport.terminals.find((terminal) => terminal.id === id);
-}
 
 // 模組載入時就驗證，劇本格式寫錯直接炸，不等到玩家走到那台終端機。
 validateChapter(chapterOneLifeSupport);

@@ -129,11 +129,11 @@ describe("ChapterEndScreen", () => {
 		expect(screen.getByText("not-a-command")).toBeTruthy();
 	});
 
-	it("recap 按「繼續」進 done，顯示「第二章開發中」", () => {
+	it("recap 按「繼續」進 done，顯示「下一章開發中」", () => {
 		render(<ChapterEndScreen {...createProps()} />);
 		goToRecap();
 		fireEvent.click(screen.getByRole("button", { name: "繼續" }));
-		expect(screen.getByText("第二章開發中")).toBeTruthy();
+		expect(screen.getByText("下一章開發中")).toBeTruthy();
 		expect(screen.queryByText("指令回顧")).toBeNull();
 	});
 
@@ -141,7 +141,7 @@ describe("ChapterEndScreen", () => {
 		render(<ChapterEndScreen {...createProps()} />);
 		goToRecap();
 		pressEnter();
-		expect(screen.getByText("第二章開發中")).toBeTruthy();
+		expect(screen.getByText("下一章開發中")).toBeTruthy();
 	});
 
 	it("done 階段按「回標題」呼叫 onReturnToTitle", () => {
@@ -159,6 +159,49 @@ describe("ChapterEndScreen", () => {
 		render(<ChapterEndScreen {...createProps({ onReturnToTitle })} />);
 		goToRecap();
 		pressEnter();
+		pressEnter();
+		expect(onReturnToTitle).toHaveBeenCalledTimes(1);
+	});
+
+	it("有下一章時 done 顯示「進入第 N 章」，Enter 與按鈕都呼叫 onNextChapter，回標題另有按鈕", () => {
+		const onNextChapter = vi.fn();
+		const onReturnToTitle = vi.fn();
+		render(
+			<ChapterEndScreen
+				{...createProps({ onNextChapter, onReturnToTitle })}
+				nextChapter={{ number: 2, title: "資料中心", deckName: "資料中心" }}
+			/>,
+		);
+		goToRecap();
+		pressEnter();
+		expect(screen.getByText("第 2 章 資料中心")).toBeTruthy();
+		fireEvent.click(screen.getByRole("button", { name: "進入第 2 章" }));
+		expect(onNextChapter).toHaveBeenCalledTimes(1);
+		pressEnter();
+		expect(onNextChapter).toHaveBeenCalledTimes(2);
+		expect(onReturnToTitle).not.toHaveBeenCalled();
+		fireEvent.click(screen.getByRole("button", { name: "回標題" }));
+		expect(onReturnToTitle).toHaveBeenCalledTimes(1);
+	});
+
+	it("有片尾時 recap 之後逐句打片尾，最後一句按 Enter 回標題", () => {
+		const onReturnToTitle = vi.fn();
+		render(
+			<ChapterEndScreen
+				{...createProps({ onReturnToTitle })}
+				ending={{ lines: ["喚醒程序……完成。", "你是……"], illustrationSrc: "/scenes/scene-ending.png" }}
+			/>,
+		);
+		goToRecap();
+		pressEnter();
+		expect(screen.getByTestId("chapter-end-ending")).toBeTruthy();
+		expect(screen.getByText("救援船終端機")).toBeTruthy();
+		expect(screen.getByTestId("chapter-end-outro-text").textContent).toBe("喚醒程序……完成。");
+		expect(screen.getByTestId("chapter-end-illustration").getAttribute("src")).toBe("/scenes/scene-ending.png");
+		pressEnter();
+		expect(screen.getByTestId("chapter-end-outro-text").textContent).toBe("你是……");
+		expect(screen.getByTestId("chapter-end-continue-hint").textContent).toBe("按 Enter 回標題");
+		expect(onReturnToTitle).not.toHaveBeenCalled();
 		pressEnter();
 		expect(onReturnToTitle).toHaveBeenCalledTimes(1);
 	});

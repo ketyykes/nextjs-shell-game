@@ -22,7 +22,15 @@ function validTerminal(overrides: Partial<TerminalDefinition> = {}): TerminalDef
 }
 
 function validChapter(terminals: TerminalDefinition[] = [validTerminal()]): ChapterDefinition {
-	return { chapter: 1, title: "冷凍艙與維生艙", intro: ["連線建立。"], outro: ["資料中心在那邊。"], terminals };
+	return {
+		chapter: 1,
+		title: "冷凍艙與維生艙",
+		deckName: "冷凍艙",
+		map: { deck: 1, startDark: true },
+		intro: ["連線建立。"],
+		outro: ["資料中心在那邊。"],
+		terminals,
+	};
 }
 
 /** 斷言 validateChapter 會丟錯，回傳錯誤訊息。 */
@@ -59,6 +67,32 @@ describe("terminalDefinitionSchema", () => {
 
 		const emptyLine = validTerminal({ nova: { onStuck: [""] } });
 		expect(terminalDefinitionSchema.safeParse(emptyLine).success).toBe(false);
+	});
+
+	it("effect、env、processes 合法時通過", () => {
+		const terminal = validTerminal({
+			effect: { kind: "openDoor", doorId: "airlock" },
+			env: { NOVA_DIR: "/opt/nova" },
+			processes: [
+				{ pid: 1, user: "root", cpu: 0.1, mem: 0.5, started: "2028-06-02T04:40:00Z", command: "init", protected: true },
+				{ pid: 42, user: "nova", cpu: 87.5, mem: 41, started: "2028-06-02T04:40:00Z", command: "/opt/nova/nova --core", ignoresTerm: true },
+			],
+		});
+		expect(terminalDefinitionSchema.safeParse(terminal).success).toBe(true);
+	});
+
+	it("effect 的 kind 不認得、openDoor 沒有 doorId 時失敗", () => {
+		const badKind = { ...validTerminal(), effect: { kind: "explode" } };
+		expect(terminalDefinitionSchema.safeParse(badKind).success).toBe(false);
+		const noDoor = { ...validTerminal(), effect: { kind: "openDoor" } };
+		expect(terminalDefinitionSchema.safeParse(noDoor).success).toBe(false);
+	});
+
+	it("processes 的 pid 不是正整數時失敗", () => {
+		const terminal = validTerminal({
+			processes: [{ pid: 0, user: "nova", cpu: 1, mem: 1, started: "2028-06-02T04:40:00Z", command: "nova" }],
+		});
+		expect(terminalDefinitionSchema.safeParse(terminal).success).toBe(false);
 	});
 
 	it("欄位名稱打錯（未知欄位）失敗", () => {
@@ -129,6 +163,15 @@ describe("validateChapter", () => {
 	it("fs 不是物件", () => {
 		const terminal = { ...validTerminal(), fs: "not a snapshot" } as unknown as TerminalDefinition;
 		expect(errorMessageOf(validChapter([terminal]))).toContain("terminals[0].fs");
+	});
+
+	it("map.deck 不是正整數、startDark 不是布林時失敗", () => {
+		expect(errorMessageOf({ ...validChapter(), map: { deck: 0, startDark: true } })).toContain("map.deck");
+		expect(errorMessageOf({ ...validChapter(), map: { deck: 1, startDark: "yes" } })).toContain("map.startDark");
+	});
+
+	it("deckName 是空字串時失敗", () => {
+		expect(errorMessageOf({ ...validChapter(), deckName: "" })).toContain("deckName");
 	});
 
 	it("chapter 不是正整數", () => {

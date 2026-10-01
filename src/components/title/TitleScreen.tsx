@@ -22,6 +22,8 @@ export interface TitleScreenProps {
 	onOpenSettings: () => void;
 	/** CRT 效果，預設三項都開；整合者從設定餵進來。 */
 	crt?: TitleScreenCrtSettings;
+	/** 標題下方的副標，例如「冷凍艙 · 第一章」；有存檔時整合者改成目前進度的章節。 */
+	subtitle?: string;
 	/**
 	 * false 時標題選單不收鍵盤，例如設定選單疊在標題畫面上時，避免 Esc／Enter 被兩邊同時處理。
 	 * 預設 true。
@@ -60,6 +62,7 @@ export function TitleScreen({
 	onNewGame,
 	onOpenSettings,
 	crt = DEFAULT_CRT,
+	subtitle = "冷凍艙 · 第一章",
 	keyboardEnabled = true,
 }: TitleScreenProps) {
 	const items = buildItems(hasSave);
@@ -105,7 +108,9 @@ export function TitleScreen({
 				<h1 className="font-title text-4xl tracking-widest text-game-holo drop-shadow-[0_0_12px_var(--game-holo)] sm:text-6xl">
 					KEPLER-9
 				</h1>
-				<p className="font-terminal text-xl text-game-prompt">冷凍艙 · 第一章</p>
+				<p className="font-terminal text-xl text-game-prompt" data-testid="title-subtitle">
+					{subtitle}
+				</p>
 			</motion.header>
 
 			<nav aria-label="標題選單" className="flex min-h-40 flex-col items-center justify-start">

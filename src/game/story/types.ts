@@ -5,8 +5,15 @@
  * `src/game/chapters/*.ts` 用這些型別寫劇本。這個檔案不 import React、Phaser 或 zustand。
  */
 
-import type { RoomId } from "@/game/phaser/events";
-import type { FsSnapshot, ParsedCommand, ShellExecution, VirtualFs } from "@/game/shell/types";
+import type { RoomId, SolvedEffect } from "@/game/phaser/events";
+import type {
+	FsSnapshot,
+	ParsedCommand,
+	ParsedPipeline,
+	ProcessInfo,
+	ShellExecution,
+	VirtualFs,
+} from "@/game/shell/types";
 
 // ---------------------------------------------------------------------------
 // 目標判定
@@ -15,10 +22,12 @@ import type { FsSnapshot, ParsedCommand, ShellExecution, VirtualFs } from "@/gam
 /** 每次指令執行後交給目標判定函式的資料。 */
 export interface ObjectiveContext {
 	terminalId: string;
-	/** 解析後的指令；解析失敗或空輸入時為 null。 */
+	/** 解析後的第一個指令（`ls | grep x` 的是 `ls`）；解析失敗或空輸入時為 null。 */
 	command: ParsedCommand | null;
+	/** 完整管線（含重導向）；解析失敗或空輸入時為 null。 */
+	pipeline: ParsedPipeline | null;
 	execution: ShellExecution;
-	/** 這台終端機的檔案系統，用來把相對路徑換成絕對路徑或檢查檔案存在。 */
+	/** 這台終端機的檔案系統，用來把相對路徑換成絕對路徑或檢查檔案存在。執行後的狀態，`mkdir` 之後查得到新目錄。 */
 	fs: VirtualFs;
 	home: string;
 }
@@ -79,13 +88,30 @@ export interface TerminalDefinition {
 	banner?: string[];
 	objective: Objective;
 	nova?: NovaScript;
+	/** 過關時地圖上的演出，沒寫就沒有（見 `SolvedEffect`）。 */
+	effect?: SolvedEffect;
+	/** 初始環境變數（第五章），shell 會再補 `HOME`、`USER`、`PWD`。 */
+	env?: Record<string, string>;
+	/** 初始程序清單（第六章 `ps`）。 */
+	processes?: ProcessInfo[];
+}
+
+/** 章節地圖設定：六個甲板共用平面圖，差別只在檔名與開場燈光。 */
+export interface ChapterMap {
+	/** 載入 `public/maps/deck{deck}.json`，通常等於章節號。 */
+	deck: number;
+	/** true 時開場斷電（只有角色周圍一圈光），要有一台終端機的 `effect` 是 `powerRestored` 才會亮。 */
+	startDark: boolean;
 }
 
 export interface ChapterDefinition {
 	/** 從 1 起算，對應存檔的 `progress.chapter`。 */
 	chapter: number;
 	title: string;
-	/** 開場 NOVA 台詞（4.4 開場）。 */
+	/** 標題畫面副標與插圖卡用的艙區名，例如「冷凍艙」、「資料中心」。 */
+	deckName: string;
+	map: ChapterMap;
+	/** 開場 NOVA 台詞（4.4 開場）。第一章的第一句在 boot log 說，其餘章節全部在進地圖後說。 */
 	intro?: string[];
 	/** 全部終端機過關後的結尾台詞（4.4 結尾鉤子）。 */
 	outro?: string[];
@@ -101,11 +127,11 @@ export interface ChapterDefinition {
 // 劇情旗標
 // ---------------------------------------------------------------------------
 
-/** 第一章的劇情旗標，存在 store 的 `storyFlags`，只有 true 才存。 */
+/**
+ * 劇情旗標，存在 store 的 `storyFlags`，只有 true 才存。
+ * 每章一組：`ch<n>.introShown`、`ch<n>.outroShown`、`ch<n>.room.<艙區>.entered`，用 `flags.ts` 的函式產生。
+ */
 export type StoryFlag =
-	| "ch1.introShown"
-	| "ch1.powerRestored"
-	| "ch1.sawShadow"
-	| "ch1.airlockOpened"
-	| "ch1.outroShown"
-	| `ch1.room.${RoomId}.entered`;
+	| `ch${number}.introShown`
+	| `ch${number}.outroShown`
+	| `ch${number}.room.${RoomId}.entered`;

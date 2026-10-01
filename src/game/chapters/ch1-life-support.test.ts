@@ -7,7 +7,8 @@ import { Shell } from "@/game/shell/shell";
 import type { FsSnapshot, FsSnapshotEntry } from "@/game/shell/types";
 import { createObjectiveContext, evaluateObjective } from "@/game/story/objectives";
 import { validateChapter } from "@/game/story/schema";
-import { chapterOneLifeSupport, findTerminal } from "./ch1-life-support";
+import { chapterOneLifeSupport } from "./ch1-life-support";
+import { findTerminal } from "./index";
 import type { TerminalDefinition } from "./types";
 
 // ---------------------------------------------------------------------------

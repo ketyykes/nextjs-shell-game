@@ -288,6 +288,51 @@ export const useGameStore = create<GameStore>()(
 			touchSave: () => {
 				set((state) => ({ progress: { ...state.progress, savedAt: new Date().toISOString() } }));
 			},
+
+			// 章節 -------------------------------------------------------------
+
+			advanceChapter: () => {
+				set((state) => ({
+					progress: {
+						...state.progress,
+						chapter: state.progress.chapter + 1,
+						oxygen: OXYGEN_MAX,
+						savedAt: new Date().toISOString(),
+					},
+				}));
+			},
+
+			resetChapter: (chapter) => {
+				// 前綴帶分隔符號，ch1 才不會誤殺 ch10
+				const terminalPrefix = `ch${chapter}-`;
+				const flagPrefix = `ch${chapter}.`;
+
+				set((state) => {
+					const terminals: Record<string, TerminalSessionRecord> = {};
+					for (const [terminalId, record] of Object.entries(state.terminals)) {
+						if (!terminalId.startsWith(terminalPrefix)) {
+							terminals[terminalId] = record;
+						}
+					}
+
+					const storyFlags: StoryFlags = {};
+					for (const flag of Object.keys(state.storyFlags)) {
+						if (!flag.startsWith(flagPrefix)) {
+							storyFlags[flag] = true;
+						}
+					}
+
+					return {
+						progress: {
+							...state.progress,
+							solvedTerminals: state.progress.solvedTerminals.filter((id) => !id.startsWith(terminalPrefix)),
+							oxygen: OXYGEN_MAX,
+						},
+						terminals,
+						storyFlags,
+					};
+				});
+			},
 		}),
 		{
 			name: SAVE_STORAGE_KEY,

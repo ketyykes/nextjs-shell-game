@@ -26,21 +26,24 @@ import { SettingsMenu } from "@/components/title/SettingsMenu";
 import { useNovaQueue } from "@/components/game/useNovaQueue";
 import { useTerminalPressure } from "@/components/game/useTerminalPressure";
 import { Terminal } from "@/components/terminal";
-import { chapterOneLifeSupport, findTerminal } from "@/game/chapters/ch1-life-support";
+import { chapterTeaches, findTerminal, getChapter, getNextChapter, isChapterComplete } from "@/game/chapters";
+import { ENDING_LINES } from "@/game/chapters/ending";
 import { emitGameEvent, onGameEvent } from "@/game/phaser/EventBus";
-import { ROOM_NAMES, type RoomId } from "@/game/phaser/events";
+import { ROOM_NAMES, type RoomId, type SolvedEffect } from "@/game/phaser/events";
 import { VirtualFileSystem } from "@/game/shell/fs";
 import { Shell } from "@/game/shell/shell";
 import type { ShellExecution } from "@/game/shell/types";
 import {
 	createObjectiveContext,
 	evaluateObjective,
+	introShownFlag,
+	outroShownFlag,
 	roomEnteredFlag,
-	STORY_FLAGS,
+	type ChapterDefinition,
 	type TerminalDefinition,
 } from "@/game/story";
 import { FLICKER_DURATION_MS, novaErrorLine, stuckLines, type PressureReaction } from "@/game/story/pressure";
-import { OUTRO_SCENE_IMAGE, sceneImageForRoom } from "@/game/story/scenes";
+import { endingImage, outroImageForChapter, sceneImageForRoom } from "@/game/story/scenes";
 import { selectOxygen, selectProgress, selectSettings, useGameStore, useStoreHydration } from "@/game/store";
 import type { CharacterId, OutputEntry, SettingsState, TerminalSessionRecord } from "@/game/store/types";
 
@@ -78,7 +81,20 @@ function createShellForTerminal(
 		hints: definition.hints,
 		learnedCommands: commandNames,
 		cwd: definition.initialCwd,
+		env: definition.env,
+		processes: definition.processes,
 	});
+}
+
+/** 這一章有演出的終端機 → 演出種類，經 registry 交給 Station。 */
+function collectTerminalEffects(chapter: ChapterDefinition): Record<string, SolvedEffect> {
+	const effects: Record<string, SolvedEffect> = {};
+	for (const terminal of chapter.terminals) {
+		if (terminal.effect !== undefined) {
+			effects[terminal.id] = terminal.effect;
+		}
+	}
+	return effects;
 }
 
 /** 開啟終端機時的歡迎行，來自劇本的 `banner`。 */
@@ -144,7 +160,13 @@ function PlayScreenReady() {
 	const touchSave = useGameStore((state) => state.touchSave);
 	const updateSettings = useGameStore((state) => state.updateSettings);
 	const setTerminalErrorCount = useGameStore((state) => state.setTerminalErrorCount);
+	const advanceChapter = useGameStore((state) => state.advanceChapter);
 	const router = useRouter();
+
+	// 目前章節：劇本、地圖、演出都從它來；章節結束按「進入下一章」會換
+	const chapter = getChapter(progress.chapter);
+	const [terminalEffects] = useState(() => collectTerminalEffects(chapter));
+	const chapterSolvedCount = chapter.terminals.filter((terminal) => progress.solvedTerminals.includes(terminal.id)).length;
 
 	const [openTerminal, setOpenTerminal] = useState<OpenTerminal | null>(null);
 	const [nearbyTerminal, setNearbyTerminal] = useState<TerminalDefinition | null>(null);
@@ -162,8 +184,6 @@ function PlayScreenReady() {
 	const shellsRef = useRef(new Map<string, Shell>());
 	// 這次開啟期間過關的 NOVA 最後一句，關閉後在地圖上再說一次
 	const pendingSolvedLineRef = useRef<{ prefix: string; text: string } | null>(null);
-	// 初次掛載時用的 ref，避免 effect 對 store 的函式產生依賴
-	const [initialSolvedTerminals] = useState(() => [...progress.solvedTerminals]);
 
 	// 開發模式的除錯鉤子：在瀏覽器 console 用 window.__kepler9.emit("puzzle:solved", { terminalId: "ch1-t4" }) 可直接觸發演出
 	useEffect(() => {
@@ -177,14 +197,19 @@ function PlayScreenReady() {
 		};
 	}, []);
 
-	// 開場台詞：第一句已在標題流程的 boot log 說過，進地圖後接著說其餘句子，只在第一次進遊戲時說
+	// 開場台詞：第一章的第一句已在標題流程的 boot log 說過，進地圖後接著說其餘句子；其他章節整段都在這裡說。只在第一次進該章時說
 	useEffect(() => {
-		if (storyFlags[STORY_FLAGS.introShown] === true) {
+		const flag = introShownFlag(chapter.chapter);
+		if (storyFlags[flag] === true) {
 			return;
 		}
-		setFlag(STORY_FLAGS.introShown);
-		nova.enqueue("intro", (chapterOneLifeSupport.intro ?? []).slice(1));
-	}, [nova, setFlag, storyFlags]);
+		setFlag(flag);
+		let lines = chapter.intro ?? [];
+		if (chapter.chapter === 1) {
+			lines = lines.slice(1);
+		}
+		nova.enqueue(`intro-${chapter.chapter}`, lines);
+	}, [chapter, nova, setFlag, storyFlags]);
 
 	// 暫停選單（4.7）：地圖上按 Esc 開啟；終端機開著、章節結束畫面或設定選單顯示中時不處理（它們各自處理 Esc）
 	const pauseBlocked = openTerminal !== null || settingsOpen;
@@ -218,29 +243,30 @@ function PlayScreenReady() {
 	}, [menuOpen]);
 
 	const handleRestartChapter = useCallback(() => {
-		// 重玩本章：清進度與終端機但保留設定與外觀，重新載入讓 Phaser 與 Shell 快取都重建
+		// 重玩本章：只清這一章的終端機、過關與旗標（已學指令、外觀、設定與前幾章都留著），重新載入讓 Phaser 與 Shell 快取都重建
 		const store = useGameStore.getState();
-		const character = store.progress.character;
-		store.resetSave();
-		if (character !== null) {
-			store.setCharacter(character);
-		}
+		store.resetChapter(chapter.chapter);
 		store.touchSave();
 		window.location.reload();
-	}, []);
+	}, [chapter.chapter]);
 
 	// 章節結束（4.7）：六台都過關且終端機已關閉時顯示過場、NOVA 結尾台詞與指令回顧卡；旗標確保只播一次
-	const allSolved = chapterOneLifeSupport.terminals.every((terminal) =>
-		progress.solvedTerminals.includes(terminal.id),
-	);
-	const showChapterEnd = allSolved && openTerminal === null && storyFlags[STORY_FLAGS.outroShown] !== true;
+	const allSolved = isChapterComplete(chapter, progress.solvedTerminals);
+	const showChapterEnd = allSolved && openTerminal === null && storyFlags[outroShownFlag(chapter.chapter)] !== true;
+	const nextChapter = getNextChapter(chapter.chapter);
 	const handleChapterEndMounted = useCallback(() => {
 		touchSave();
 	}, [touchSave]);
 	const handleReturnToTitle = useCallback(() => {
-		setFlag(STORY_FLAGS.outroShown);
+		setFlag(outroShownFlag(chapter.chapter));
 		router.push("/");
-	}, [router, setFlag]);
+	}, [chapter.chapter, router, setFlag]);
+	const handleNextChapter = useCallback(() => {
+		// 進下一章：記這章結尾播過、章節號加一；換章後整頁重載，Phaser 載新地圖、Shell 快取與 NOVA 佇列都從頭開始
+		setFlag(outroShownFlag(chapter.chapter));
+		advanceChapter();
+		window.location.reload();
+	}, [advanceChapter, chapter.chapter, setFlag]);
 
 	// 設定選單改音量或靜音時即時通知 Phaser 的 AudioManager
 	useEffect(() => {
@@ -269,7 +295,7 @@ function PlayScreenReady() {
 					emitGameEvent("sfx:play", { sound: "door" });
 					return;
 				case "nova": {
-					const text = novaErrorLine(chapterOneLifeSupport.novaErrorLines, reaction.lineIndex);
+					const text = novaErrorLine(chapter.novaErrorLines, reaction.lineIndex);
 					appendTranscript(
 						definition.id,
 						createDialogueEntries(`nova-error-${definition.id}-${reaction.lineIndex}-${Date.now()}`, [text]),
@@ -284,7 +310,7 @@ function PlayScreenReady() {
 					return;
 			}
 		},
-		[appendTranscript, openTerminal],
+		[appendTranscript, chapter.novaErrorLines, openTerminal],
 	);
 	const handleErrorCountChange = useCallback(
 		(count: number) => {
@@ -327,7 +353,7 @@ function PlayScreenReady() {
 			setCurrentRoom(roomId);
 			// 進房台詞每間只說一次，用劇情旗標跨重整去重
 			const store = useGameStore.getState();
-			const flag = roomEnteredFlag(roomId);
+			const flag = roomEnteredFlag(chapter.chapter, roomId);
 			if (store.storyFlags[flag] === true) {
 				return;
 			}
@@ -335,9 +361,14 @@ function PlayScreenReady() {
 			// 第一次進艙區：先秀插圖卡，再讓 NOVA 說進房台詞
 			const image = sceneImageForRoom(roomId);
 			if (image !== undefined) {
-				setSceneCard({ id: `room-${roomId}`, src: image, title: ROOM_NAMES[roomId], subtitle: "Kepler-9" });
+				setSceneCard({
+					id: `room-${roomId}`,
+					src: image,
+					title: ROOM_NAMES[roomId],
+					subtitle: `Kepler-9 · ${chapter.deckName}`,
+				});
 			}
-			const terminal = chapterOneLifeSupport.terminals.find((item) => item.roomId === roomId);
+			const terminal = chapter.terminals.find((item) => item.roomId === roomId);
 			const lines = terminal?.nova?.onEnterRoom ?? [];
 			if (lines.length > 0) {
 				nova.enqueue(`room-${roomId}`, lines);
@@ -350,7 +381,7 @@ function PlayScreenReady() {
 			unsubscribeReady();
 			unsubscribeRoom();
 		};
-	}, [nova]);
+	}, [chapter, nova]);
 
 	const closeTerminal = useCallback(() => {
 		if (openTerminal === null) {
@@ -413,9 +444,7 @@ function PlayScreenReady() {
 	);
 
 	const character = progress.character ?? DEFAULT_CHARACTER;
-	const currentObjective = chapterOneLifeSupport.terminals.find(
-		(terminal) => !progress.solvedTerminals.includes(terminal.id),
-	);
+	const currentObjective = chapter.terminals.find((terminal) => !progress.solvedTerminals.includes(terminal.id));
 	const justSolved = justSolvedId !== null ? findTerminal(justSolvedId) : undefined;
 	let objectiveTitle: string | null = null;
 	let objectiveDescription: string | undefined;
@@ -431,10 +460,14 @@ function PlayScreenReady() {
 		<main
 			className="relative h-screen w-screen overflow-hidden bg-game-bg font-terminal text-game-text"
 			data-scene-ready={sceneReady ? "true" : "false"}
+			data-chapter={chapter.chapter}
 		>
 			<PhaserGameDynamic
 				character={character}
-				solvedTerminals={initialSolvedTerminals}
+				chapter={chapter.map.deck}
+				startDark={chapter.map.startDark}
+				terminalEffects={terminalEffects}
+				solvedTerminals={progress.solvedTerminals}
 				volume={settings.volume}
 				muted={settings.muted}
 				className="flex h-full w-full items-center justify-center"
@@ -445,7 +478,7 @@ function PlayScreenReady() {
 				title={objectiveTitle}
 				description={objectiveDescription}
 				solved={justSolved !== undefined}
-				progress={{ solved: progress.solvedTerminals.length, total: chapterOneLifeSupport.terminals.length }}
+				progress={{ solved: chapterSolvedCount, total: chapter.terminals.length }}
 			/>
 			<CommandCheatSheet
 				learnedCommands={progress.learnedCommands}
@@ -469,14 +502,21 @@ function PlayScreenReady() {
 
 			{showChapterEnd && (
 				<ChapterEndScreen
-					chapterNumber={chapterOneLifeSupport.chapter}
-					chapterTitle={chapterOneLifeSupport.title}
-					outroLines={chapterOneLifeSupport.outro ?? []}
-					learnedCommands={progress.learnedCommands}
+					chapterNumber={chapter.chapter}
+					chapterTitle={chapter.title}
+					outroLines={chapter.outro ?? []}
+					learnedCommands={chapterTeaches(chapter)}
 					textSpeed={settings.textSpeed}
-					illustrationSrc={OUTRO_SCENE_IMAGE}
+					illustrationSrc={outroImageForChapter(chapter.chapter)}
+					nextChapter={
+						nextChapter === null
+							? null
+							: { number: nextChapter.chapter, title: nextChapter.title, deckName: nextChapter.deckName }
+					}
+					ending={nextChapter === null ? { lines: ENDING_LINES, illustrationSrc: endingImage() } : undefined}
 					onMounted={handleChapterEndMounted}
 					onReturnToTitle={handleReturnToTitle}
+					onNextChapter={handleNextChapter}
 				/>
 			)}
 

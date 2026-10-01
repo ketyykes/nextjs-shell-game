@@ -4,6 +4,7 @@
 
 export type {
 	ChapterDefinition,
+	ChapterMap,
 	NovaScript,
 	Objective,
 	ObjectiveCheck,
@@ -14,17 +15,28 @@ export type {
 export {
 	all,
 	any,
+	anyCommandIs,
 	catFile,
 	cdInto,
+	commandHasOption,
 	commandIs,
+	commandTouches,
 	createObjectiveContext,
+	envEquals,
 	evaluateObjective,
+	fileAbsent,
+	fileContains,
+	fileExists,
 	lsWithFlag,
+	noProcessMatching,
 	outputContains,
+	redirectsTo,
 } from "./objectives";
 export { chapterDefinitionSchema, MAX_HINTS, TERMINAL_ID_PATTERN, terminalDefinitionSchema, validateChapter } from "./schema";
-export { isStoryFlag, roomEnteredFlag, STORY_FLAGS } from "./flags";
+export { chapterFlagPrefix, introShownFlag, isStoryFlag, outroShownFlag, roomEnteredFlag } from "./flags";
 export { isRoomId, ROOM_IDS } from "./rooms";
+export { deckTerminal, deckTerminalIdentity, deckTerminals, TERMINAL_SLOTS } from "./decks";
+export type { DeckTerminal, TerminalIndex } from "./decks";
 export {
 	checkIdle,
 	createPressureState,

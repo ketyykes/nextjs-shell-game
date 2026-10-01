@@ -302,6 +302,55 @@ describe("resetSave", () => {
 	});
 });
 
+describe("章節", () => {
+	it("advanceChapter 章節加一、氧氣回滿並蓋上 savedAt", () => {
+		const state = useGameStore.getState();
+		state.loseOxygen();
+		state.advanceChapter();
+		const after = useGameStore.getState().progress;
+		expect(after.chapter).toBe(2);
+		expect(after.oxygen).toBe(OXYGEN_MAX);
+		expect(after.savedAt).not.toBeNull();
+	});
+
+	it("resetChapter 只清掉該章的終端機、過關紀錄與旗標，其他章與已學指令保留", () => {
+		const state = useGameStore.getState();
+		state.learnCommand("pwd");
+		state.markTerminalSolved("ch1-t1");
+		state.markTerminalSolved("ch2-t1");
+		state.markTerminalSolved("ch2-t2");
+		state.saveTerminalSession("ch1-t1", createRecord());
+		state.saveTerminalSession("ch2-t1", createRecord());
+		state.setFlag("ch1.outroShown");
+		state.setFlag("ch2.introShown");
+		state.setFlag("ch2.room.dc_entry.entered");
+		state.loseOxygen();
+
+		useGameStore.getState().resetChapter(2);
+
+		const after = useGameStore.getState();
+		expect(after.progress.solvedTerminals).toEqual(["ch1-t1"]);
+		expect(after.progress.learnedCommands).toEqual(["pwd"]);
+		expect(after.progress.oxygen).toBe(OXYGEN_MAX);
+		expect(Object.keys(after.terminals)).toEqual(["ch1-t1"]);
+		expect(after.storyFlags).toEqual({ "ch1.outroShown": true });
+	});
+
+	it("resetChapter 不會把 ch1 的前綴誤認成 ch10", () => {
+		const state = useGameStore.getState();
+		state.markTerminalSolved("ch1-t1");
+		state.markTerminalSolved("ch10-t1");
+		state.setFlag("ch1.outroShown");
+		state.setFlag("ch10.outroShown");
+
+		useGameStore.getState().resetChapter(1);
+
+		const after = useGameStore.getState();
+		expect(after.progress.solvedTerminals).toEqual(["ch10-t1"]);
+		expect(after.storyFlags).toEqual({ "ch10.outroShown": true });
+	});
+});
+
 describe("selectors", () => {
 	it("selectHasSave 依 savedAt 判斷", () => {
 		expect(selectHasSave(useGameStore.getState())).toBe(false);
