@@ -19,10 +19,10 @@
 | 項目 | 內容 |
 |---|---|
 | 更新日期 | 2026-10-01 |
-| 最新 commit | `6d5ce2a test: 加入劇本 schema、目標判定、第一章正解序列、NOVA 對話框、HUD、演出純函式的測試與過關 e2e` |
-| 目前階段 | M4 事件橋接與 HUD ✅ 完成，M5 第一章劇本 🔄 進行中（M5-1、M5-2 完成，剩 M5-3 卡關偵測、M5-4 環境反應階梯、M5-5 章節結束） |
-| 程式碼狀態 | `/play` 可從 T1 玩到 T6：六台終端機有真的檔案系統與目標判定，過關回氧、學指令、NOVA 說話、T4 燈逐間亮加人影、T6 開門。`pnpm test --run` 44 個測試檔 671 個測試全綠，`pnpm test:e2e` 7 個全綠 |
-| 下一步 | M5-3 卡關偵測，見第 3 節。第 8 節有這輪自主執行的決策，Danny 回來先看那裡 |
+| 最新 commit | `1ab8693 test: 卡關偵測、章節結束、標題流程、暫停與設定選單、插圖卡的單元測試與 e2e` |
+| 目前階段 | **M0 到 M7 全部完成**，第一版（第一章）可從標題玩到章節結束 |
+| 程式碼狀態 | 標題 → 選角 → boot log → 地圖，六台終端機、過關演出、NOVA 三時機台詞、卡關提示、環境反應階梯、插圖卡、五種音效、暫停與設定、章節結束畫面都有。`pnpm test --run` 55 個測試檔 805 個測試全綠，`pnpm test:e2e` 9 個全綠，`pnpm build` 通過 |
+| 下一步 | 沒有排定的里程碑。建議：Danny 實際玩一輪第一章、看第 8 節的決策清單、整理劇情文字；之後的候選工作見第 9 節 |
 | 遠端 | `origin` 是 SSH 網址 `git@github.com:ketyykes/nextjs-shell-game.git`，本機與 `origin/main` 同步 |
 
 ## 2. 里程碑總覽
@@ -36,9 +36,9 @@
 | M2 | 終端機 UI 與 zustand store | ✅ | 4.9、5、8-2 |
 | M3 | Phaser 地圖與角色 | ✅ | 3.2、6.2、9、8-3 |
 | M4 | 事件橋接與 HUD | ✅ | 3.1、4.6、8-4 |
-| M5 | 第一章劇本 | 🔄 | 3.4、4.4、4.8、8-5 |
-| M6 | 插圖與音效 | ⬜ | 4.10、6.3、8-6 |
-| M7 | 存檔、標題畫面與設定 | ⬜ | 4.7、8-7 |
+| M5 | 第一章劇本 | ✅ | 3.4、4.4、4.8、8-5 |
+| M6 | 插圖與音效 | ✅ | 4.10、6.3、8-6 |
+| M7 | 存檔、標題畫面與設定 | ✅ | 4.7、8-7 |
 
 ## 3. 任務清單
 
@@ -118,32 +118,36 @@
 | M4-5 HUD | ✅ | `ObjectivePanel.tsx`（左下角目前目標、過關打勾 3 秒、`n/6` 進度）、`CommandCheatSheet.tsx`（右側可展開的已學指令，點指令看 man 說明）、O2 在 `PlayScreen` 的 `Hud` |
 | 過關流程 | ✅ | `PlayScreen.handleExecuted`：錯誤扣氧；成功且 `evaluateObjective` 為 true 就 `markTerminalSolved`、`restoreOxygen`、`learnCommand`（存完整的 `ls -a` 字串，shell 只學指令名）、`touchSave`、發 `puzzle:solved`、NOVA 過關台詞內嵌進終端機、關閉後地圖對話框再說最後一句 |
 
-### M5 第一章劇本 🔄
+### M5 第一章劇本 ✅
 
-目標：從 T1 玩到 T6 通關。
+目標：從 T1 玩到 T6 通關。M5-3 到 M5-5 在 commit `ddc50e9` 與 `722bf56`。
 
 - ✅ **M5-1 schema 與旗標**（3.4、7）：`src/game/story/{types,schema,objectives,flags,rooms,index}.ts`。zod 4 `strictObject`，多餘欄位也擋；`validateChapter` 在劇本模組載入時就跑。目標判定組合函式：`commandIs`、`catFile`、`cdInto`、`lsWithFlag`、`outputContains`、`all`、`any`；PlayScreen 用 `createObjectiveContext` 加 `evaluateObjective`。
 - ✅ **M5-2 ch1-life-support.ts**（4.4）：六台終端機的檔案系統、目標、三段式 hint、NOVA 三時機台詞、章節 `intro`／`outro` 都寫了，測試用真的 Shell 跑每台的正解序列並檢查文字不含性別指涉。正解序列表見 `src/game/chapters/ch1-life-support.test.ts`。劇情文字是初稿，Danny 可直接改檔案內容，測試會抓格式錯誤。
-- ⬜ **M5-3 卡關偵測**（4.8）：同一台終端機連續五次錯誤或三分鐘沒進展，NOVA 用劇情台詞給 hint 第一段的內容。
-- ⬜ **M5-4 環境反應階梯與氧氣值**（4.8）：3 次燈閃、6 次遠處門聲、9 次 NOVA 台詞；每次錯誤 O2 掉 1%，最低 5%，過關回 100%。
-- ⬜ **M5-5 章節結束**（4.7）：過場插圖、NOVA 結尾台詞、指令回顧卡、自動存檔、「第二章開發中」回標題。
-- **完成定義**：一位沒碰過終端機的人能靠 hint 通關第一章。
+- ✅ **M5-3 卡關偵測**（4.8）：`src/game/story/pressure.ts` 加 `src/components/game/useTerminalPressure.ts`。連續五次錯誤或三分鐘沒進展，NOVA 在終端機內嵌說 `nova.onStuck`（沒寫就套 `hints[0]`），同一台過關前只說一次。
+- ✅ **M5-4 環境反應階梯與氧氣值**（4.8）：累積錯誤每 9 次循環一輪：3 燈閃（`ambient:flicker`，關閉閃爍設定時不發）、6 門聲（`sfx:play door`）、9 NOVA 台詞（章節 `novaErrorLines` 輪流）。計數存在 store 的 `errorCount`，過關歸零。氧氣在 M4 已做。
+- ✅ **M5-5 章節結束**（4.7）：`ChapterEndScreen.tsx` 三階段：outro 插圖與 NOVA 結尾台詞逐句打字、指令回顧卡、「第二章開發中」回標題。六台都過關且終端機關著時顯示，`ch1.outroShown` 旗標只播一次，掛載時自動存檔。
+- **完成定義**：一位沒碰過終端機的人能靠 hint 通關第一章。**這點還沒有真人驗證**，只有 e2e 跑過 T1 與測試跑過六台的正解序列，Danny 玩一輪是下一步。
 
-### M6 插圖與音效 ⬜
+### M6 插圖與音效 ✅
 
-- ⬜ **M6-1 codex 產圖**（6.3）：還缺六個艙區各一張場景插圖與開場、結尾兩張過場，共 8 張。NOVA 立繪與 sprite 已完成。用 `-i` 附 `nova-eye-original.png` 或 tileset 預覽當風格參考，提示詞放 stdin，見第 5 節陷阱。
-- ✅ **M6-2 素材搬移**：`nova-eye`、`nova-core` 256px 預覽版已在 `public/scenes/`（M4 做 NOVA 對話框時順手搬）。
-- ⬜ **M6-3 音效**（4.10）：Kenney Sci-fi Sounds 與 Interface Sounds 挑五種：環境嗡鳴、按鍵、門開、電力恢復、NOVA blip。Phaser SoundManager 為唯一出口，React 透過 `sfx:play` 請 Phaser 播。
-- **完成定義**：八張圖接上對應終端機與過場；五種音效可在設定靜音。
+commit `01f018d`、`a29520c`。
 
-### M7 存檔、標題畫面與設定 ⬜
+- ✅ **M6-1 codex 產圖**（6.3）：`docs/assets-draft/scenes/generate.sh` 批次產八張，先產冷凍艙當風格基準，其餘用 `-i` 附它。codex 0.155.1 輸出 1672x941 的 16:9，一張約 80 秒。原圖 `scene-*-original.png` 不進版控（`.gitignore` 已加 `scenes/` 規則），256px 預覽在 `docs/assets-draft/scenes/`，640x360 正式檔在 `public/scenes/`。對照圖看過：八張風格一致。
+- ✅ **M6-2 素材搬移**：`nova-eye`、`nova-core` 256px 預覽版在 `public/scenes/`。
+- ✅ **M6-3 音效**（4.10）：`public/audio/{ambient,key,door,power,nova-blip}.{ogg,mp3}` 加 `LICENSE-kenney.txt`。來源：ambient 是 Sci-fi `spaceEngineLow_002` 裁成 8 秒循環，key 是 Interface `click_001`，door 是 `doorOpen_000`，power 是 `lowFrequency_explosion_001`，nova-blip 是 Interface `select_007`。**沒有人實際聽過**，agent 是看檔名挑的，不合就換（備選寫在 `src/game/phaser/audio.ts` 附近的回報：key 可換 `tick_004`，blip 可換 `select_003`）。`AudioManager` 在 `src/game/phaser/audio.ts`。
+- **完成定義**：八張圖接上對應**艙區**（第一次進艙區的插圖卡）與開場、結尾過場；五種音效可在設定靜音與調音量。
 
-- ⬜ **M7-1 標題畫面**（4.7）：黑底、Kepler-9 像素標題、CRT 掃描線。「繼續」只在有存檔時出現，「新遊戲」有存檔要確認覆蓋。
-- ⬜ **M7-2 選角**（4.7）：四個站立 sprite 放大顯示，方向鍵切換。
-- ⬜ **M7-3 開場 boot log**（4.7）：終端機打字動畫跑喚醒程序，名單查詢卡在「查無此人」，NOVA 第一句話，淡入地圖。
-- ⬜ **M7-4 暫停選單**（4.7）：地圖上 Esc 開啟，繼續、回標題、重玩本章。
-- ⬜ **M7-5 設定選單**（4.7、4.10）：文字速度、關閉閃爍、關閉掃描線、音量、靜音。
-- **完成定義**：關掉瀏覽器再開能從上次的終端機接續。
+### M7 存檔、標題畫面與設定 ✅
+
+commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlow.tsx`，首頁 `src/app/page.tsx` 只渲染它。
+
+- ✅ **M7-1 標題畫面**（4.7）：`TitleScreen.tsx`。黑底、`font-title` 的 KEPLER-9、CRT 覆蓋層跟設定。「繼續」只在 `savedAt` 不為 null 時出現；「新遊戲」有存檔時先出內嵌確認面板（不用 `window.confirm`，會卡住自動化）。
+- ✅ **M7-2 選角**（4.7）：`CharacterSelect.tsx`，四個站立幀放大四倍，←→ 切換、Enter 確認、Esc 返回。選完角就 `touchSave`，中途離開回來能按「繼續」。
+- ✅ **M7-3 開場 boot log**（4.7）：`BootLog.tsx` 用 `TerminalFrame` 逐行打字 13 行，查無此人三次後略過，最後 NOVA 第一句（`intro[0]`）；Enter 跳過、再 Enter 繼續。接著 `SceneCard` 顯示開場插圖 2.6 秒再進 `/play`，其餘 `intro` 句子在地圖上接著說。
+- ✅ **M7-4 暫停選單**（4.7）：`PauseMenu.tsx`，地圖上 Esc 開（終端機、設定、章節結束畫面開著時不處理）。繼續、設定、重玩本章（內嵌確認後清進度保留外觀與設定，重新載入頁面）、回標題。開著時發 `game:pause` 讓 Phaser 停角色。
+- ✅ **M7-5 設定選單**（4.7、4.10）：`SettingsMenu.tsx`，文字速度四段、閃爍、掃描線、暗角、音量、靜音，標題與地圖都能開；音量與靜音透過 `audio:settings` 即時套用。
+- **完成定義**：關掉瀏覽器再開能從上次的終端機接續 — 輸出紀錄、cwd、歷史、過關、燈亮與門開狀態都會還原；**角色位置不存**，重開一律從冷凍艙出生點開始（決策 #15）。
 
 ## 4. 待處理雜項
 
@@ -154,7 +158,10 @@
   git rm --cached docs/assets-draft/*-original.png
   ```
   目前被追蹤的六張：`nova-core`、`nova-eye`、`technician-sheet`、`technician-c`、`technician-d`、`technician-e` 的 `-original.png`，合計約 8.7 MB。
-- ⬜ **設計文件過時段落**：`game-design.md` 6.2 的標題「還沒找到的素材」已不準確，角色 sprite 已完成；第 8 節第 6 項寫「九張圖」，6.3 寫「約 13 張」，實際剩 8 張。下次改設計文件時一併整理。
+- ✅ **設計文件過時段落**：2026-10-01 已把 6.2 標題改成「自產與補充的素材」、6.3 與第 8 節的張數改成實際的 8 張場景圖。
+- ⬜ **真人試玩**：完成定義「沒碰過終端機的人能靠 hint 通關」還沒驗證。找一位新手玩第一章，記錄卡在哪、hint 哪一段救了他。
+- ⬜ **試聽五個音效**：agent 看檔名挑的，沒人聽過，見 M6-3。
+- ⬜ **劇情文字潤稿**：六台終端機的檔案內容、NOVA 台詞、boot log、章節結尾都是 agent 初稿，`src/game/chapters/ch1-life-support.ts` 與 `src/components/title/BootLog.tsx`，改完跑 `pnpm test --run src/game/chapters` 會檢查格式與性別指涉。
 - ⬜ **淘汰的原圖只在 Danny 的 Mac 上**：`nova-portrait`、`nova-v2`、`nova-v3`、`nova-id`、`nova-mannequin`、`nova-lowres`、`technician-b` 的 `-original.png` 沒進版控也不需要，另一台電腦看不到是正常的。
 
 ## 5. 已知陷阱與環境備註
@@ -199,6 +206,14 @@
 ## 7. 工作日誌
 
 每次 session 收工加一筆，最新在最上面。格式：日期、做了什麼、commit 範圍、下一步。
+
+### 2026-10-01（第五場，同一個 `/goal`，做完 M5-3 到 M7）
+
+- 完成 M5-3、M5-4、M5-5、M6、M7，第一版全部里程碑結束。契約先行（`ambient:flicker`、`audio:settings`、`game:pause/resume` 事件，`onStuck`、`novaErrorLines` 劇本欄位），五個 agent 分兩波：卡關偵測與階梯（opus）、章節結束畫面（sonnet）、音效與 AudioManager（sonnet）、標題流程五個元件（opus）、codex 產圖由我在背景跑；我接 Station 與 PlayScreen、標題流程、插圖卡、e2e。
+- 整合時抓到並修掉：Preloader 寫了 `loadAudio()` 卻沒呼叫（音效 key 不在 cache 讓場景炸掉，AudioManager 順便加容錯）；暫停選單借用 `terminal:open` 事件會被 PlayScreen 當成找不到終端機而立刻關掉，改成專用的 `game:pause/resume`。
+- 55 個測試檔 805 個單元測試、9 個 e2e、`pnpm build` 全過。截圖看過標題、選角、boot log、插圖卡、暫停、設定、章節結束 outro 與回顧卡。
+- commit：`ddc50e9`、`01f018d`、`a29520c`、`722bf56`（feat）、`1ab8693`（test）、本檔另一筆 docs。未 push，連同之前共 30 筆。
+- 下一步：沒有排定的里程碑，見第 1 節與第 9 節。
 
 ### 2026-10-01（第四場，Danny 下 `/goal` 要求一路做完、疑問照建議並記錄）
 
@@ -265,3 +280,22 @@
 | 11 | zod schema 用 `strictObject`，劇本多打一個欄位就報錯 | 3.4 要求「欄位打錯會直接報錯」，寬鬆物件抓不到打錯的欄位名 | `schema.ts` |
 | 12 | 阿彬的本名**沒寫**，病歷寫「慣用稱呼：阿彬」 | 設計說本名只在病歷出現一次，但沒定名字，不擅自編 | `ch1-life-support.ts` T5 的病歷檔 |
 | 13 | `day_900.txt` 的 mtime 比喚醒排程被改的時間早 16 分鐘 | 若兩者相同會讓人以為排程是阿彬改的，跟核心真相衝突 | 同上 T3 |
+| 14 | 按鍵聲改成**每送出一道指令響一次**，不是每個按鍵 | 每鍵都響很吵，而且 Terminal 元件沒有按鍵 callback | `PlayScreen.handleExecuted` 開頭的 `sfx:play key` |
+| 15 | **角色位置不存檔**，重開一律從出生點開始 | 地圖只有一層、走回終端機很快；存位置要多一個 store 欄位與 Phaser 讀寫，第一版不值得 | `progress` 加欄位、`Station.createPlayer` 讀它 |
+| 16 | 艙區插圖用在**第一次進艙區的插圖卡**（2.6 秒自動淡出），不是終端機背景 | 4.9 要求彈窗後面的地圖要看得到，插圖當背景會擋地圖；進房卡是常見手法也不擋操作 | `SceneCard.tsx`、`PlayScreen` 的 `room:enter` handler |
+| 17 | 開場插圖放在 boot log 之後、進地圖之前；結尾插圖放章節結束畫面的 outro 階段 | 4.7 的流程沒有開場插圖的位置，接在 boot log 後當「淡入地圖」的過場最自然 | `TitleFlow` 的 `intro` stage |
+| 18 | 重玩本章用 `window.location.reload()` 重新載入頁面 | Phaser 實例、Shell 快取、NOVA 佇列都要重建，整頁重載最乾淨 | `PlayScreen.handleRestartChapter` |
+| 19 | 選完角就 `touchSave`，所以還沒進地圖就有「繼續」 | 玩家在 boot log 關掉瀏覽器回來，應該能直接進地圖而不是重選角 | `TitleFlow.handleCharacterConfirm` |
+| 20 | 音效 agent 看檔名挑的五個檔沒有人試聽 | 我沒有辦法聽；Danny 試聽後覺得不對直接換檔案，key 與路徑在 `audio.ts` | 換 `public/audio/` 的檔案即可 |
+| 21 | 卡關台詞與第 9 次錯誤台詞只在**終端機內嵌**顯示，不上地圖對話框 | 這兩種反應都發生在終端機開著的時候，地圖對話框被彈窗蓋住看不到 | `PlayScreen.handlePressureReaction` |
+| 22 | 暫停選單只停角色輸入，Phaser 場景不暫停 | 場景暫停會讓終端機發光脈動、NOVA 對話框的淡出 tween 都停住；只停輸入就夠 | `Station` 的 `game:pause` handler |
+
+## 9. 第一版之後的候選工作
+
+沒有排定順序，Danny 決定要不要做。
+
+- **真人試玩與調整**：第 4 節的三項雜項（試玩、試聽、潤稿）。
+- **M6/M7 的小尾巴**：設定的「關閉閃爍」目前管 CRT 閃爍與燈閃，但人影閃現與鏡頭震動還是會播（決策 #10）；Phaser 內的「按 E」文字還是系統 monospace，沒換 bitmap 字型；`CommandCheatSheet` 與 `ObjectivePanel` 在 1280 以下的視窗沒測過排版。
+- **存檔格式升級**：`SAVE_VERSION` 還是 1，`migrate` 只是框架；第二章動工前決定要不要存角色位置與目前艙區。
+- **第二章**：`src/game/chapters/ch2-*.ts` 照第一章的 schema 寫，Shell 要加 `head`、`tail`、`wc`、`grep`、`find`（4.3），地圖腳本 `DEFAULT_LAYOUT` 要加資料中心。
+- **部署**：`pnpm build` 已過、三個路由都是靜態，可直接上 Vercel 或任何靜態主機；還沒設 CI。

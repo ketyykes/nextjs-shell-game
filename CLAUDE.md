@@ -66,13 +66,14 @@ src/
 │   ├── layout.tsx         # 根佈局 (掛三種像素字型的 CSS 變數，lang zh-Hant)
 │   ├── fonts.ts           # next/font 定義：VT323、Press Start 2P、Fusion Pixel
 │   ├── fonts/             # Fusion Pixel woff2 與授權
-│   ├── page.tsx           # 首頁 (仍是模板)
+│   ├── page.tsx           # 標題畫面，只渲染 TitleFlow
 │   ├── play/page.tsx      # 遊戲頁面，只渲染 PlayScreen
 │   └── globals.css        # 全域樣式 (Tailwind v4 的 @theme、--game-* 配色、font-terminal/font-title)
 ├── components/
 │   ├── ui/                # shadcn/ui 元件
 │   ├── terminal/          # Terminal 元件群：外框、輸出區、NOVA 對話、輸入列、鍵盤 hook
-│   └── game/              # PlayScreen (地圖 + 終端機彈窗 + HUD)、PhaserGame(Dynamic)、CrtOverlay、OxygenVignette
+│   ├── title/             # TitleFlow (標題→選角→boot log→插圖卡→/play)、SettingsMenu、選單導覽 hook
+│   └── game/              # PlayScreen (地圖、終端機彈窗、HUD、NOVA、暫停、章節結束)、PhaserGame(Dynamic)、CRT 等
 ├── game/
 │   ├── phaser/            # Phaser 4：events.ts 與 constants.ts 是契約，EventBus 零相依，scenes/ 與 objects/
 │   ├── store/             # zustand store 與 localStorage 存檔；types.ts 是存檔格式契約
@@ -95,7 +96,9 @@ scripts/build-map.mjs       # 第一章地圖產生腳本，輸出 Tiled JSON (p
 public/sprites/             # 四位角色的 32x48 sprite sheet (128x192，4x4 格)
 public/tiles/               # Buch Sci-fi Interior tileset (448x192，14x6 格，32px)
 public/maps/deck1.json      # 第一章地圖 (40x24 格)，由 build-map.mjs 產生，可用 Tiled 開啟
-public/scenes/              # NOVA 立繪 (nova-eye、nova-core，256px)，之後放 codex 產的場景插圖
+public/scenes/              # NOVA 立繪 (256px) 與八張場景插圖 (640x360)，原圖在 docs/assets-draft/scenes/ 不進版控
+public/audio/               # 五種 CC0 音效 (Kenney)，ogg 與 mp3
+docs/assets-draft/scenes/generate.sh  # codex 批次產圖腳本 (M6-1)
 docs/
 ├── game-design.md          # 設計定案 (第 7 節是遊戲程式的預定目錄結構)
 ├── progress.md             # 進度、下一步、已知陷阱
@@ -148,7 +151,8 @@ npx shadcn@latest add [component-name]
 5. **Tailwind CSS v4**: 沒有 `tailwind.config.js`；設定寫在 `src/app/globals.css` 的 `@import "tailwindcss"` 與 `@theme inline` 區塊，PostCSS 只掛 `@tailwindcss/postcss`
 6. **動畫**: 使用 `motion` 套件，匯入路徑為 `motion/react`（例如 `import { motion } from "motion/react"`），動畫元件需搭配 `"use client"`
 7. **圖示**: lucide-react 1.x 已移除所有品牌圖示（如 GitHub、Twitter），圖示預設帶有 `aria-hidden`
-8. **Phaser**: Phaser 4 在 import 當下就讀 `window`，所以只有 `src/game/phaser/main.ts` 與 `scenes/`、`objects/` 可以 import `phaser`，React 端只能 import `@/game/phaser/EventBus`、`events`、`constants`（都零相依）。遊戲透過 `PhaserGameDynamic`（`next/dynamic` + `ssr: false`）載入，`PhaserGame` 延後一幀 `startGame` 防 StrictMode 疊兩層 canvas。官方 `phaserjs/template-nextjs` 是 Pages Router，不能照抄。更多坑見 `docs/progress.md` 第 5 節
+8. **除錯鉤子**: 開發模式下 `/play` 掛 `window.__kepler9.emit(事件名, payload)`，可在瀏覽器 console 直接發 EventBus 事件（例如 `puzzle:solved`）觸發演出，正式 build 不掛
+9. **Phaser**: Phaser 4 在 import 當下就讀 `window`，所以只有 `src/game/phaser/main.ts` 與 `scenes/`、`objects/` 可以 import `phaser`，React 端只能 import `@/game/phaser/EventBus`、`events`、`constants`（都零相依）。遊戲透過 `PhaserGameDynamic`（`next/dynamic` + `ssr: false`）載入，`PhaserGame` 延後一幀 `startGame` 防 StrictMode 疊兩層 canvas。官方 `phaserjs/template-nextjs` 是 Pages Router，不能照抄。更多坑見 `docs/progress.md` 第 5 節
 
 ## 協作慣例
 

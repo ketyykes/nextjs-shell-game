@@ -289,7 +289,7 @@ NOVA 從未被回滾，「失憶」是演的。公司規定無人站點滿三年
 | NOVA 立繪、場景插圖、過場圖 | codex CLI 內建 image_generation | 自產 | 見 6.3。NOVA 定案為非人形：`nova-eye` 當對話立繪、`nova-core` 當第六章核心，見 4.1 |
 | 角色 sprite 四版 | codex CLI 內建 image_generation | 自產 | A 版先產出，C、D、E 以 A 版為參考圖產生，見 6.2 |
 
-### 6.2 還沒找到的素材
+### 6.2 自產與補充的素材
 
 - 角色 sprite sheet：CC0 來源找不到合用的。OpenGameArt 的「Top Down Astronaut - Animated」是 Blender 3D 專案檔不是現成 sprite。改用 codex 試產，結果可用：4x4 格、四方向順序正確（下、左、右、上）、每列四幀走路循環、深藍連身服橘色反光條。AI 畫的每格位置不完全一致，用 `pnpm sprites:slice`（`scripts/slice-sprites.mjs`，需要 sharp）重切：清掉半透明雜訊、每格只留最大連通區塊、每列各自縮放、腳底對齊同一基準線。正式檔在 `public/sprites/technician-{a,c,d,e}.png`，規格如下：
   - 格子 32x48，4 欄 4 列，整張 128x192。
@@ -297,7 +297,7 @@ NOVA 從未被回滾，「失憶」是演的。公司規定無人站點滿三年
   - 每列四幀：站立、左腳前、站立、右腳前。走路動畫播 0-1-2-3 循環，站立用第 0 幀。
   - 角色高約 46 px，寬 20 到 28 px，腳底在格子第 47 列。
   - 選 32x48 而不是 32x32 的原因：角色圖是瘦長的，32x32 只剩 18 px 寬會糊掉；32x48 是一格 tile 寬、一格半高，跟 32px tile 的搭配是 RPG Maker XP 的經典比例。
-- 音效：Kenney「Sci-fi Sounds」已確認 CC0，共 70 個音效。第一版可以先不加，若加只要環境嗡鳴、終端機按鍵聲、門開聲三種。
+- 音效：Kenney「Sci-fi Sounds」與「Interface Sounds」（CC0）。第一版已採用 4.10 的五種，檔案在 `public/audio/`。
 
 ### 6.3 codex 產圖流程
 
@@ -311,7 +311,7 @@ cd public/scenes && codex exec --skip-git-repo-check -s workspace-write \
 - codex 會先存到 `~/.codex/generated_images/<session>/`，再複製到指定路徑。
 - 固定風格前綴確保幾十張圖看起來是同一個世界，例如「16-bit 像素風、深色廢棄太空站、冷藍色調、CRT 掃描線質感」。
 - 不用它產 tileset 與 sprite sheet，格線對不齊。
-- 第一章預估需要：NOVA 立繪 1 張、角色 sprite 4 張、六個艙區各 1 張場景插圖、開場與結尾過場 2 張，共約 13 張。
+- 第一章實際產出：NOVA 立繪 2 張（`nova-eye`、`nova-core`）、角色 sprite 4 張、六個艙區各 1 張場景插圖、開場與結尾過場 2 張。八張場景圖由 `docs/assets-draft/scenes/generate.sh` 批次產生，成品在 `public/scenes/`。
 - 產第二版以後的圖時用 `-i <參考圖>` 把已定稿的圖附上，風格才會一致。
 - 草稿圖放在 `docs/assets-draft/`，定稿後才搬到 `public/`。
 - 命名規則：原始大圖加 `-original` 後綴，例如 `nova-portrait-original.png`，已在 .gitignore 忽略；縮小後的預覽圖不加後綴，例如 `nova-portrait.png`（256px）、`technician-b.png`（128px），會進版控。`.psd`、`.blend`、`.aseprite` 這類美術原始檔一律不進版控。
@@ -362,7 +362,7 @@ docs/
 3. **Phaser 地圖與角色**：載入 tileset、畫第一章地圖、角色走動與碰撞、走近終端機提示。
 4. **事件橋接**：按 E 開終端機、Esc 關、過關後地圖演出。
 5. **第一章劇本**：六台終端機的檔案系統、NOVA 台詞、目標判定、三段式提示。
-6. **圖片**：codex 產九張圖並接上。
+6. **圖片**：codex 產八張場景圖並接上（艙區插圖卡、開場與結尾過場）。
 7. **存檔與標題畫面**：localStorage、繼續遊戲、重新開始。
 
 ## 9. 第一章地圖配置草案
