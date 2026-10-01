@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 export interface PhaserGameProps {
 	/** 玩家選擇的角色，變動時會銷毀並重建遊戲 */
 	character: CharacterId;
+	/** 建立當下已過關的終端機，Station 用它直接套最終狀態（燈亮、門開）不播動畫；之後變動不會重建遊戲 */
+	solvedTerminals?: readonly string[];
 	className?: string;
 	/** 遊戲建立後呼叫，整合者用來拿 game 實例（例如之後要 pause） */
 	onGameCreated?: (game: Phaser.Game) => void;
@@ -18,15 +20,17 @@ export interface PhaserGameProps {
  * 在 React 裡建立與銷毀 Phaser 遊戲的容器元件。
  * 只能在瀏覽器端執行，請透過 `PhaserGameDynamic`（next/dynamic + ssr: false）載入。
  */
-export function PhaserGame({ character, className, onGameCreated }: PhaserGameProps) {
+export function PhaserGame({ character, solvedTerminals, className, onGameCreated }: PhaserGameProps) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const gameRef = useRef<Phaser.Game | null>(null);
 	const onGameCreatedRef = useRef(onGameCreated);
+	const solvedTerminalsRef = useRef(solvedTerminals);
 
-	// 保存最新的 callback，避免它變動時觸發遊戲重建
+	// 保存最新的 callback 與過關清單，避免它們變動時觸發遊戲重建
 	useLayoutEffect(() => {
 		onGameCreatedRef.current = onGameCreated;
-	}, [onGameCreated]);
+		solvedTerminalsRef.current = solvedTerminals;
+	}, [onGameCreated, solvedTerminals]);
 
 	useLayoutEffect(() => {
 		// Phaser 會碰 window，保險起見只在瀏覽器端建立
@@ -47,7 +51,7 @@ export function PhaserGame({ character, className, onGameCreated }: PhaserGamePr
 			if (cancelled || gameRef.current) {
 				return;
 			}
-			const game = startGame(container, { character });
+			const game = startGame(container, { character, solvedTerminals: solvedTerminalsRef.current ?? [] });
 			gameRef.current = game;
 			onGameCreatedRef.current?.(game);
 		});
