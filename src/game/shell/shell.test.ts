@@ -157,6 +157,12 @@ describe("Shell 狀態", () => {
 		expect(shell.execute("help").lines.some((line) => line.startsWith("ls"))).toBe(true);
 	});
 
+	it("建構時傳入重複的指令名只留第一份，順序照學會的先後", () => {
+		// UI 會把「ls、ls -l、ls -a」這類完整字串轉成指令名再傳進來，轉完會重複
+		const shell = createShell({ learnedCommands: ["pwd", "ls", "cd", "ls", "cd", "ls"] });
+		expect(shell.learnedCommands).toEqual(["pwd", "ls", "cd"]);
+	});
+
 	it("Tab 補全會用目前的 cwd", () => {
 		const shell = createShell();
 		expect(shell.complete("cat wa").completed).toBe("cat wake_up.txt ");

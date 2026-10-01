@@ -71,7 +71,11 @@ export class Shell {
 		this.history = new CommandHistory(options.history ?? []);
 		this.currentCwd = options.cwd ?? options.home ?? HOME_DIR;
 		this.currentHintCount = options.hintCount ?? 0;
-		this.learned = [...options.learnedCommands];
+		// UI 可能把「ls、ls -l、ls -a」轉成指令名後整串傳進來，這裡去重，順序照第一次出現
+		this.learned = [];
+		for (const name of options.learnedCommands) {
+			this.learn(name);
+		}
 		// 基本的三個變數先補上，劇本或存檔給的 env 可以覆蓋或追加
 		this.currentEnv = {
 			HOME: options.home ?? HOME_DIR,
