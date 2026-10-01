@@ -587,7 +587,11 @@ function Hud({ oxygen, room, nearbyTerminal, terminalOpen }: HudProps) {
 	return (
 		<div className="pointer-events-none absolute inset-0 z-30 text-2xl" aria-live="polite">
 			<div className={`absolute top-4 left-4 ${oxygenClass}`}>O2 {oxygen}%</div>
-			{room !== null && <div className="absolute top-4 right-4 text-game-dim">{ROOM_NAMES[room]}</div>}
+			{room !== null && (
+				<div className="absolute top-4 right-4 text-game-dim" data-testid="hud-room">
+					{ROOM_NAMES[room]}
+				</div>
+			)}
 			{nearbyTerminal !== null && !terminalOpen && (
 				<div className="absolute bottom-16 left-1/2 -translate-x-1/2 text-game-holo" data-testid="interact-hint">
 					按 E 開啟 {nearbyTerminal.title}
