@@ -1,7 +1,30 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-/** M2 完成定義：瀏覽器可玩 M1 的指令，重新整理後歷史與進度還在。 */
-test.describe("/play 終端機", () => {
+/**
+ * M2 完成定義：瀏覽器可玩 M1 的指令，重新整理後歷史與進度還在。
+ * M3 完成定義：/play 能走動與碰撞，六台終端機位置正確（這裡驗證走到 T1 並按 E 開得起來）。
+ */
+
+/** 從出生點走到 T1 冷凍艙控制台並按 E 開啟終端機。出生點在冷凍艙中央，T1 在房間左上方。 */
+async function openCryoTerminal(page: Page): Promise<void> {
+	// 等 Phaser 畫布出現
+	await expect(page.locator("canvas")).toBeVisible({ timeout: 15000 });
+	await page.locator("canvas").click();
+
+	// 往左走再往上走，直到 HUD 出現「按 E」提示；每段最多按 3 秒避免卡住時無限等
+	await page.keyboard.down("ArrowLeft");
+	await page.waitForTimeout(700);
+	await page.keyboard.up("ArrowLeft");
+	await page.keyboard.down("ArrowUp");
+	await expect(page.getByTestId("interact-hint")).toBeVisible({ timeout: 3000 });
+	await page.keyboard.up("ArrowUp");
+
+	await page.keyboard.press("e");
+	await expect(page.getByTestId("terminal-modal")).toBeVisible();
+	await expect(page.getByLabel("指令輸入")).toBeFocused();
+}
+
+test.describe("/play 地圖與終端機", () => {
 	test.beforeEach(async ({ page }) => {
 		await page.goto("/play");
 		// 清掉上一次測試留下的存檔，確保每個測試從乾淨狀態開始
@@ -9,23 +32,28 @@ test.describe("/play 終端機", () => {
 		await page.reload();
 	});
 
-	test("打 ls 看到冷凍艙目錄與 wake_up.txt", async ({ page }) => {
+	test("走到冷凍艙控制台按 E 開啟終端機，打 ls 看到 wake_up.txt", async ({ page }) => {
+		await openCryoTerminal(page);
+		await expect(page.getByText("冷凍艙控制台").first()).toBeVisible();
+
 		const input = page.getByLabel("指令輸入");
-		await expect(input).toBeFocused();
 		await input.fill("ls");
 		await input.press("Enter");
 		await expect(page.getByText("pod_06/")).toBeVisible();
 		await expect(page.getByText("wake_up.txt", { exact: true })).toBeVisible();
 	});
 
-	test("錯誤指令顯示繁中友善訊息", async ({ page }) => {
+	test("錯誤指令顯示繁中友善訊息並扣氧氣", async ({ page }) => {
+		await openCryoTerminal(page);
 		const input = page.getByLabel("指令輸入");
 		await input.fill("catwake_up.txt");
 		await input.press("Enter");
 		await expect(page.getByText("你是不是想打")).toBeVisible();
+		await expect(page.getByText("O2 99%")).toBeVisible();
 	});
 
 	test("Tab 補全與 ↑ 叫回歷史", async ({ page }) => {
+		await openCryoTerminal(page);
 		const input = page.getByLabel("指令輸入");
 		await input.fill("cat wa");
 		await input.press("Tab");
@@ -36,7 +64,17 @@ test.describe("/play 終端機", () => {
 		await expect(input).toHaveValue("cat wake_up.txt");
 	});
 
+	test("Esc 關閉終端機後可以繼續走動並再開一次", async ({ page }) => {
+		await openCryoTerminal(page);
+		await page.keyboard.press("Escape");
+		await expect(page.getByTestId("terminal-modal")).toBeHidden();
+		await expect(page.getByTestId("interact-hint")).toBeVisible();
+		await page.keyboard.press("e");
+		await expect(page.getByTestId("terminal-modal")).toBeVisible();
+	});
+
 	test("重新整理後輸出紀錄、工作目錄與歷史都還在", async ({ page }) => {
+		await openCryoTerminal(page);
 		const input = page.getByLabel("指令輸入");
 		await input.fill("cd pod_06");
 		await input.press("Enter");
@@ -45,6 +83,7 @@ test.describe("/play 終端機", () => {
 		await expect(page.getByText("status.txt", { exact: true })).toBeVisible();
 
 		await page.reload();
+		await openCryoTerminal(page);
 
 		const inputAfter = page.getByLabel("指令輸入");
 		// 輸出紀錄還在
