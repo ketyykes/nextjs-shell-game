@@ -55,7 +55,8 @@ async function alignToTerminal(page: Page, title: string): Promise<void> {
 		["ArrowRight", 300],
 	];
 	for (const [key, ms] of nudges) {
-		const text = await hint.textContent().catch(() => null);
+		// 不在任何終端機旁時提示元素不存在，textContent 預設會無限等待，給短逾時才會進到下面的微調
+		const text = await hint.textContent({ timeout: 500 }).catch(() => null);
 		if (text === expected) {
 			return;
 		}
@@ -193,7 +194,8 @@ export interface SeedOptions {
 
 /**
  * 直接寫一份「已經玩到第 N 章開頭」的存檔進 localStorage，略過前面幾章。
- * 格式跟 `src/game/store/gameStore.ts` 的 persist 一致（`{ state, version }`），`SAVE_VERSION` 是 1。
+ * 格式跟 `src/game/store/gameStore.ts` 的 persist 一致（`{ state, version }`）。刻意寫 v1（沒有 `furthestChapter`、`position`），
+ * 讀檔時走 migrate 升成 v2，順便在真瀏覽器裡驗證舊存檔讀得進來。
  */
 export async function seedSave(page: Page, options: SeedOptions): Promise<void> {
 	const solvedTerminals = options.solvedTerminals ?? [];

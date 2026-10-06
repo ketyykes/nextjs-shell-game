@@ -5,7 +5,10 @@ import { expect, test, type Page } from "@playwright/test";
  * M3 完成定義：/play 能走動與碰撞，六台終端機位置正確（這裡驗證走到 T1 並按 E 開得起來）。
  */
 
-/** 從出生點走到 T1 冷凍艙控制台並按 E 開啟終端機。出生點在冷凍艙中央，T1 在房間左上方。 */
+/**
+ * 走到 T1 冷凍艙控制台並按 E 開啟終端機。出生點在冷凍艙中央，T1 在房間左上方。
+ * 存檔 v2 起會還原角色位置，已經站在 T1 旁（提示已出現）就不走。
+ */
 async function openCryoTerminal(page: Page): Promise<void> {
 	// 等 Phaser 畫布出現，而且 Station 場景已建立（Preloader 還在載資源時按鍵會被吃掉）
 	await expect(page.locator("canvas")).toBeVisible({ timeout: 15000 });
@@ -15,7 +18,11 @@ async function openCryoTerminal(page: Page): Promise<void> {
 	await page.waitForTimeout(300);
 
 	// 往左走再往上走，直到 HUD 出現「按 E」提示；走偏就往下退回去重走一次
-	let reached = false;
+	let reached = await page
+		.getByTestId("interact-hint")
+		.waitFor({ timeout: 500 })
+		.then(() => true)
+		.catch(() => false);
 	for (let attempt = 0; attempt < 2 && !reached; attempt += 1) {
 		await page.keyboard.down("ArrowLeft");
 		await page.waitForTimeout(700);
@@ -160,6 +167,10 @@ test.describe("/play 地圖與終端機", () => {
 		// client-side 導頁後 Next 的路由播報器也會念「KEPLER-9」，用 heading 角色避免撞到
 		await expect(page.getByRole("heading", { name: "KEPLER-9" })).toBeVisible();
 		await page.getByRole("button", { name: "繼續" }).click();
+
+		// 存檔 v2 會還原角色位置：剛才停在 T1 旁，重建後不用走就看得到提示
+		await expect(page.locator("main[data-scene-ready='true']")).toBeAttached({ timeout: 15000 });
+		await expect(page.getByTestId("interact-hint")).toBeVisible();
 
 		// 送指令會發 sfx:play（按鍵聲），舊場景若沒清乾淨會在這裡炸 Cannot set properties of null (setting 'seek')
 		await openCryoTerminal(page);
