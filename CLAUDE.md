@@ -113,7 +113,7 @@ src/
 │       └── commands/      # 每個指令一個檔案，index.ts 是註冊表，docs.ts 是 man 說明資料
 └── lib/
     └── utils.ts           # 工具函式 (cn 函式)
-e2e/                        # Playwright 測試 (home、play、happy-path 第一章、chapters 第二到六章)，helpers/deck.ts 是走路工具
+e2e/                        # Playwright 測試 (home、play、happy-path 第一章、chapters 第二到六章、save-v2 位置存檔與選章等)，helpers/deck.ts 是走路工具
 scripts/slice-sprites.mjs   # sprite sheet 切格腳本 (pnpm sprites:slice)
 scripts/build-map.mjs       # 六張甲板地圖產生腳本，輸出 Tiled JSON (pnpm map:build)
 scripts/resize-scenes.mjs   # 場景原圖縮圖腳本

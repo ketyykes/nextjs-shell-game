@@ -19,9 +19,9 @@
 | 項目 | 內容 |
 |---|---|
 | 更新日期 | 2026-10-06 |
-| 最新 commit | 見 `git log --oneline -5`：第十場補齊 12 張插圖（chore）與本檔修正（docs） |
-| 目前階段 | **M0 到 M8 全部完成**；第九場用 playwright-cli 從標題一路真玩到片尾（六章 36 台終端機、零頁面錯誤），抓到四個 bug 並全部修掉（見第 7 節第九場與第 8 節 #37 到 #39）。Danny 本人還沒玩過第二章以後 |
-| 程式碼狀態 | 標題 → 選角 → boot log → 六章地圖 → 片尾。`pnpm test --run` 84 個測試檔 1644 個測試全綠，`npx tsc --noEmit` 與 `pnpm lint` 乾淨；`PORT=3001 pnpm test:e2e` 19 個（新增「章節結束畫面回訪」防死路）。六章插圖 44 張全部到齊 |
+| 最新 commit | 見 `git log --oneline -6`：第十場補齊插圖，再做 M9（shell、存檔 v2 與選章、Phaser 小尾巴、e2e、文件） |
+| 目前階段 | **M0 到 M9 全部完成**（M9 是第一版之後的小尾巴，見第 3 節）；第九場用 playwright-cli 從標題一路真玩到片尾（六章 36 台終端機、零頁面錯誤），抓到四個 bug 並全部修掉（見第 7 節第九場與第 8 節 #37 到 #39）。Danny 本人還沒玩過第二章以後 |
+| 程式碼狀態 | 標題 → 選角 → boot log → 六章地圖 → 片尾。`pnpm test --run` 87 個測試檔 1799 個測試全綠，`npx tsc --noEmit` 與 `pnpm lint` 乾淨；`PORT=3001 pnpm test:e2e` 26 個全綠（M9 新增 `save-v2.spec.ts` 7 個）。六章插圖 44 張全部到齊 |
 | 下一步 | 沒有排定的里程碑。Danny 從第二章開始試玩（標題「繼續」或 `e2e/helpers/deck.ts` 的 `seedSave` 寫法可直接種到第 N 章）、看第 8 節 #23 到 #39 的決策、潤稿；候選工作見第 9 節 |
 | 遠端 | `origin` 是 SSH 網址 `git@github.com:ketyykes/nextjs-shell-game.git`，2026-10-02 已 push，本機與 `origin/main` 同步 |
 
@@ -40,6 +40,7 @@
 | M6 | 插圖與音效 | ✅ | 4.10、6.3、8-6 |
 | M7 | 存檔、標題畫面與設定 | ✅ | 4.7、8-7 |
 | M8 | 第二到六章：shell 擴充、六張地圖、多章節流程、五章劇本、插圖 | ✅ | 3.3、4.2、4.3、4.8 |
+| M9 | 第一版之後的小尾巴：shell 邊界、存檔 v2（角色位置）、選章、關閉閃爍管到 Phaser、按 E 像素字型、第六章 NOVA 立繪、小視窗排版 | ✅ | 4.1、4.7、4.8、4.9 |
 
 ## 3. 任務清單
 
@@ -166,6 +167,20 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 
 **完成定義**：六章都能從標題一路玩到片尾（e2e 驗過）；一位新手能靠 hint 通關這點仍沒有真人驗證。
 
+### M9 第一版之後的小尾巴 ✅
+
+2026-10-06 第十場，Danny 要求把第 9 節的七項做掉並驗證，四個設計決策用 AskUserQuestion 拍板（全部照建議）：存位置並升 v2、選章只開放到過的章節且只清該章、grep 照真的 grep、進核心艙之後換 nova-core。決策見第 8 節 #40 到 #46。
+
+| 任務 | 狀態 | 產出 |
+|---|---|---|
+| M9-1 shell 邊界 | ✅ | `commands/grepPattern.ts`（BRE／ERE 轉 JS RegExp，`-E`、`-F`，九種不合法樣式訊息）；萬用字元每一段都展開；`chmod` 逗號組合與四位數八進位；`sort -u` 依比較結果去重；重導向先建檔；`uniq [輸入 [輸出]]`。agent 用 Docker 的 GNU grep 3.8 與 coreutils 9.1 實測對照 |
+| M9-2 存檔 v2 | ✅ | `SAVE_VERSION` 2，`progress` 多 `furthestChapter` 與 `position`（章節、座標、艙區）；`migrateSaveData` 把 v1 轉 v2；`clearChapter` 抽成純函式，`resetChapter`／`selectChapter` 共用；Phaser 端 `objects/position.ts` 的 `PositionReporter`（停下才發 `player:stopped`）與 `resolveSpawnPoint` |
+| M9-3 選章 | ✅ | `ChapterSelectPanel.tsx`，`TitleScreen` 到過兩章以上才出現「選章」，確認後 `selectChapter`；選第一章重走 boot log |
+| M9-4 關閉閃爍管到 Phaser | ✅ | `effects.effectSafety`；registry `flickerEnabled` 加 `effects:settings` 事件；人影改 1.4 秒淡入淡出、鏡頭不震、開門不閃光、`flicker` 演出與排隊中的燈閃都擋 |
+| M9-5 按 E 像素字型 | ✅ | `objects/pixelFont.ts` 讀 `--font-fusion-pixel`，12px、解析度 1；`document.fonts.load` 後 `style.update(true)` 強制重畫 |
+| M9-6 第六章 NOVA 立繪 | ✅ | `story/flags.novaPortraitFor`，`NovaDialogue` 的 `portrait` prop |
+| M9-7 小視窗排版 | ✅ | 1280 以下「按 E 開啟」提示往上移、NOVA 對話框在 1024 以下疊到目標面板上方；e2e 檢查 1280、1024、768 三種寬度互不重疊 |
+
 ## 4. 待處理雜項
 
 不屬於任何里程碑，但會影響接手的人，做完就勾掉。
@@ -221,6 +236,10 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
   - 補全只處理游標在結尾，用空白切 token 不走 tokenizer；`cd ..` 與 `cd ~` 不帶斜線按 Tab 沒有候選。
   - `ls -l` 的日期固定用 UTC 顯示，劇本寫 mtime 時要自己算好想給玩家看的時間。
   - `messages.notADirectory` 的文案偏向 `cd`，`ls wake_up.txt/inner` 這種路徑中間是檔案的情況語意稍偏，之後可讓它帶指令名。
+  - 引號外的反斜線不當跳脫，所以 `grep v3\.1` 在遊戲裡照正規表示式解讀，真的 bash 會先變成 `v3.1`；man 說明建議用引號包。grep 不支援 `[.ch.]`、`[=e=]`、`-G`、`-P`、`-w`、`-x`、`-o`；`-i [[:upper:]]` 不跟 glibc 一樣配到中文。
+  - `chmod` 的 `u+`、一兩位數字、五位數以上判為不合法；沒有 umask，不寫類別的 `+`、`-` 三組都改；四位數的第一位（setuid 等）接受但忽略。`sort` 沒有 `-f`。
+- **存檔 v2 與 e2e**：`seedSave` 刻意寫 v1 讓 migrate 在真瀏覽器跑一次。角色停下就存位置，所以「回標題再繼續」會出現在剛才停下的地方；e2e 的走路工具不能再假設角色一定在出生點（`play.spec.ts` 的 `openCryoTerminal` 先看提示是否已經出現）。
+- **e2e 的 `textContent()` 會無限等待**：元素不存在時 Playwright 的 `locator.textContent()` 預設沒有逾時，`alignToTerminal` 曾因此卡到整個測試 180 秒逾時、微調重試根本沒機會跑；查詢可能不存在的元素要給 `{ timeout }`。
 
 ## 6. 協作慣例
 
@@ -232,6 +251,14 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 ## 7. 工作日誌
 
 每次 session 收工加一筆，最新在最上面。格式：日期、做了什麼、commit 範圍、下一步。
+
+### 2026-10-06（第十場之二，M9：第 9 節的小尾巴全部做掉）
+
+- Danny 要求把第 9 節的七項做掉並驗證。四個設計決策先用 AskUserQuestion 問（全部照建議），shell 邊界派一個 agent 平行做（只碰 `src/game/shell/`），存檔、選章、Phaser、NOVA 立繪、排版我自己做，全程紅燈先行。
+- 為了需求變更改掉的既有測試：store 的版本號 1 → 2；`PhaserGame.test.tsx` 的 `startGame` 參數多 `spawnPoint`、`flickerEnabled`；`play.spec.ts` 的「回標題再繼續」改成角色會出現在剛才停下的 T1 旁（並斷言提示立刻出現）。agent 那邊改的列在第 3 節 M9-1 的回報裡（grep 的 `.`、`-E`，chmod `6444`，uniq 兩個檔名，重導向建空檔）。
+- 驗證：87 個測試檔 1799 個單元測試全綠，tsc、lint 乾淨；e2e 26 個全綠（新增 `save-v2.spec.ts`：位置存檔重整後還原、選章、第六章立繪、關閉閃爍演出不出錯、三種視窗寬度互不重疊）。截圖看過 1280、1024、768 的地圖畫面與「按 E」像素字。自己用真的 Shell 抽查過 grep BRE／ERE／-F、中間段萬用字元、chmod 組合、重導向建檔、sort -nu、uniq 輸出檔。
+- 中途抓到 e2e 工具的坑：`alignToTerminal` 的 `textContent()` 沒逾時會卡死到測試逾時（記在第 5 節）。第一次全套跑時第二、三、五章因負載走偏，單獨重跑與修正後全過。
+- 下一步：Danny 試玩（特別是選章與位置還原的手感、關閉閃爍時人影的淡入淡出）、潤稿、試聽；見第 4、8、9 節。
 
 ### 2026-10-06（第十場，核對進度檔、補齊 12 張插圖）
 
@@ -349,12 +376,12 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 | 7 | 開發模式掛 `window.__kepler9.emit` 除錯鉤子，正式 build 不掛 | 用鍵盤走到 T4 的自動化太脆弱，直接發事件才能截圖驗證演出；之後除錯也方便 | `PlayScreen` 第一個 useEffect |
 | 8 | T6 過關時若 T4 還沒過，也把燈全亮 | 存檔漏了 T4 時玩家摸黑走出去很怪；正常流程 T4 一定先過 | `Station.playSolvedEffect` 的 `ch1-t6` 分支 |
 | 9 | `startGame` 多一個選填 `solvedTerminals`，經 `game.registry` 給 Station 還原狀態 | registry 要 `new Phaser.Game` 之後才有，`startGame` 前沒辦法 set | `main.ts`、`PhaserGame.tsx` |
-| 10 | 設定的「關閉閃爍」目前**管不到 Phaser 的人影閃現與鏡頭震動** | M7-5 做設定選單時一起接，到時加 registry key 或事件 | 列在 M7-5 |
+| 10 | ~~設定的「關閉閃爍」目前管不到 Phaser 的人影閃現與鏡頭震動~~ **M9 已補**（#43） | M7-5 做設定選單時一起接，到時加 registry key 或事件 | 列在 M7-5 |
 | 11 | zod schema 用 `strictObject`，劇本多打一個欄位就報錯 | 3.4 要求「欄位打錯會直接報錯」，寬鬆物件抓不到打錯的欄位名 | `schema.ts` |
 | 12 | 阿彬的本名**沒寫**，病歷寫「慣用稱呼：阿彬」 | 設計說本名只在病歷出現一次，但沒定名字，不擅自編 | `ch1-life-support.ts` T5 的病歷檔 |
 | 13 | `day_900.txt` 的 mtime 比喚醒排程被改的時間早 16 分鐘 | 若兩者相同會讓人以為排程是阿彬改的，跟核心真相衝突 | 同上 T3 |
 | 14 | 按鍵聲改成**每送出一道指令響一次**，不是每個按鍵 | 每鍵都響很吵，而且 Terminal 元件沒有按鍵 callback | `PlayScreen.handleExecuted` 開頭的 `sfx:play key` |
-| 15 | **角色位置不存檔**，重開一律從出生點開始 | 地圖只有一層、走回終端機很快；存位置要多一個 store 欄位與 Phaser 讀寫，第一版不值得 | `progress` 加欄位、`Station.createPlayer` 讀它 |
+| 15 | ~~**角色位置不存檔**，重開一律從出生點開始~~ **M9 推翻**（#40） | 地圖只有一層、走回終端機很快；存位置要多一個 store 欄位與 Phaser 讀寫，第一版不值得 | `progress` 加欄位、`Station.createPlayer` 讀它 |
 | 16 | 艙區插圖用在**第一次進艙區的插圖卡**（2.6 秒自動淡出），不是終端機背景 | 4.9 要求彈窗後面的地圖要看得到，插圖當背景會擋地圖；進房卡是常見手法也不擋操作 | `SceneCard.tsx`、`PlayScreen` 的 `room:enter` handler |
 | 17 | 開場插圖放在 boot log 之後、進地圖之前；結尾插圖放章節結束畫面的 outro 階段 | 4.7 的流程沒有開場插圖的位置，接在 boot log 後當「淡入地圖」的過場最自然 | `TitleFlow` 的 `intro` stage |
 | 18 | 重玩本章用 `window.location.reload()` 重新載入頁面 | Phaser 實例、Shell 快取、NOVA 佇列都要重建，整頁重載最乾淨 | `PlayScreen.handleRestartChapter` |
@@ -371,8 +398,8 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 | 24 | 每章固定六台終端機，T1 在出生房、T6 是出口門控制台，id／標題／艙區由 `story/decks.ts` 統一給 | 劇本、地圖、e2e 三邊對得起來，`chapters.test.ts` 會檢查 | `decks.ts` 的標題表 |
 | 25 | 過關演出由劇本宣告（`TerminalDefinition.effect`：powerRestored／openDoor／shadowFlash／flicker／blackout），經 registry 給 Station | Station 不再寫死 `ch1-t4`、`ch1-t6`；新章節不用改 Phaser | `events.ts` 的 `SolvedEffect`、`Station.runSolvedEffect` |
 | 26 | 管線、重導向、變數、萬用字元在**所有章節都開放**，不依章節鎖功能 | 4.8「未學指令開放使用」；舊的 `UNSUPPORTED_OPERATOR` 拿掉 | `parser/parse.ts`、`messages.ts` |
-| 27 | 管線裡任一指令失敗整行就停並算一次錯誤；每個指令的副作用（cd、export、kill）都套到 session（bash 是子 shell） | 對新手清楚；`cd a \| ls` 這種寫法很少見 | `shell.ts` 的 `execute` |
-| 28 | `grep` 是字面比對不是正規表示式；沒符合不算錯誤（ok true、沒輸出） | 新手不需要先學 regex；避免懲罰探索 | `commands/grep.ts` |
+| 27 | 管線裡任一指令失敗整行就停並算一次錯誤；每個指令的副作用（cd、export、kill）都套到 session（bash 是子 shell）；M9 起重導向照 bash 先開檔（`>` 先建立或清空、`>>` 不存在才建），指令失敗也會留下空檔 | 對新手清楚；`cd a \| ls` 這種寫法很少見 | `shell.ts` 的 `execute` |
+| 28 | ~~`grep` 是字面比對不是正規表示式~~ **M9 推翻**（#45）；沒符合不算錯誤（ok true、沒輸出）維持 | 新手不需要先學 regex；避免懲罰探索 | `commands/grep.ts` |
 | 29 | `chmod` 可以改任何檔案（不檢查擁有者）；讀取權限只看擁有者是玩家時的前三碼、否則看後三碼 | 遊戲簡化，第五章只需要「鎖著 → 解鎖」 | `types.ts` 的 `canRead`、`commands/chmod.ts` |
 | 30 | 程序是每台終端機各自的清單（`processes`），`kill` 的結果存在 shell session | 不需要全站程序表；第六章每台各自描述 | `shell/types.ts` 的 `ProcessInfo`、劇本 `processes` 欄位 |
 | 31 | 換章用整頁重載（`advanceChapter` 後 `window.location.reload()`），重玩本章只清該章（`resetChapter`） | Phaser 要換地圖、Shell 快取與 NOVA 佇列要清空，重載最乾淨；重玩不該把前幾章洗掉 | `PlayScreen.handleNextChapter`、`gameStore.resetChapter` |
@@ -390,14 +417,23 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 | 38 | `>`、`>>`、`\|`、`$變數` 的說明放獨立的 `CONCEPT_DOCS`（`docsConcepts.ts`），由 `getTeachDoc` 在查不到指令時改查；不併入 `COMMAND_DOCS` | 回顧卡與側邊面板需要說明，但它們不是可執行的指令，help 與 man 的指令清單不該混進它們 | `docsConcepts.ts`、`docs.ts` 的 `getTeachDoc`、`chapters.test.ts` 的守門測試 |
 | 39 | 缺圖時的佔位文字統一用世界觀內的「影像訊號遺失」 | 原文字「過場插圖（M6 產圖）」把內部里程碑字樣露給玩家；改成敘事內的字樣在補完 12 張插圖前也不突兀 | `ChapterEndScreen` 的 `Illustration` |
 
+第十場（2026-10-06，M9）新增，#40、#41、#45、#46 由 Danny 用 AskUserQuestion 拍板，其餘是我的實作取捨：
+
+| # | 決策 | 理由 | 推翻時要改 |
+|---|---|---|---|
+| 40 | 存角色位置（章節、整數座標、艙區），`SAVE_VERSION` 升 2；角色走動後**停下**且在某個艙區內才存，換章、重玩該章、新遊戲都清掉 | 推翻 #15；停下才存讓寫入次數很少，門框上（不屬於任何艙區）不存 | `store/types.ts`、`gameStore.ts`、`objects/position.ts`、`Station.createPlayer` |
+| 41 | 選章只列第一章到 `furthestChapter`，選定後確認「從頭重玩」，只清該章，其他章與最遠章節保留；到過兩章以上才出現 | Danny 拍板；不會因為回頭看劇情就丟掉後面的進度 | `ChapterSelectPanel`、`TitleScreen`、`gameStore.selectChapter` |
+| 42 | 選第一章重走 boot log 與開場插圖卡，其他章直接進 `/play` | 第一章 NOVA 第一句在 boot log 說（`intro[0]`），直接進地圖會少一句 | `TitleFlow.handleSelectChapter` |
+| 43 | 關閉閃爍時人影改成 1.4 秒淡入淡出而不是整個拿掉，鏡頭不震、開門不閃光、燈不閃；亮燈序列與斷電照播 | 光敏安全只要擋快速明暗變化，人影是劇情點要保留 | `effects.effectSafety`、`ShadowFigure.flashAt` 的 `style` |
+| 44 | 「按 E」直接用 next/font 的 Fusion Pixel，不另做 bitmap 字型 | 已經載入、有中文、跟終端機同一套；解析度 1 加鏡頭放大就是像素顆粒 | `objects/pixelFont.ts`、`TerminalZone.createHintText` |
+| 45 | grep 照真的 grep（BRE 預設、`-E`、`-F`），推翻 #28 | Danny 拍板；一般單字照樣比對得到，六章劇本的樣式都沒有特殊字元，不用改劇本 | `commands/grep.ts`、`grepPattern.ts` |
+| 46 | 第六章第一次走進 `nv_core` 之後對話框改用 `nova-core`，用艙區旗標判定所以重整後維持 | Danny 拍板；配合「看到本體」的揭露時點 | `story/flags.novaPortraitFor` |
+| 47 | 1280 以下「按 E 開啟」提示往上移（`lg:bottom-32`、更窄 `bottom-60`），1024 以下 NOVA 對話框疊到目標面板上方（`bottom-32`） | 1280 以下三個元件塞不進同一排，實測 1024 與 768 都重疊 | `PlayScreen` 的 `Hud`、`NovaDialogue` |
+
 ## 9. 第一版之後的候選工作
 
 沒有排定順序，Danny 決定要不要做。
 
 - **真人試玩與調整**：第 4 節的試玩、試聽、潤稿（含第二到六章）。
-- **M6/M7 的小尾巴**：設定的「關閉閃爍」目前管 CRT 閃爍與燈閃，但人影閃現與鏡頭震動還是會播（決策 #10）；Phaser 內的「按 E」文字還是系統 monospace，沒換 bitmap 字型；`CommandCheatSheet` 與 `ObjectivePanel` 在 1280 以下的視窗沒測過排版。
-- **存檔格式升級**：`SAVE_VERSION` 還是 1（決策 #32），`migrate` 只是框架；若之後要存角色位置與目前艙區（推翻決策 #15）再升版。
-- **章節選擇**：存檔格式有 `chapter`，但標題畫面沒有「選章」；要做的話在 `TitleScreen` 加選單、用 `resetChapter` 加 `advanceChapter` 的組合跳章。
-- **第六章 NOVA 立繪**：`nova-core.png`（損毀多面體）已在 `public/scenes/`，但 NOVA 對話框全程用 `nova-eye`；可以在第六章核心艙改用它。
-- **shell 的已知邊界（M8 刻意不做）**：萬用字元只在路徑最後一段；`grep` 沒有正規表示式；`chmod` 不支援 `u+x,g-w` 逗號寫法與四位數字；`sort -u` 只去完全相同的行；重導向不會像 bash 先建空檔；`uniq` 只收一個檔案。
+- M6/M7 小尾巴、存檔格式升級、選章、第六章 NOVA 立繪、shell 已知邊界：M9 已做完，見第 3 節。剩下的 shell 邊界見第 5 節。
 - **部署**：`pnpm build` 已過、三個路由都是靜態，可直接上 Vercel 或任何靜態主機；還沒設 CI。
