@@ -99,6 +99,63 @@ describe("TitleScreen", () => {
 		expect(props.onNewGame).not.toHaveBeenCalled();
 	});
 
+	describe("選章", () => {
+		const chapters = [
+			{ number: 1, label: "第一章 冷凍艙與維生艙" },
+			{ number: 2, label: "第二章 資料中心" },
+			{ number: 3, label: "第三章 工程艙" },
+		];
+
+		it("只到過第一章時沒有「選章」", () => {
+			renderTitle({ hasSave: true, chapters: chapters.slice(0, 1), onSelectChapter: vi.fn() });
+			expect(screen.queryByRole("button", { name: "選章" })).toBeNull();
+		});
+
+		it("到過兩章以上時「選章」排在「繼續」後面，打開後列出到過的章節", () => {
+			renderTitle({ hasSave: true, chapters, onSelectChapter: vi.fn() });
+			const buttons = screen.getAllByRole("button");
+			const expected = ["繼續", "選章", "新遊戲", "設定"];
+			expect(buttons).toHaveLength(expected.length);
+			expected.forEach((name, index) => {
+				expect(buttons[index]).toBe(screen.getByRole("button", { name }));
+			});
+
+			press("ArrowDown");
+			press("Enter");
+			expect(screen.getByRole("button", { name: "第二章 資料中心" })).toBeDefined();
+			expect(screen.getByRole("button", { name: "第三章 工程艙" })).toBeDefined();
+			expect(screen.getByRole("button", { name: "返回" })).toBeDefined();
+		});
+
+		it("選了章節要先確認重玩，確認後才呼叫 onSelectChapter", () => {
+			const onSelectChapter = vi.fn();
+			renderTitle({ hasSave: true, chapters, onSelectChapter });
+			fireEvent.click(screen.getByRole("button", { name: "選章" }));
+			fireEvent.click(screen.getByRole("button", { name: "第二章 資料中心" }));
+
+			expect(screen.getByText("從頭重玩第二章 資料中心？這一章的進度會清掉，其他章節保留。")).toBeDefined();
+			expect(onSelectChapter).not.toHaveBeenCalled();
+
+			fireEvent.click(screen.getByRole("button", { name: "重玩" }));
+			expect(onSelectChapter).toHaveBeenCalledWith(2);
+		});
+
+		it("確認時取消會回到章節清單，清單按 Esc 回標題選單", () => {
+			const onSelectChapter = vi.fn();
+			renderTitle({ hasSave: true, chapters, onSelectChapter });
+			fireEvent.click(screen.getByRole("button", { name: "選章" }));
+			press("ArrowDown");
+			press("Enter");
+			// 確認面板預設選「取消」
+			press("Enter");
+			expect(screen.getByRole("button", { name: "第二章 資料中心" })).toBeDefined();
+
+			press("Escape");
+			expect(screen.getByRole("button", { name: "繼續" })).toBeDefined();
+			expect(onSelectChapter).not.toHaveBeenCalled();
+		});
+	});
+
 	it("CRT 效果預設全開，可由 props 關閉", () => {
 		renderTitle();
 		expect(screen.getByTestId("crt-scanlines")).toBeDefined();

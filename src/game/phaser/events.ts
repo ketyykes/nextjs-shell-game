@@ -27,10 +27,14 @@ export interface GameEventMap {
 	"ambient:flicker": { durationMs: number };
 	/** React 發：設定選單改了音量或靜音，Phaser 的 AudioManager 即時套用。 */
 	"audio:settings": { volume: number; muted: boolean };
+	/** React 發：設定選單切換「閃爍」，Phaser 的人影、鏡頭震動與閃光、燈閃即時套用（光敏安全項）。 */
+	"effects:settings": { flickerEnabled: boolean };
 	/** React 發：暫停選單或設定選單開啟，Phaser 停住角色輸入。 */
 	"game:pause": { reason: "menu" };
 	/** React 發：選單關閉，Phaser 恢復角色輸入。 */
 	"game:resume": { reason: "menu" };
+	/** Phaser 發：角色走動後停下（只在某個艙區內才發），React 存進存檔，重開時從這裡出生。 */
+	"player:stopped": { x: number; y: number; roomId: RoomId };
 }
 
 export type GameEventName = keyof GameEventMap;

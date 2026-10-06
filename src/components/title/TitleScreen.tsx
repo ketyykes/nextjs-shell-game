@@ -3,6 +3,7 @@
 import { motion } from "motion/react";
 import { useState } from "react";
 import { CrtOverlay } from "@/components/game/CrtOverlay";
+import { ChapterSelectPanel, type ChapterOption } from "./ChapterSelectPanel";
 import { ConfirmPanel } from "./ConfirmPanel";
 import { MenuOption } from "./MenuOption";
 import { useMenuNavigation } from "./useMenuNavigation";
@@ -29,9 +30,20 @@ export interface TitleScreenProps {
 	 * 預設 true。
 	 */
 	keyboardEnabled?: boolean;
+	/** 到過的章節（第 1 章到最遠章節）。兩章以上且有存檔才顯示「選章」。 */
+	chapters?: readonly ChapterOption[];
+	/** 玩家在選章清單選定並確認重玩後呼叫，參數是章節號。 */
+	onSelectChapter?: (chapter: number) => void;
 }
 
-type TitleAction = "continue" | "newGame" | "settings";
+type TitleAction = "continue" | "selectChapter" | "newGame" | "settings";
+
+/** 選單下方顯示的內容：主選單、新遊戲覆蓋確認、選章清單、重玩某章的確認。 */
+type TitlePanel =
+	| { kind: "menu" }
+	| { kind: "confirmNewGame" }
+	| { kind: "chapters"; index: number }
+	| { kind: "confirmChapter"; index: number };
 
 interface TitleItem {
 	action: TitleAction;
@@ -40,11 +52,14 @@ interface TitleItem {
 
 const DEFAULT_CRT: TitleScreenCrtSettings = { scanlines: true, vignette: true, flicker: true };
 
-/** 依有沒有存檔決定選單項目。 */
-function buildItems(hasSave: boolean): TitleItem[] {
+/** 依有沒有存檔、到過幾章決定選單項目。 */
+function buildItems(hasSave: boolean, canSelectChapter: boolean): TitleItem[] {
 	const items: TitleItem[] = [];
 	if (hasSave) {
 		items.push({ action: "continue", label: "繼續" });
+	}
+	if (hasSave && canSelectChapter) {
+		items.push({ action: "selectChapter", label: "選章" });
 	}
 	items.push({ action: "newGame", label: "新遊戲" });
 	items.push({ action: "settings", label: "設定" });
@@ -64,9 +79,12 @@ export function TitleScreen({
 	crt = DEFAULT_CRT,
 	subtitle = "冷凍艙 · 第一章",
 	keyboardEnabled = true,
+	chapters = [],
+	onSelectChapter,
 }: TitleScreenProps) {
-	const items = buildItems(hasSave);
-	const [isConfirmingNewGame, setIsConfirmingNewGame] = useState(false);
+	const canSelectChapter = chapters.length >= 2 && onSelectChapter !== undefined;
+	const items = buildItems(hasSave, canSelectChapter);
+	const [panel, setPanel] = useState<TitlePanel>({ kind: "menu" });
 
 	function activate(index: number) {
 		const item = items[index];
@@ -81,8 +99,12 @@ export function TitleScreen({
 			onOpenSettings();
 			return;
 		}
+		if (item.action === "selectChapter") {
+			setPanel({ kind: "chapters", index: 0 });
+			return;
+		}
 		if (hasSave) {
-			setIsConfirmingNewGame(true);
+			setPanel({ kind: "confirmNewGame" });
 			return;
 		}
 		onNewGame();
@@ -91,8 +113,13 @@ export function TitleScreen({
 	const { selectedIndex, setSelectedIndex } = useMenuNavigation({
 		itemCount: items.length,
 		onConfirm: activate,
-		enabled: keyboardEnabled && !isConfirmingNewGame,
+		enabled: keyboardEnabled && panel.kind === "menu",
 	});
+
+	let confirmingChapter: ChapterOption | undefined;
+	if (panel.kind === "confirmChapter") {
+		confirmingChapter = chapters[panel.index];
+	}
 
 	return (
 		<div
@@ -114,18 +141,38 @@ export function TitleScreen({
 			</motion.header>
 
 			<nav aria-label="標題選單" className="flex min-h-40 flex-col items-center justify-start">
-				{isConfirmingNewGame && (
+				{panel.kind === "confirmNewGame" && (
 					<ConfirmPanel
 						message="已有存檔，開始新遊戲會覆蓋它。"
 						confirmLabel="覆蓋"
 						onConfirm={() => {
-							setIsConfirmingNewGame(false);
+							setPanel({ kind: "menu" });
 							onNewGame();
 						}}
-						onCancel={() => setIsConfirmingNewGame(false)}
+						onCancel={() => setPanel({ kind: "menu" })}
 					/>
 				)}
-				{!isConfirmingNewGame && (
+				{panel.kind === "chapters" && keyboardEnabled && (
+					<ChapterSelectPanel
+						chapters={chapters}
+						initialIndex={panel.index}
+						onSelect={(chapter) => {
+							setPanel({ kind: "confirmChapter", index: chapters.indexOf(chapter) });
+						}}
+						onBack={() => setPanel({ kind: "menu" })}
+					/>
+				)}
+				{panel.kind === "confirmChapter" && confirmingChapter !== undefined && (
+					<ConfirmPanel
+						message={`從頭重玩${confirmingChapter.label}？這一章的進度會清掉，其他章節保留。`}
+						confirmLabel="重玩"
+						onConfirm={() => {
+							onSelectChapter?.(confirmingChapter.number);
+						}}
+						onCancel={() => setPanel({ kind: "chapters", index: panel.index })}
+					/>
+				)}
+				{panel.kind === "menu" && (
 					<ul className="flex flex-col items-start gap-1">
 						{items.map((item, index) => (
 							<li key={item.action}>

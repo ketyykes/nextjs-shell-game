@@ -5,6 +5,7 @@ import { emitGameEvent, onGameEvent } from "../EventBus";
 import type { RoomId, SolvedEffect } from "../events";
 import {
 	airlockTilePosition,
+	effectSafety,
 	findCorridorRoomId,
 	parseTerminalEffects,
 	powerOnOrder,
@@ -13,6 +14,7 @@ import {
 } from "../objects/effects";
 import { LightMask } from "../objects/LightMask";
 import { Player } from "../objects/Player";
+import { PositionReporter, resolveSpawnPoint } from "../objects/position";
 import { RoomTracker } from "../objects/RoomTracker";
 import { ShadowFigure } from "../objects/ShadowFigure";
 import { TerminalZones } from "../objects/TerminalZone";
@@ -77,6 +79,8 @@ export class Station extends Phaser.Scene {
 	private terminalZones!: TerminalZones;
 	/** 艙區偵測：玩家走進新艙區時發 `room:enter`。 */
 	private roomTracker!: RoomTracker;
+	/** 角色走動後停下時發 `player:stopped`，React 存進存檔。 */
+	private positionReporter!: PositionReporter;
 	/** 燈光遮罩：斷電時只有角色周圍一圈光；`powerRestored` 演出時 `powerOnSequence` 一間間亮起再全亮。 */
 	public lightMask!: LightMask;
 	/** 走廊盡頭的人影，`powerRestored` 與 `shadowFlash` 演出時閃現一幀。 */
@@ -98,6 +102,9 @@ export class Station extends Phaser.Scene {
 	 */
 	private pendingFlickerMs: number | null = null;
 
+	/** 設定的「閃爍」：false 時人影改淡入淡出、鏡頭不震不閃、燈不閃（光敏安全項）。 */
+	private flickerEnabled = true;
+
 	/** 音效的唯一出口（4.10），React 端透過 `sfx:play` 請它播。 */
 	private audio!: AudioManager;
 
@@ -117,6 +124,8 @@ export class Station extends Phaser.Scene {
 		this.createLayers(map, tileset);
 		this.readMarkers(map);
 		this.terminalEffects = parseTerminalEffects(this.registry.get(REGISTRY_KEYS.terminalEffects));
+		// 只有明確的 false 才關（registry 沒有型別保證）
+		this.flickerEnabled = this.registry.get(REGISTRY_KEYS.flickerEnabled) !== false;
 
 		this.physics.world.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
 
@@ -125,11 +134,12 @@ export class Station extends Phaser.Scene {
 		camera.setZoom(CAMERA_ZOOM);
 		camera.setRoundPixels(true);
 
-		this.createPlayer();
+		this.createPlayer(map.widthInPixels, map.heightInPixels);
 
 		// 遮罩要在圖層與玩家之後建立，深度 50 才蓋得住地板與角色
 		this.terminalZones = new TerminalZones(this, this.terminals);
 		this.roomTracker = new RoomTracker(this.rooms);
+		this.positionReporter = new PositionReporter();
 		this.lightMask = new LightMask(this, map.widthInPixels, map.heightInPixels, this.terminals);
 		// 只有劇本要求開場斷電的章節才摸黑，其餘一開始就全亮（不播淡出）
 		if (!this.readStartDarkFromRegistry()) {
@@ -177,7 +187,8 @@ export class Station extends Phaser.Scene {
 	update(): void {
 		this.player.update();
 		this.terminalZones.update(this.player.x, this.player.y);
-		this.roomTracker.update(this.player.x, this.player.y);
+		const roomId = this.roomTracker.update(this.player.x, this.player.y);
+		this.positionReporter.update(this.player.x, this.player.y, roomId);
 		this.lightMask.update(this.player.x, this.player.y);
 	}
 
@@ -260,7 +271,9 @@ export class Station extends Phaser.Scene {
 				this.flashShadowInCorridor();
 				return;
 			case "flicker":
-				this.lightMask.flicker(SOLVED_FLICKER_MS);
+				if (effectSafety(this.flickerEnabled).lightFlicker) {
+					this.lightMask.flicker(SOLVED_FLICKER_MS);
+				}
 				return;
 			case "blackout":
 				// 不播音效：安靜地變黑最恐怖
@@ -313,19 +326,22 @@ export class Station extends Phaser.Scene {
 		}
 		const viewHalfWidth = this.cameras.main.width / CAMERA_ZOOM / 2 - SHADOW_VIEW_MARGIN;
 		const position = shadowFlashPosition(corridor.rect, this.player.x, viewHalfWidth);
-		void this.shadowFigure.flashAt(position.x, position.y);
+		const safety = effectSafety(this.flickerEnabled);
+		void this.shadowFigure.flashAt(position.x, position.y, { style: safety.shadowStyle, shake: safety.cameraShake });
 	}
 
 	/** 開鎖門：門開、鏡頭閃全息藍、還沒亮的燈一起淡亮（「走廊燈亮向遠方」）。 */
 	private playDoorOpened(doorId: string): void {
 		emitGameEvent("sfx:play", { sound: "door" });
 		this.openLockedDoor(doorId);
-		this.cameras.main.flash(
-			DOOR_FLASH_DURATION,
-			HOLOGRAM_BLUE_RGB.red,
-			HOLOGRAM_BLUE_RGB.green,
-			HOLOGRAM_BLUE_RGB.blue,
-		);
+		if (effectSafety(this.flickerEnabled).cameraFlash) {
+			this.cameras.main.flash(
+				DOOR_FLASH_DURATION,
+				HOLOGRAM_BLUE_RGB.red,
+				HOLOGRAM_BLUE_RGB.green,
+				HOLOGRAM_BLUE_RGB.blue,
+			);
+		}
 		this.lightMask.setPowered(true);
 	}
 
@@ -352,13 +368,17 @@ export class Station extends Phaser.Scene {
 
 		const flickerMs = this.pendingFlickerMs;
 		this.pendingFlickerMs = null;
-		if (flickerMs !== null) {
+		if (flickerMs !== null && effectSafety(this.flickerEnabled).lightFlicker) {
 			this.lightMask.flicker(flickerMs);
 		}
 	}
 
 	/** 環境反應階梯的「燈閃一下」（M5-4）。場景暫停中（終端機開著）先排隊，關掉終端機時才閃。 */
 	private playFlicker(durationMs: number): void {
+		// React 端關閉閃爍時本來就不發，這裡再擋一次，避免設定剛切換時排隊中的燈閃漏網
+		if (!effectSafety(this.flickerEnabled).lightFlicker) {
+			return;
+		}
 		if (this.scene.isPaused()) {
 			this.pendingFlickerMs = durationMs;
 			return;
@@ -380,9 +400,13 @@ export class Station extends Phaser.Scene {
 		return value.filter((item): item is string => typeof item === "string");
 	}
 
-	/** 在出生點建立玩家，對三個碰撞圖層加 collider，鏡頭平滑跟隨。 */
-	private createPlayer(): void {
-		this.player = new Player(this, this.spawnPoint.x, this.spawnPoint.y);
+	/** 在存檔位置（沒有就地圖出生點）建立玩家，對三個碰撞圖層加 collider，鏡頭平滑跟隨。 */
+	private createPlayer(mapWidth: number, mapHeight: number): void {
+		const spawn = resolveSpawnPoint(this.registry.get(REGISTRY_KEYS.spawnPoint), this.spawnPoint, {
+			width: mapWidth,
+			height: mapHeight,
+		});
+		this.player = new Player(this, spawn.x, spawn.y);
 
 		this.physics.add.collider(this.player, this.wallsLayer);
 		this.physics.add.collider(this.player, this.objectsLayer);
@@ -470,6 +494,9 @@ export class Station extends Phaser.Scene {
 			onGameEvent("audio:settings", ({ volume, muted }) => {
 				this.audio.setVolume(volume);
 				this.audio.setMuted(muted);
+			}),
+			onGameEvent("effects:settings", ({ flickerEnabled }) => {
+				this.flickerEnabled = flickerEnabled;
 			}),
 			// 暫停選單只停角色輸入與 E 鍵，場景繼續跑（燈光脈動、NOVA 對話等不受影響）
 			onGameEvent("game:pause", () => {

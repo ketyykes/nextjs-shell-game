@@ -29,4 +29,8 @@ export const REGISTRY_KEYS = {
 	 * Station 收到 `puzzle:solved` 或重整還原時查它決定演出。沒設等同空物件。
 	 */
 	terminalEffects: "terminalEffects",
+	/** 存檔裡的角色位置（`{ x, y }`），Station 建角色時用它取代地圖出生點。沒設或不合法就用出生點。 */
+	spawnPoint: "spawnPoint",
+	/** 設定的「閃爍」，布林值。Station 建立時讀，之後走 `effects:settings` 事件。沒設等同 true。 */
+	flickerEnabled: "flickerEnabled",
 } as const;

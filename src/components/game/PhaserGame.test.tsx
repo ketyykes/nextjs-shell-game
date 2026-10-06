@@ -47,6 +47,8 @@ describe("PhaserGame", () => {
 			solvedTerminals: [],
 			volume: undefined,
 			muted: undefined,
+			spawnPoint: null,
+			flickerEnabled: true,
 		});
 	});
 
@@ -102,11 +104,13 @@ describe("PhaserGame", () => {
 			solvedTerminals: [],
 			volume: undefined,
 			muted: undefined,
+			spawnPoint: null,
+			flickerEnabled: true,
 		});
 		expect(getDestroyMock(0).mock.invocationCallOrder[0]).toBeLessThan(startGameMock.mock.invocationCallOrder[1]);
 	});
 
-	it("把章節、開場斷電與過關演出表傳給 startGame", async () => {
+	it("把章節、開場斷電、過關演出表、存檔位置與閃爍設定傳給 startGame", async () => {
 		const terminalEffects: Record<string, SolvedEffect> = {
 			"ch2-t4": { kind: "powerRestored" },
 			"ch2-t6": { kind: "openDoor", doorId: "airlock" },
@@ -120,6 +124,8 @@ describe("PhaserGame", () => {
 				solvedTerminals={["ch2-t1"]}
 				volume={0.5}
 				muted
+				spawnPoint={{ x: 640, y: 352 }}
+				flickerEnabled={false}
 			/>,
 		);
 		await waitForGames(1);
@@ -132,6 +138,8 @@ describe("PhaserGame", () => {
 			solvedTerminals: ["ch2-t1"],
 			volume: 0.5,
 			muted: true,
+			spawnPoint: { x: 640, y: 352 },
+			flickerEnabled: false,
 		});
 	});
 

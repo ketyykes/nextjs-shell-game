@@ -5,6 +5,7 @@
  * 這個檔案只放型別與常數，不 import zustand，讓 React 以外的模組（例如劇本、測試）也能引用。
  */
 
+import type { RoomId } from "@/game/phaser/events";
 import type { ShellSessionState } from "@/game/shell/shell";
 
 // ---------------------------------------------------------------------------
@@ -49,9 +50,25 @@ export const DEFAULT_SETTINGS: SettingsState = {
 /** 四個主角外觀，對應 `public/sprites/technician-{a,c,d,e}.png`。 */
 export type CharacterId = "a" | "c" | "d" | "e";
 
-export interface ProgressState {
-	/** 從 1 起算，之後做章節選擇不用改格式。 */
+/**
+ * 角色在地圖上的位置（v2 起存檔）。帶章節是因為六個甲板共用平面圖，
+ * 換章或重玩時座標不能沿用到別章；`roomId` 讓 HUD 在 Phaser 載完前就能顯示艙區名。
+ */
+export interface PlayerPosition {
 	chapter: number;
+	/** 角色中心的世界座標（px），存成整數。 */
+	x: number;
+	y: number;
+	roomId: RoomId;
+}
+
+export interface ProgressState {
+	/** 從 1 起算。 */
+	chapter: number;
+	/** 到過的最遠章節，標題畫面的「選章」只開放到這一章（v2 起）。 */
+	furthestChapter: number;
+	/** 角色最後停下的位置，沒有就從出生點開始（v2 起）。 */
+	position: PlayerPosition | null;
 	/** 新遊戲選角前是 null。 */
 	character: CharacterId | null;
 	/** 已過關的終端機 id，例如 `ch1-t1`。 */
@@ -69,6 +86,8 @@ export const OXYGEN_MIN = 5;
 
 export const DEFAULT_PROGRESS: ProgressState = {
 	chapter: 1,
+	furthestChapter: 1,
+	position: null,
 	character: null,
 	solvedTerminals: [],
 	learnedCommands: [],
@@ -137,7 +156,7 @@ export interface SaveData {
 
 /** localStorage 的 key 與格式版本。格式有破壞性變更時版本加一並寫 migrate。 */
 export const SAVE_STORAGE_KEY = "kepler9-save";
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 // ---------------------------------------------------------------------------
 // store 動作
@@ -181,6 +200,13 @@ export interface GameActions {
 	 * 已學指令、外觀、設定與其他章節的進度都保留。
 	 */
 	resetChapter: (chapter: number) => void;
+	/**
+	 * 標題畫面選章：跳到到過的第 `chapter` 章並重玩它（等同 `resetChapter` 加切換章節、清位置、蓋 `savedAt`）。
+	 * 超過 `furthestChapter` 或小於 1 時不動並回傳 false。
+	 */
+	selectChapter: (chapter: number) => boolean;
+	/** 角色停下時存位置，座標四捨五入成整數。 */
+	savePlayerPosition: (position: PlayerPosition) => void;
 }
 
 export type GameStore = SaveData & GameActions;

@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { chapterFlagPrefix, introShownFlag, isStoryFlag, outroShownFlag, roomEnteredFlag } from "./flags";
+import { chapterFlagPrefix, introShownFlag, isStoryFlag, novaPortraitFor, outroShownFlag, roomEnteredFlag } from "./flags";
 import { ROOM_IDS } from "./rooms";
 
 describe("劇情旗標", () => {
@@ -26,5 +26,19 @@ describe("劇情旗標", () => {
 		expect(isStoryFlag("ch1.room.bridge.entered")).toBe(false);
 		expect(isStoryFlag("chx.introShown")).toBe(false);
 		expect(isStoryFlag("")).toBe(false);
+	});
+});
+
+describe("NOVA 立繪", () => {
+	it("第一到五章一律用 nova-eye", () => {
+		for (let chapter = 1; chapter <= 5; chapter += 1) {
+			expect(novaPortraitFor(chapter, { [roomEnteredFlag(6, "nv_core")]: true })).toBe("eye");
+		}
+	});
+
+	it("第六章走進 NOVA 核心艙之前用 nova-eye，之後改用 nova-core", () => {
+		expect(novaPortraitFor(6, {})).toBe("eye");
+		expect(novaPortraitFor(6, { [roomEnteredFlag(6, "nv_memory")]: true })).toBe("eye");
+		expect(novaPortraitFor(6, { [roomEnteredFlag(6, "nv_core")]: true })).toBe("core");
 	});
 });

@@ -33,6 +33,10 @@ export interface StartGameOptions {
 	volume?: number;
 	/** 是否靜音，寫進 registry 給 `AudioManager` 讀。省略等同 false。 */
 	muted?: boolean;
+	/** 存檔裡這一章的角色位置，省略或 null 就從地圖出生點開始。 */
+	spawnPoint?: { x: number; y: number } | null;
+	/** 設定的「閃爍」，false 時人影改淡入淡出、鏡頭不震不閃、燈不閃。省略等同 true。 */
+	flickerEnabled?: boolean;
 }
 
 /** 拷貝演出對照表（每個 effect 也複製一份），劇本物件之後被改動也不影響場景讀到的值。 */
@@ -76,6 +80,8 @@ export function startGame(parent: HTMLElement, options: StartGameOptions): Phase
 				game.registry.set(REGISTRY_KEYS.solvedTerminals, [...(options.solvedTerminals ?? [])]);
 				game.registry.set(REGISTRY_KEYS.volume, options.volume ?? 1);
 				game.registry.set(REGISTRY_KEYS.muted, options.muted ?? false);
+				game.registry.set(REGISTRY_KEYS.spawnPoint, options.spawnPoint ?? null);
+				game.registry.set(REGISTRY_KEYS.flickerEnabled, options.flickerEnabled ?? true);
 			},
 		},
 	};

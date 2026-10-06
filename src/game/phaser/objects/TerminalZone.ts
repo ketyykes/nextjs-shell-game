@@ -3,6 +3,7 @@ import { TERMINAL_INTERACT_RADIUS, TILE_SIZE } from "../constants";
 import { emitGameEvent } from "../EventBus";
 import type { TerminalMarker } from "../scenes/mapObjects";
 import { findNearestTerminal } from "./nearby";
+import { PIXEL_FONT_SIZE, pixelFontFamily } from "./pixelFont";
 
 /** 全息藍，與暫代角色同色。 */
 const HOLOGRAM_BLUE = 0x5fb3e8;
@@ -152,17 +153,35 @@ export class TerminalZones {
 		});
 	}
 
-	/** 「按 E」提示，全場景共用一個 Text，靠近時搬到該終端機上方。先用系統 monospace，之後再換 bitmap 字型。 */
+	/**
+	 * 「按 E」提示，全場景共用一個 Text，靠近時搬到該終端機上方。
+	 * 字型用 next/font 載入的 Fusion Pixel（跟終端機的中文同一套），解析度 1 讓鏡頭放大時維持像素顆粒。
+	 */
 	private createHintText(): void {
+		const fontFamily = pixelFontFamily((name) => getComputedStyle(document.documentElement).getPropertyValue(name));
 		this.hintText = this.scene.add.text(0, 0, "按 E", {
-			fontFamily: "monospace",
-			fontSize: "10px",
+			fontFamily,
+			fontSize: `${PIXEL_FONT_SIZE}px`,
 			color: "#5fb3e8",
 		});
 		this.hintText.setOrigin(0.5, 0.5);
 		this.hintText.setResolution(1);
 		this.hintText.setDepth(HINT_DEPTH);
 		this.hintText.setVisible(false);
+
+		// next/font 的 display: swap 讓字型可能還沒下載完；Phaser 的 Text 只在設定改變時重畫（setFontFamily 同名會略過），
+		// 所以載完後用 style.update(true) 重新量字並重畫
+		const hintText = this.hintText;
+		void document.fonts
+			.load(`${PIXEL_FONT_SIZE}px ${fontFamily}`, "按E")
+			.then(() => {
+				if (hintText.active) {
+					hintText.style.update(true);
+				}
+			})
+			.catch(() => {
+				// 載入失敗就維持 monospace 備援
+			});
 	}
 
 	/**

@@ -21,6 +21,10 @@ export interface PhaserGameProps {
 	/** 建立當下的音量（0 到 1）與靜音；之後的變動走 `audio:settings` 事件，不會重建遊戲 */
 	volume?: number;
 	muted?: boolean;
+	/** 建立當下的角色位置（存檔裡這一章的），省略就從地圖出生點開始；之後變動不會重建遊戲 */
+	spawnPoint?: { x: number; y: number } | null;
+	/** 建立當下的「閃爍」設定；之後的變動走 `effects:settings` 事件，不會重建遊戲 */
+	flickerEnabled?: boolean;
 	className?: string;
 	/** 遊戲建立後呼叫，整合者用來拿 game 實例（例如之後要 pause） */
 	onGameCreated?: (game: Phaser.Game) => void;
@@ -38,6 +42,8 @@ export function PhaserGame({
 	solvedTerminals,
 	volume,
 	muted,
+	spawnPoint,
+	flickerEnabled,
 	className,
 	onGameCreated,
 }: PhaserGameProps) {
@@ -46,15 +52,17 @@ export function PhaserGame({
 	const onGameCreatedRef = useRef(onGameCreated);
 	const solvedTerminalsRef = useRef(solvedTerminals);
 	const audioRef = useRef({ volume, muted });
-	const sceneSetupRef = useRef({ startDark, terminalEffects });
+	const flickerEnabledRef = useRef(flickerEnabled);
+	const sceneSetupRef = useRef({ startDark, terminalEffects, spawnPoint });
 
 	// 保存最新的 callback、過關清單、場景初始設定與音訊設定，避免它們變動時觸發遊戲重建
 	useLayoutEffect(() => {
 		onGameCreatedRef.current = onGameCreated;
 		solvedTerminalsRef.current = solvedTerminals;
 		audioRef.current = { volume, muted };
-		sceneSetupRef.current = { startDark, terminalEffects };
-	}, [onGameCreated, solvedTerminals, volume, muted, startDark, terminalEffects]);
+		flickerEnabledRef.current = flickerEnabled;
+		sceneSetupRef.current = { startDark, terminalEffects, spawnPoint };
+	}, [onGameCreated, solvedTerminals, volume, muted, flickerEnabled, startDark, terminalEffects, spawnPoint]);
 
 	useLayoutEffect(() => {
 		// Phaser 會碰 window，保險起見只在瀏覽器端建立
@@ -83,6 +91,8 @@ export function PhaserGame({
 				solvedTerminals: solvedTerminalsRef.current ?? [],
 				volume: audioRef.current.volume,
 				muted: audioRef.current.muted,
+				spawnPoint: sceneSetupRef.current.spawnPoint ?? null,
+				flickerEnabled: flickerEnabledRef.current ?? true,
 			});
 			gameRef.current = game;
 			onGameCreatedRef.current?.(game);

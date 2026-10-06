@@ -44,3 +44,20 @@ export function isStoryFlag(value: string): value is StoryFlag {
 	}
 	return isRoomId(roomId);
 }
+
+/** NOVA 對話框的立繪：`eye` 是像瞳孔的像素球體，`core` 是第六章核心艙裡看到的本體（損毀的全息多面體）。 */
+export type NovaPortrait = "eye" | "core";
+
+/**
+ * 第六章第一次走進 NOVA 核心艙（`nv_core`）之後，玩家已經看過它的本體，對話框改用 `core`；
+ * 其他章節與進核心艙之前都是 `eye`（設計文件 4.1）。用艙區旗標判定，重整後也維持。
+ */
+export function novaPortraitFor(chapter: number, flags: Readonly<Record<string, true>>): NovaPortrait {
+	if (chapter !== 6) {
+		return "eye";
+	}
+	if (flags[roomEnteredFlag(6, "nv_core")] === true) {
+		return "core";
+	}
+	return "eye";
+}

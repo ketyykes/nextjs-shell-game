@@ -56,6 +56,16 @@ describe("NovaDialogue", () => {
 		expect(screen.getByAltText(/NOVA/)).toBeDefined();
 	});
 
+	it("預設用 nova-eye 立繪，portrait 為 core 時改用 nova-core", () => {
+		render(<NovaDialogue queue={[message]} textSpeed="instant" onShown={vi.fn()} />);
+		expect(screen.getByRole("img").getAttribute("src")).toBe("/scenes/nova-eye.png");
+		cleanup();
+		render(<NovaDialogue queue={[message]} textSpeed="instant" onShown={vi.fn()} portrait="core" />);
+		const image = screen.getByRole("img");
+		expect(image.getAttribute("src")).toBe("/scenes/nova-core.png");
+		expect(image.getAttribute("alt")).toBe("NOVA 的本體：損毀的全息多面體");
+	});
+
 	it("instant 速度時文字立刻全部出現，且沒有游標", () => {
 		render(<NovaDialogue queue={[message]} textSpeed="instant" onShown={vi.fn()} />);
 		expect(screen.getByTestId("nova-text").textContent).toBe("你好嗎");

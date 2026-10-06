@@ -23,7 +23,7 @@ import {
 	SAVE_VERSION,
 	TRANSCRIPT_LIMIT,
 } from "./types";
-import type { GameStore, SaveData, StoryFlags, TerminalSessionRecord } from "./types";
+import type { GameStore, ProgressState, SaveData, StoryFlags, TerminalSessionRecord } from "./types";
 
 // ---------------------------------------------------------------------------
 // 初始值
@@ -96,7 +96,10 @@ function mergeSaveData(persistedState: unknown, currentState: GameStore): GameSt
 	const merged: GameStore = { ...currentState };
 
 	if (isRecord(persisted.progress)) {
-		merged.progress = { ...currentState.progress, ...persisted.progress };
+		const progress = { ...currentState.progress, ...persisted.progress };
+		// 選章只開放到 furthestChapter，壞存檔若比目前章節還小就拉回來，至少能選到現在這章
+		progress.furthestChapter = Math.max(progress.furthestChapter, progress.chapter);
+		merged.progress = progress;
 	}
 
 	if (isRecord(persisted.settings)) {
@@ -115,23 +118,74 @@ function mergeSaveData(persistedState: unknown, currentState: GameStore): GameSt
 }
 
 /**
- * 存檔版本不同時才會被呼叫（版本相同 persist 不會呼叫 migrate）。
+ * 存檔版本不同時才會被呼叫（版本相同 persist 不會呼叫 migrate）。依 `version` 逐版轉換到 `SAVE_VERSION`。
  *
- * 目前只有 v1，所以未知版本一律當成 v1 原樣回傳，欄位缺漏交給 `mergeSaveData` 用預設值補。
- * 之後 `SAVE_VERSION` 加一時，在這裡依 `version` 逐版轉換，例如：
+ * - v1 → v2：`progress` 多 `furthestChapter`（舊存檔沒有選章，等於目前章節）與 `position`（舊存檔不存位置，null）。
  *
- * ```ts
- * if (version < 2) {
- *   // v1 → v2 的轉換
- * }
- * ```
+ * 欄位缺漏或型別不對的壞存檔交給 `mergeSaveData` 用預設值補。
  */
 function migrateSaveData(persistedState: unknown, version: number): SaveData {
-	if (version !== SAVE_VERSION) {
-		console.warn(`[gameStore] 存檔版本 ${version} 與目前版本 ${SAVE_VERSION} 不同，暫時當成 v1 讀取。`);
+	if (!isRecord(persistedState)) {
+		return persistedState as SaveData;
 	}
 
-	return persistedState as SaveData;
+	let state: Record<string, unknown> = persistedState;
+
+	if (version < 2 && isRecord(state.progress)) {
+		const progress = state.progress;
+		state = {
+			...state,
+			progress: { ...progress, furthestChapter: progress.chapter, position: null },
+		};
+	}
+
+	if (version > SAVE_VERSION) {
+		console.warn(`[gameStore] 存檔版本 ${version} 比目前版本 ${SAVE_VERSION} 新，盡量照目前格式讀取。`);
+	}
+
+	return state as unknown as SaveData;
+}
+
+/**
+ * 清掉某一章的進度：`ch<n>-` 開頭的終端機 session 與過關紀錄、`ch<n>.` 開頭的旗標、該章的角色位置，氧氣回滿。
+ * 前綴帶分隔符號，ch1 才不會誤殺 ch10。
+ */
+function clearChapter(
+	state: SaveData,
+	chapter: number,
+): { progress: ProgressState; terminals: Record<string, TerminalSessionRecord>; storyFlags: StoryFlags } {
+	const terminalPrefix = `ch${chapter}-`;
+	const flagPrefix = `ch${chapter}.`;
+
+	const terminals: Record<string, TerminalSessionRecord> = {};
+	for (const [terminalId, record] of Object.entries(state.terminals)) {
+		if (!terminalId.startsWith(terminalPrefix)) {
+			terminals[terminalId] = record;
+		}
+	}
+
+	const storyFlags: StoryFlags = {};
+	for (const flag of Object.keys(state.storyFlags)) {
+		if (!flag.startsWith(flagPrefix)) {
+			storyFlags[flag] = true;
+		}
+	}
+
+	let position = state.progress.position;
+	if (position !== null && position.chapter === chapter) {
+		position = null;
+	}
+
+	return {
+		progress: {
+			...state.progress,
+			solvedTerminals: state.progress.solvedTerminals.filter((id) => !id.startsWith(terminalPrefix)),
+			oxygen: OXYGEN_MAX,
+			position,
+		},
+		terminals,
+		storyFlags,
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -296,6 +350,8 @@ export const useGameStore = create<GameStore>()(
 					progress: {
 						...state.progress,
 						chapter: state.progress.chapter + 1,
+						furthestChapter: Math.max(state.progress.furthestChapter, state.progress.chapter + 1),
+						position: null,
 						oxygen: OXYGEN_MAX,
 						savedAt: new Date().toISOString(),
 					},
@@ -303,35 +359,32 @@ export const useGameStore = create<GameStore>()(
 			},
 
 			resetChapter: (chapter) => {
-				// 前綴帶分隔符號，ch1 才不會誤殺 ch10
-				const terminalPrefix = `ch${chapter}-`;
-				const flagPrefix = `ch${chapter}.`;
+				set((state) => clearChapter(state, chapter));
+			},
+
+			selectChapter: (chapter) => {
+				const { furthestChapter } = get().progress;
+				if (!Number.isInteger(chapter) || chapter < 1 || chapter > furthestChapter) {
+					return false;
+				}
 
 				set((state) => {
-					const terminals: Record<string, TerminalSessionRecord> = {};
-					for (const [terminalId, record] of Object.entries(state.terminals)) {
-						if (!terminalId.startsWith(terminalPrefix)) {
-							terminals[terminalId] = record;
-						}
-					}
-
-					const storyFlags: StoryFlags = {};
-					for (const flag of Object.keys(state.storyFlags)) {
-						if (!flag.startsWith(flagPrefix)) {
-							storyFlags[flag] = true;
-						}
-					}
-
+					const cleared = clearChapter(state, chapter);
 					return {
-						progress: {
-							...state.progress,
-							solvedTerminals: state.progress.solvedTerminals.filter((id) => !id.startsWith(terminalPrefix)),
-							oxygen: OXYGEN_MAX,
-						},
-						terminals,
-						storyFlags,
+						...cleared,
+						progress: { ...cleared.progress, chapter, position: null, savedAt: new Date().toISOString() },
 					};
 				});
+				return true;
+			},
+
+			savePlayerPosition: (position) => {
+				set((state) => ({
+					progress: {
+						...state.progress,
+						position: { ...position, x: Math.round(position.x), y: Math.round(position.y) },
+					},
+				}));
 			},
 		}),
 		{

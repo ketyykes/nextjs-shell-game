@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { RoomId, SolvedEffect } from "../events";
 import {
 	airlockTilePosition,
+	effectSafety,
 	findCorridorRoomId,
 	FLICKER_PULSES,
 	flickerLegDuration,
@@ -254,5 +255,15 @@ describe("flickerLegDuration", () => {
 	it("太短時有下限，pulses 不合法時當 1", () => {
 		expect(flickerLegDuration(0)).toBeGreaterThan(0);
 		expect(flickerLegDuration(200, 0)).toBe(100);
+	});
+});
+
+describe("effectSafety（光敏安全：設定的「關閉閃爍」）", () => {
+	it("閃爍開著時照原樣演出：人影閃一幀、鏡頭震動、開門閃光、燈閃都播", () => {
+		expect(effectSafety(true)).toEqual({ shadowStyle: "flash", cameraShake: true, cameraFlash: true, lightFlicker: true });
+	});
+
+	it("關閉閃爍時人影改成慢慢浮現再淡出，鏡頭不震、不閃光、燈不閃", () => {
+		expect(effectSafety(false)).toEqual({ shadowStyle: "fade", cameraShake: false, cameraFlash: false, lightFlicker: false });
 	});
 });

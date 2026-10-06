@@ -33,7 +33,8 @@ export {
 	redirectsTo,
 } from "./objectives";
 export { chapterDefinitionSchema, MAX_HINTS, TERMINAL_ID_PATTERN, terminalDefinitionSchema, validateChapter } from "./schema";
-export { chapterFlagPrefix, introShownFlag, isStoryFlag, outroShownFlag, roomEnteredFlag } from "./flags";
+export { chapterFlagPrefix, introShownFlag, isStoryFlag, novaPortraitFor, outroShownFlag, roomEnteredFlag } from "./flags";
+export type { NovaPortrait } from "./flags";
 export { isRoomId, ROOM_IDS } from "./rooms";
 export { deckTerminal, deckTerminalIdentity, deckTerminals, TERMINAL_SLOTS } from "./decks";
 export type { DeckTerminal, TerminalIndex } from "./decks";

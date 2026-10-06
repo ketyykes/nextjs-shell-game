@@ -292,3 +292,26 @@ export function resolveSolvedState(
 
 	return { power, openDoorIds };
 }
+
+/** 過關演出在光敏安全設定下的播法，Station 依它決定各個視覺要不要播。 */
+export interface EffectSafety {
+	/** `flash`：人影閃一幀（約 120ms）；`fade`：慢慢浮現再淡出，劇情點保留但不閃。 */
+	shadowStyle: "flash" | "fade";
+	/** 人影出現時的鏡頭微震。 */
+	cameraShake: boolean;
+	/** 開門時鏡頭閃全息藍。 */
+	cameraFlash: boolean;
+	/** 燈閃（`flicker` 過關演出與環境反應階梯的 `ambient:flicker`）。 */
+	lightFlicker: boolean;
+}
+
+/**
+ * 設定的「關閉閃爍」是光敏體質玩家的安全項（設計文件 4.7），關掉時 Phaser 裡所有快速明暗變化與震動都要停：
+ * 人影改成淡入淡出、鏡頭不震不閃、燈不閃。亮燈序列與斷電是緩慢淡變，不受影響。
+ */
+export function effectSafety(flickerEnabled: boolean): EffectSafety {
+	if (flickerEnabled) {
+		return { shadowStyle: "flash", cameraShake: true, cameraFlash: true, lightFlicker: true };
+	}
+	return { shadowStyle: "fade", cameraShake: false, cameraFlash: false, lightFlicker: false };
+}

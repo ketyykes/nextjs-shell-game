@@ -349,6 +349,86 @@ describe("章節", () => {
 		expect(after.progress.solvedTerminals).toEqual(["ch10-t1"]);
 		expect(after.storyFlags).toEqual({ "ch10.outroShown": true });
 	});
+
+	it("advanceChapter 會推進最遠章節並清掉角色位置", () => {
+		const state = useGameStore.getState();
+		state.savePlayerPosition({ chapter: 1, x: 100, y: 200, roomId: "cryo" });
+		state.advanceChapter();
+		const after = useGameStore.getState().progress;
+		expect(after.furthestChapter).toBe(2);
+		expect(after.position).toBeNull();
+	});
+
+	it("在較早的章節進下一章時，最遠章節不會倒退", () => {
+		useGameStore.setState({ progress: { ...DEFAULT_PROGRESS, chapter: 2, furthestChapter: 5 } });
+		useGameStore.getState().advanceChapter();
+		const after = useGameStore.getState().progress;
+		expect(after.chapter).toBe(3);
+		expect(after.furthestChapter).toBe(5);
+	});
+
+	it("resetChapter 清掉同一章的角色位置，別章的位置保留", () => {
+		const state = useGameStore.getState();
+		state.savePlayerPosition({ chapter: 2, x: 100, y: 200, roomId: "dc_logs" });
+		state.resetChapter(1);
+		expect(useGameStore.getState().progress.position).toEqual({ chapter: 2, x: 100, y: 200, roomId: "dc_logs" });
+		useGameStore.getState().resetChapter(2);
+		expect(useGameStore.getState().progress.position).toBeNull();
+	});
+
+	it("selectChapter 跳到到過的章節：只重置該章，其他章的進度與最遠章節保留", () => {
+		useGameStore.setState({
+			progress: {
+				...DEFAULT_PROGRESS,
+				chapter: 4,
+				furthestChapter: 4,
+				solvedTerminals: ["ch2-t1", "ch3-t1", "ch4-t1"],
+				position: { chapter: 4, x: 10, y: 20, roomId: "com_entry" },
+			},
+			storyFlags: { "ch2.outroShown": true, "ch3.outroShown": true },
+		});
+
+		const moved = useGameStore.getState().selectChapter(2);
+
+		const after = useGameStore.getState();
+		expect(moved).toBe(true);
+		expect(after.progress.chapter).toBe(2);
+		expect(after.progress.furthestChapter).toBe(4);
+		expect(after.progress.solvedTerminals).toEqual(["ch3-t1", "ch4-t1"]);
+		expect(after.progress.position).toBeNull();
+		expect(after.progress.savedAt).not.toBeNull();
+		expect(after.storyFlags).toEqual({ "ch3.outroShown": true });
+	});
+
+	it("selectChapter 不能跳到還沒到過的章節", () => {
+		useGameStore.setState({ progress: { ...DEFAULT_PROGRESS, chapter: 2, furthestChapter: 2 } });
+		const moved = useGameStore.getState().selectChapter(3);
+		expect(moved).toBe(false);
+		expect(useGameStore.getState().progress.chapter).toBe(2);
+	});
+});
+
+describe("角色位置", () => {
+	it("預設沒有位置，savePlayerPosition 存下章節、座標與艙區", () => {
+		expect(useGameStore.getState().progress.position).toBeNull();
+		useGameStore.getState().savePlayerPosition({ chapter: 1, x: 321, y: 456, roomId: "medbay" });
+		expect(useGameStore.getState().progress.position).toEqual({ chapter: 1, x: 321, y: 456, roomId: "medbay" });
+	});
+
+	it("座標存成整數，避免存檔裡出現長小數", () => {
+		useGameStore.getState().savePlayerPosition({ chapter: 1, x: 10.6, y: 20.2, roomId: "cryo" });
+		expect(useGameStore.getState().progress.position).toEqual({ chapter: 1, x: 11, y: 20, roomId: "cryo" });
+	});
+
+	it("resetSave 清掉位置並回到第一章", () => {
+		const state = useGameStore.getState();
+		state.savePlayerPosition({ chapter: 1, x: 1, y: 2, roomId: "cryo" });
+		state.advanceChapter();
+		useGameStore.getState().resetSave();
+		const after = useGameStore.getState().progress;
+		expect(after.position).toBeNull();
+		expect(after.furthestChapter).toBe(1);
+	});
 });
 
 describe("selectors", () => {
@@ -377,7 +457,7 @@ describe("persist", () => {
 
 		const stored = readStoredSave();
 		expect(stored.version).toBe(SAVE_VERSION);
-		expect(stored.version).toBe(1);
+		expect(stored.version).toBe(2);
 		expect(stored.state.progress).toEqual({ ...DEFAULT_PROGRESS, learnedCommands: ["pwd"] });
 		expect(Object.keys(stored.state).sort()).toEqual(["progress", "settings", "storyFlags", "terminals"]);
 		expect(stored.state).not.toHaveProperty("learnCommand");
@@ -424,6 +504,44 @@ describe("persist", () => {
 		await useGameStore.persist.rehydrate();
 
 		expect(useGameStore.getState().settings).toEqual({ ...DEFAULT_SETTINGS, textSpeed: "slow" });
+	});
+
+	it("v1 存檔升級成 v2：最遠章節等於目前章節、沒有位置，其他資料原樣保留", async () => {
+		const v1Progress = {
+			chapter: 3,
+			character: "d",
+			solvedTerminals: ["ch1-t1", "ch3-t2"],
+			learnedCommands: ["pwd"],
+			oxygen: 77,
+			savedAt: "2031-03-12T08:15:00.000Z",
+		};
+		localStorage.setItem(
+			SAVE_STORAGE_KEY,
+			JSON.stringify({
+				state: { ...createInitialSaveData(), progress: v1Progress, storyFlags: { "ch2.outroShown": true } },
+				version: 1,
+			}),
+		);
+
+		await useGameStore.persist.rehydrate();
+
+		const state = useGameStore.getState();
+		expect(state.progress).toEqual({ ...v1Progress, furthestChapter: 3, position: null });
+		expect(state.storyFlags).toEqual({ "ch2.outroShown": true });
+	});
+
+	it("最遠章節比目前章節小的壞存檔會被拉回至少等於目前章節", async () => {
+		localStorage.setItem(
+			SAVE_STORAGE_KEY,
+			JSON.stringify({
+				state: { ...createInitialSaveData(), progress: { ...DEFAULT_PROGRESS, chapter: 4, furthestChapter: 2 } },
+				version: SAVE_VERSION,
+			}),
+		);
+
+		await useGameStore.persist.rehydrate();
+
+		expect(useGameStore.getState().progress.furthestChapter).toBe(4);
 	});
 
 	it("存檔不是合法 JSON 時視為沒有存檔，仍完成 hydration", async () => {

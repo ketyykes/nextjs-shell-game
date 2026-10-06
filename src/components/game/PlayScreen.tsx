@@ -37,6 +37,7 @@ import {
 	createObjectiveContext,
 	evaluateObjective,
 	introShownFlag,
+	novaPortraitFor,
 	outroShownFlag,
 	roomEnteredFlag,
 	type ChapterDefinition,
@@ -167,10 +168,18 @@ function PlayScreenReady() {
 	const chapter = getChapter(progress.chapter);
 	const [terminalEffects] = useState(() => collectTerminalEffects(chapter));
 	const chapterSolvedCount = chapter.terminals.filter((terminal) => progress.solvedTerminals.includes(terminal.id)).length;
+	// 存檔裡這一章的角色位置（存檔 v2）：只在掛載當下讀一次，Phaser 建角色時用；之後的移動由 player:stopped 寫回
+	const [savedPosition] = useState(() => {
+		const position = useGameStore.getState().progress.position;
+		if (position === null || position.chapter !== chapter.chapter) {
+			return null;
+		}
+		return position;
+	});
 
 	const [openTerminal, setOpenTerminal] = useState<OpenTerminal | null>(null);
 	const [nearbyTerminal, setNearbyTerminal] = useState<TerminalDefinition | null>(null);
-	const [currentRoom, setCurrentRoom] = useState<RoomId | null>(null);
+	const [currentRoom, setCurrentRoom] = useState<RoomId | null>(savedPosition?.roomId ?? null);
 	const [justSolvedId, setJustSolvedId] = useState<string | null>(null);
 	const [cheatSheetOpen, setCheatSheetOpen] = useState(false);
 	const [sceneReady, setSceneReady] = useState(false);
@@ -275,6 +284,11 @@ function PlayScreenReady() {
 		emitGameEvent("audio:settings", { volume: settings.volume, muted: settings.muted });
 	}, [settings.muted, settings.volume]);
 
+	// 設定選單切換閃爍時即時通知 Phaser（人影、鏡頭震動與閃光、燈閃）
+	useEffect(() => {
+		emitGameEvent("effects:settings", { flickerEnabled: settings.flickerEnabled });
+	}, [settings.flickerEnabled]);
+
 	// 卡關偵測與環境反應階梯（4.8）：只對開著且未過關的終端機計數
 	const pressureTerminalId =
 		openTerminal !== null && !progress.solvedTerminals.includes(openTerminal.definition.id)
@@ -351,6 +365,9 @@ function PlayScreenReady() {
 		const unsubscribeReady = onGameEvent("scene:ready", () => {
 			setSceneReady(true);
 		});
+		const unsubscribeStopped = onGameEvent("player:stopped", ({ x, y, roomId }) => {
+			useGameStore.getState().savePlayerPosition({ chapter: chapter.chapter, x, y, roomId });
+		});
 		const unsubscribeRoom = onGameEvent("room:enter", ({ roomId }) => {
 			setCurrentRoom(roomId);
 			// 進房台詞每間只說一次，用劇情旗標跨重整去重
@@ -381,6 +398,7 @@ function PlayScreenReady() {
 			unsubscribeOpen();
 			unsubscribeNearby();
 			unsubscribeReady();
+			unsubscribeStopped();
 			unsubscribeRoom();
 		};
 	}, [chapter, nova]);
@@ -472,6 +490,8 @@ function PlayScreenReady() {
 				solvedTerminals={progress.solvedTerminals}
 				volume={settings.volume}
 				muted={settings.muted}
+				spawnPoint={savedPosition}
+				flickerEnabled={settings.flickerEnabled}
 				className="flex h-full w-full items-center justify-center"
 			/>
 
@@ -487,7 +507,12 @@ function PlayScreenReady() {
 				open={cheatSheetOpen}
 				onOpenChange={setCheatSheetOpen}
 			/>
-			<NovaDialogue queue={nova.queue} textSpeed={settings.textSpeed} onShown={nova.dismiss} />
+			<NovaDialogue
+				queue={nova.queue}
+				textSpeed={settings.textSpeed}
+				onShown={nova.dismiss}
+				portrait={novaPortraitFor(chapter.chapter, storyFlags)}
+			/>
 
 			<AnimatePresence>
 				{openTerminal !== null && (
@@ -635,8 +660,12 @@ function Hud({ oxygen, room, nearbyTerminal, terminalOpen }: HudProps) {
 					{ROOM_NAMES[room]}
 				</div>
 			)}
+			{/* 底部一排是目標面板（左）與 NOVA 對話框（右），1280 以下塞不下中間的提示，往上移到它們上方 */}
 			{nearbyTerminal !== null && !terminalOpen && (
-				<div className="absolute bottom-16 left-1/2 -translate-x-1/2 text-game-holo" data-testid="interact-hint">
+				<div
+					className="absolute bottom-60 left-1/2 -translate-x-1/2 whitespace-nowrap text-game-holo lg:bottom-32 xl:bottom-16"
+					data-testid="interact-hint"
+				>
 					按 E 開啟 {nearbyTerminal.title}
 				</div>
 			)}

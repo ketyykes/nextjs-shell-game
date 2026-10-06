@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { useTypewriter } from "@/components/terminal/useTypewriter";
+import type { NovaPortrait } from "@/game/story/flags";
 import { TEXT_SPEED_MS, type TextSpeed } from "@/game/store/types";
 
 /**
@@ -36,7 +37,14 @@ export interface NovaDialogueProps {
 	onShown: (id: string) => void;
 	/** 停留毫秒數，預設 4000；文字長時依字數加長（每字 +40ms），上限 9000 */
 	holdMs?: number;
+	/** 立繪，預設 `eye`；第六章進核心艙後父層改傳 `core`。 */
+	portrait?: NovaPortrait;
 }
+
+const PORTRAITS: Record<NovaPortrait, { src: string; alt: string }> = {
+	eye: { src: "/scenes/nova-eye.png", alt: "NOVA 的立繪：像瞳孔的像素球體" },
+	core: { src: "/scenes/nova-core.png", alt: "NOVA 的本體：損毀的全息多面體" },
+};
 
 /**
  * 計算一則訊息打完字後的停留時間：基礎停留 + 每字 40ms，最多 9000ms。
@@ -52,16 +60,18 @@ interface NovaBubbleProps {
 	/** 目前已顯示的文字 */
 	displayed: string;
 	isTyping: boolean;
+	portrait: NovaPortrait;
 }
 
 /** 對話框本體（純呈現）：立繪在左、名字標籤與台詞在右。 */
-function NovaBubble({ text, displayed, isTyping }: NovaBubbleProps) {
+function NovaBubble({ text, displayed, isTyping, portrait }: NovaBubbleProps) {
+	const image = PORTRAITS[portrait];
 	return (
 		<>
 			{/* eslint-disable-next-line @next/next/no-img-element -- 固定尺寸的像素立繪，不需要 next/image 最佳化 */}
 			<img
-				src="/scenes/nova-eye.png"
-				alt="NOVA 的立繪：像瞳孔的像素球體"
+				src={image.src}
+				alt={image.alt}
 				width={64}
 				height={64}
 				className="size-16 shrink-0 [image-rendering:pixelated]"
@@ -98,6 +108,7 @@ export function NovaDialogue({
 	textSpeed,
 	onShown,
 	holdMs = DEFAULT_HOLD_MS,
+	portrait = "eye",
 }: NovaDialogueProps) {
 	const current = queue[0];
 	const currentId = current?.id;
@@ -155,13 +166,13 @@ export function NovaDialogue({
 					role="status"
 					aria-live="polite"
 					data-testid="nova-dialogue"
-					className="pointer-events-none fixed right-6 bottom-6 z-30 flex w-[28rem] max-w-[calc(100vw-3rem)] items-start gap-3 border-l-[3px] border-game-holo bg-game-bg/90 p-3"
+					className="pointer-events-none fixed right-6 bottom-32 z-30 lg:bottom-6 flex w-[28rem] max-w-[calc(100vw-3rem)] items-start gap-3 border-l-[3px] border-game-holo bg-game-bg/90 p-3"
 					initial={{ opacity: 0, y: 12 }}
 					animate={{ opacity: 1, y: 0 }}
 					exit={{ opacity: 0, y: 12 }}
 					transition={{ duration: FADE_SECONDS }}
 				>
-					<NovaBubble text={current.text} displayed={displayed} isTyping={isTyping} />
+					<NovaBubble text={current.text} displayed={displayed} isTyping={isTyping} portrait={portrait} />
 				</motion.div>
 			)}
 		</AnimatePresence>
