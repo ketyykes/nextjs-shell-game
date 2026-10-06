@@ -30,6 +30,7 @@ export const SYSTEM_COMMAND_DOCS: Record<string, CommandDoc> = {
 		description: [
 			"sort 會把檔案的每一行排好順序再印出來，預設依字母與數字字元的順序排。",
 			"-n 依每行開頭的數字大小排，不然 10 會排在 2 前面；-r 反過來由大到小；-u 排完把重複的行只留一個。",
+			"-n 和 -u 一起用時，開頭數字一樣就算重複（例如 1 b 和 01 a），只留最先出現的那行。",
 			"可以一次給好幾個檔案，內容會接起來一起排。",
 			"沒給檔名時，sort 會讀 | 左邊指令的輸出；| 的意思是「把左邊的輸出交給右邊」。",
 			"sort 常接 uniq：先排序讓相同的行靠在一起，uniq 才能把它們合併或計數。",
@@ -44,17 +45,19 @@ export const SYSTEM_COMMAND_DOCS: Record<string, CommandDoc> = {
 	uniq: {
 		name: "uniq",
 		summary: "合併相鄰的重複行",
-		usage: "uniq [-c] [-d] [檔案]",
+		usage: "uniq [-c] [-d] [輸入檔 [輸出檔]]",
 		description: [
 			"uniq 會把「緊鄰」的重複行合併成一行，不相鄰的重複不會合併。",
 			"所以通常先用 sort 排序，讓相同的行靠在一起，再用 | 交給 uniq，例如 sort relay.log | uniq。",
 			"-c 會在每行前面加上它出現的次數；-d 只印出有重複過的行。",
-			"uniq 最多接一個檔案；沒給檔名時讀 | 左邊指令的輸出。",
+			"沒給檔名（或輸入檔寫 -）時讀 | 左邊指令的輸出。",
+			"第二個檔名是輸出檔：結果直接存進那個檔案，畫面上不會印，效果跟接 > 一樣。",
 		],
 		examples: [
 			{ command: "uniq relay.log", explanation: "把通訊紀錄裡連續重複的行合併成一行" },
 			{ command: "uniq -c relay.log", explanation: "合併並顯示每行連續出現幾次" },
 			{ command: "uniq -d relay.log", explanation: "只列出有連續重複的行" },
+			{ command: "uniq relay.log clean.log", explanation: "合併後存成 clean.log，畫面上不印" },
 		],
 	},
 	export: {

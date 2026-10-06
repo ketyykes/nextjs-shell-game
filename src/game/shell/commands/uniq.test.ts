@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { fsError, missingOperand, noInput, unknownOption } from "../messages";
+import { extraOperand, fsError, noInput, unknownOption } from "../messages";
 import { uniqCommand } from "./uniq";
 import { createSystemContext } from "./systemFixtures";
 
@@ -74,17 +74,81 @@ describe("uniq 輸入來源", () => {
 	});
 });
 
-describe("uniq 錯誤", () => {
-	it("給兩個以上檔案回 missingOperand 的用法說明", () => {
-		const result = uniqCommand.run(["relay.log", "freq.txt"], createSystemContext());
+describe("uniq 輸出檔", () => {
+	it("第二個參數是輸出檔：結果寫進檔案，畫面上沒有輸出", () => {
+		const context = createSystemContext();
+		const result = uniqCommand.run(["relay.log", "out.txt"], context);
 
-		expect(result.ok).toBe(false);
-		expect(result.lines).toEqual(
-			missingOperand(
-				"uniq",
-				"最多一個檔名；要處理多個檔案，先用 sort 把它們接起來再交給 uniq，例如 sort part_01.txt part_02.txt | uniq",
-			),
-		);
+		expect(result).toEqual({ ok: true, lines: [] });
+		expect(context.fs.readFile(context.cwd, "out.txt")).toBe("ERROR\nOK\nWARN\nERROR\n");
+	});
+
+	it("選項照樣套用，輸出檔已存在時覆寫", () => {
+		const context = createSystemContext();
+		context.fs.writeFile(context.cwd, "out.txt", "舊內容\n");
+		uniqCommand.run(["-cd", "relay.log", "out.txt"], context);
+
+		expect(context.fs.readFile(context.cwd, "out.txt")).toBe("      3 ERROR\n      2 WARN\n");
+	});
+
+	it("輸入寫 - 代表讀管線的輸入", () => {
+		const context = createSystemContext({ stdin: ["x", "x", "y"] });
+		const result = uniqCommand.run(["-", "out.txt"], context);
+
+		expect(result).toEqual({ ok: true, lines: [] });
+		expect(context.fs.readFile(context.cwd, "out.txt")).toBe("x\ny\n");
+	});
+
+	it("單獨一個 - 也是讀管線的輸入", () => {
+		const result = uniqCommand.run(["-"], createSystemContext({ stdin: ["x", "x"] }));
+
+		expect(result).toEqual({ ok: true, lines: ["x"] });
+	});
+
+	it("- 但不在管線裡時回 noInput", () => {
+		const result = uniqCommand.run(["-", "out.txt"], createSystemContext());
+
+		expect(result).toEqual({ ok: false, lines: noInput("uniq", "sort relay.log | uniq") });
+	});
+
+	it("沒有任何輸出時寫成空檔", () => {
+		const context = createSystemContext({ stdin: [] });
+		uniqCommand.run(["-", "out.txt"], context);
+
+		expect(context.fs.readFile(context.cwd, "out.txt")).toBe("");
+	});
+
+	it("輸入檔讀不到時回報錯誤，不建立輸出檔", () => {
+		const context = createSystemContext();
+		const result = uniqCommand.run(["nope.log", "out.txt"], context);
+
+		expect(result).toEqual({ ok: false, lines: fsError("ENOENT", "nope.log") });
+		expect(context.fs.exists(context.cwd, "out.txt")).toBe(false);
+	});
+
+	it("輸出檔是目錄時回 EISDIR", () => {
+		const result = uniqCommand.run(["relay.log", "fragments"], createSystemContext());
+
+		expect(result).toEqual({ ok: false, lines: fsError("EISDIR", "fragments") });
+	});
+
+	it("輸出檔的父目錄不存在時回 ENOENT", () => {
+		const result = uniqCommand.run(["relay.log", "nodir/out.txt"], createSystemContext());
+
+		expect(result).toEqual({ ok: false, lines: fsError("ENOENT", "nodir/out.txt") });
+	});
+});
+
+describe("uniq 錯誤", () => {
+	it("超過兩個參數回 extraOperand，不寫任何檔案", () => {
+		const context = createSystemContext();
+		const result = uniqCommand.run(["relay.log", "out.txt", "extra.txt"], context);
+
+		expect(result).toEqual({
+			ok: false,
+			lines: extraOperand("uniq", "extra.txt", "uniq [-c] [-d] [輸入檔 [輸出檔]]"),
+		});
+		expect(context.fs.exists(context.cwd, "out.txt")).toBe(false);
 	});
 
 	it("檔案不存在回 fsError", () => {

@@ -32,8 +32,11 @@ import {
 	noSuchProcess,
 	processIgnoredSignal,
 	processProtected,
+	invalidPattern,
+	conflictingMatchers,
+	extraOperand,
 } from "./messages";
-import type { FsErrorCode, ParseErrorCode } from "./types";
+import type { FsErrorCode, ParseErrorCode, RegexErrorCode } from "./types";
 
 /** 把多行訊息接成一個字串，方便用 toContain 檢查。 */
 function joinLines(lines: string[]): string {
@@ -161,6 +164,57 @@ describe("指令用法訊息", () => {
 	});
 });
 
+describe("chmod 訊息", () => {
+	it("invalidMode 會放進寫法，並示範逗號組合與四位數字", () => {
+		const text = joinLines(invalidMode("zzz"));
+		expect(text).toContain("`zzz`");
+		expect(text).toContain("u+x,g-w");
+		expect(text).toContain("0644");
+	});
+});
+
+describe("grep 樣式與用法訊息", () => {
+	const codes: RegexErrorCode[] = [
+		"TRAILING_BACKSLASH",
+		"UNMATCHED_BRACKET",
+		"UNMATCHED_PAREN",
+		"UNMATCHED_BRACE",
+		"INVALID_INTERVAL",
+		"INVALID_RANGE",
+		"INVALID_CLASS_NAME",
+		"CLASS_SYNTAX",
+		"INVALID_BACKREF",
+	];
+
+	it.each(codes)("invalidPattern(%s) 放進樣式、說明原因，並提示 -F 照字面找", (code) => {
+		const text = joinLines(invalidPattern("grep", "a[1", code));
+		expect(text).toContain("`a[1`");
+		expect(text).toContain("-F");
+	});
+
+	it("每種原因的說明都不一樣", () => {
+		const reasons = codes.map((code) => invalidPattern("grep", "x", code)[0]);
+		expect(new Set(reasons).size).toBe(codes.length);
+	});
+
+	it("CLASS_SYNTAX 會示範兩層中括號的寫法", () => {
+		expect(joinLines(invalidPattern("grep", "[:digit:]", "CLASS_SYNTAX"))).toContain("[[:digit:]]");
+	});
+
+	it("conflictingMatchers 會提到 -E 與 -F", () => {
+		const text = joinLines(conflictingMatchers("grep"));
+		expect(text).toContain("-E");
+		expect(text).toContain("-F");
+	});
+
+	it("extraOperand 會放進指令、多出來的參數與用法", () => {
+		const text = joinLines(extraOperand("uniq", "c.txt", "uniq [-c] [-d] [輸入檔 [輸出檔]]"));
+		expect(text).toContain("`uniq`");
+		expect(text).toContain("`c.txt`");
+		expect(text).toContain("uniq [-c] [-d] [輸入檔 [輸出檔]]");
+	});
+});
+
 describe("man、hint、history 相關訊息", () => {
 	it("manNotFound 會放進指令名並提示 help", () => {
 		const text = joinLines(manNotFound("foo"));
@@ -203,6 +257,9 @@ describe("所有訊息的共通規則", () => {
 			noSuchProcess(42),
 			processIgnoredSignal(42, "nova"),
 			processProtected(1, "init"),
+			invalidPattern("grep", "x", "UNMATCHED_BRACKET"),
+			conflictingMatchers("grep"),
+			extraOperand("uniq", "x", "uniq"),
 			pathNotFound("x"),
 			notADirectory("x"),
 			isADirectory("x"),

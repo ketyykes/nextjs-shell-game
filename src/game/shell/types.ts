@@ -207,9 +207,9 @@ export interface VirtualFs {
 	setMode(cwd: string, input: string, mode: string): void;
 
 	/**
-	 * 萬用字元展開（第四章 `cat *.log`）。只處理最後一段路徑裡的 `*` 與 `?`，
-	 * 回傳依名稱排序、保留玩家寫法前綴的路徑（例如 `logs/*.txt` 回 `logs/a.txt`）；
-	 * 隱藏檔只有在 pattern 以 `.` 開頭時才會配到。沒有任何相符回傳空陣列，由呼叫端決定要不要保留原字串。
+	 * 萬用字元展開（第四章 `cat *.log`）。每一段路徑裡的 `*` 與 `?` 都會展開（例如 `logs/2028-??/error.log`、`pod_0?/status.txt`），
+	 * 回傳保留玩家寫法的路徑（例如 `logs/*.txt` 回 `logs/a.txt`），每一層依名稱排序；結尾是 `/` 時只配目錄。
+	 * 隱藏檔只有在那一段 pattern 以 `.` 開頭時才會配到。沒有任何相符回傳空陣列，由呼叫端決定要不要保留原字串。
 	 */
 	glob(cwd: string, pattern: string): string[];
 
@@ -256,6 +256,29 @@ export interface ParseError {
 	/** 觸發錯誤的字元或符號，給訊息模組組句子用。 */
 	detail: string;
 }
+
+/**
+ * `grep` 樣式（正規表示式）不合法的原因，對照 GNU grep 的錯誤：
+ * - TRAILING_BACKSLASH：結尾多一個 `\`（Trailing backslash）
+ * - UNMATCHED_BRACKET：`[` 沒有對應的 `]`（Unmatched [）
+ * - UNMATCHED_PAREN：括號群組沒有成對（Unmatched ( or \(）
+ * - UNMATCHED_BRACE：`\{` 沒有對應的 `\}`（Unmatched \{）
+ * - INVALID_INTERVAL：次數寫法不對或前大後小（Invalid content of \{\}）
+ * - INVALID_RANGE：`[]` 裡的範圍前大後小（Invalid range end）
+ * - INVALID_CLASS_NAME：`[[:名稱:]]` 的名稱不認得（Invalid character class name）
+ * - CLASS_SYNTAX：把 `[[:digit:]]` 寫成 `[:digit:]`（character class syntax is [[:space:]]）
+ * - INVALID_BACKREF：`\1` 這類回頭參照找不到對應的群組（Invalid back reference）
+ */
+export type RegexErrorCode =
+	| "TRAILING_BACKSLASH"
+	| "UNMATCHED_BRACKET"
+	| "UNMATCHED_PAREN"
+	| "UNMATCHED_BRACE"
+	| "INVALID_INTERVAL"
+	| "INVALID_RANGE"
+	| "INVALID_CLASS_NAME"
+	| "CLASS_SYNTAX"
+	| "INVALID_BACKREF";
 
 /** 解析成功後的單一指令。 */
 export interface ParsedCommand {

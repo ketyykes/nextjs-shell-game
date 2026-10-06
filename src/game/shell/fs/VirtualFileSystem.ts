@@ -100,6 +100,23 @@ function globToRegExp(pattern: string): RegExp {
 }
 
 /**
+ * 萬用字元展開時接路徑：保留玩家的寫法，空字串（目前目錄）直接接名稱，結尾已有 `/` 時不重複。
+ *
+ * @example joinGlobPath("logs", "a.log") // "logs/a.log"
+ */
+function joinGlobPath(parent: string, name: string): string {
+	if (parent === "") {
+		return name;
+	}
+
+	if (parent.endsWith("/")) {
+		return `${parent}${name}`;
+	}
+
+	return `${parent}/${name}`;
+}
+
+/**
  * 檢查 `mv` 能不能把 `source` 放到已經有 `existing` 的位置：
  * 檔案蓋檔案可以；檔案蓋目錄丟 `EISDIR`；目錄蓋檔案丟 `ENOTDIR`；
  * 目錄蓋目錄只有對方是空目錄時可以，否則丟 `EEXIST`（真的 mv 是 Directory not empty）。
@@ -423,11 +440,7 @@ export class VirtualFileSystem implements VirtualFs {
 	}
 
 	glob(cwd: string, pattern: string): string[] {
-		const slashIndex = pattern.lastIndexOf("/");
-		const prefix = pattern.slice(0, slashIndex + 1);
-		const namePattern = pattern.slice(slashIndex + 1);
-
-		if (!hasWildcard(namePattern)) {
+		if (!hasWildcard(pattern)) {
 			if (this.exists(cwd, pattern)) {
 				return [pattern];
 			}
@@ -435,10 +448,35 @@ export class VirtualFileSystem implements VirtualFs {
 			return [];
 		}
 
+		// 絕對路徑從 `/` 開始接，相對路徑從空字串（目前目錄）開始接
+		const absolute = pattern.startsWith("/");
+		const segments = (absolute ? pattern.slice(1) : pattern).split("/");
+		let candidates = [absolute ? ROOT_PATH : ""];
+
+		for (const segment of segments) {
+			if (!hasWildcard(segment)) {
+				candidates = candidates.map((candidate) => joinGlobPath(candidate, segment));
+				continue;
+			}
+
+			candidates = candidates.flatMap((candidate) =>
+				this.matchNames(cwd, candidate, segment).map((name) => joinGlobPath(candidate, name)),
+			);
+		}
+
+		// 中間那段配到的東西底下不一定有後面的路徑（例如 `*/notes.txt` 配到的檔案），最後統一檢查存在
+		return candidates.filter((candidate) => this.exists(cwd, candidate));
+	}
+
+	/**
+	 * 列出 `dirPath`（玩家寫法，空字串代表目前目錄）底下名稱符合 `namePattern` 的子項，依名稱排序。
+	 * 隱藏檔只有在 pattern 以 `.` 開頭時才會配到；目錄不存在或不是目錄時回傳空陣列。
+	 */
+	private matchNames(cwd: string, dirPath: string, namePattern: string): string[] {
 		let dir: FsDirNode;
 
 		try {
-			dir = this.getDir(cwd, prefix === "" ? "." : prefix);
+			dir = this.getDir(cwd, dirPath === "" ? "." : dirPath);
 		} catch (error) {
 			if (error instanceof FsError) {
 				return [];
@@ -457,9 +495,7 @@ export class VirtualFileSystem implements VirtualFs {
 			return matcher.test(name);
 		});
 
-		names.sort((a, b) => a.localeCompare(b, "en"));
-
-		return names.map((name) => `${prefix}${name}`);
+		return names.sort((a, b) => a.localeCompare(b, "en"));
 	}
 
 	serialize(): SerializedFs {

@@ -3,12 +3,21 @@
  *
  * 只看相鄰，所以通常先 `sort` 再接 `uniq`，例如 `sort relay.log | uniq -c`。
  * 支援 `-c`（前綴出現次數，靠右對齊 7 格加一個空格，跟真的 uniq 一樣）
- * 與 `-d`（只印重複過的行）。最多接一個檔案，沒給檔名時讀管線的 `stdin`。
+ * 與 `-d`（只印重複過的行）。
+ *
+ * 參數照真的 `uniq [輸入檔 [輸出檔]]`：
+ * - 沒給輸入檔、或輸入檔寫 `-` 時讀管線的 `stdin`
+ * - 第二個參數是輸出檔：結果寫進虛擬檔案系統（等同 `> 輸出檔`，已存在就覆寫），畫面上沒有輸出；
+ *   先讀輸入再寫輸出，輸入讀不到時不會建立輸出檔（跟真的 uniq 一樣）
+ * - 超過兩個參數回 `extraOperand`
  */
 
-import type { CommandDefinition, CommandResult } from "../types";
-import { missingOperand, unknownOption } from "../messages";
+import type { CommandContext, CommandDefinition, CommandResult } from "../types";
+import { extraOperand, fsError, unknownOption } from "../messages";
+import { joinContentLines } from "./cat";
+import { captureFsError } from "./fileArgs";
 import { readInputLines } from "./sort";
+import type { InputReadResult } from "./sort";
 
 // ---------------------------------------------------------------------------
 // 選項解析
@@ -31,9 +40,11 @@ const SUPPORTED_FLAGS = new Set(["c", "d"]);
 /** 次數欄寬度，跟 GNU uniq 一樣。 */
 const COUNT_WIDTH = 7;
 
-/** 給太多檔案時的用法說明。 */
-const TOO_MANY_FILES_HINT =
-	"最多一個檔名；要處理多個檔案，先用 sort 把它們接起來再交給 uniq，例如 sort part_01.txt part_02.txt | uniq";
+/** 完整用法，參數太多時印給玩家看。 */
+const USAGE = "uniq [-c] [-d] [輸入檔 [輸出檔]]";
+
+/** 代表「讀管線輸入」的輸入檔名。 */
+const STDIN_PATH = "-";
 
 /** 解析 `uniq` 的參數，規則同 `ls`。 */
 export function parseUniqArgs(args: string[]): UniqParseResult {
@@ -120,6 +131,12 @@ export function uniqLines(lines: string[], options: UniqOptions): string[] {
 // 指令本體
 // ---------------------------------------------------------------------------
 
+/** 讀輸入：沒給或給 `-` 時讀 `stdin`，否則讀那個檔案。 */
+function readUniqInput(inputPath: string | undefined, context: CommandContext): InputReadResult {
+	const paths = inputPath === undefined || inputPath === STDIN_PATH ? [] : [inputPath];
+	return readInputLines("uniq", paths, context, "sort relay.log | uniq");
+}
+
 export const uniqCommand: CommandDefinition = {
 	name: "uniq",
 	run(args, context): CommandResult {
@@ -129,17 +146,32 @@ export const uniqCommand: CommandDefinition = {
 			return { ok: false, lines: parsed.lines };
 		}
 
-		// 真的 uniq 第二個參數是輸出檔，這裡不支援，改提示用 sort 先把多個檔案接起來
-		if (parsed.paths.length > 1) {
-			return { ok: false, lines: missingOperand("uniq", TOO_MANY_FILES_HINT) };
+		const [inputPath, outputPath, extra] = parsed.paths;
+
+		if (extra !== undefined) {
+			return { ok: false, lines: extraOperand("uniq", extra, USAGE) };
 		}
 
-		const input = readInputLines("uniq", parsed.paths, context, "sort relay.log | uniq");
+		const input = readUniqInput(inputPath, context);
 
 		if (!input.ok) {
 			return { ok: false, lines: input.lines };
 		}
 
-		return { ok: true, lines: uniqLines(input.lines, parsed.options) };
+		const lines = uniqLines(input.lines, parsed.options);
+
+		if (outputPath === undefined) {
+			return { ok: true, lines };
+		}
+
+		const error = captureFsError(() => {
+			context.fs.writeFile(context.cwd, outputPath, joinContentLines(lines));
+		});
+
+		if (error !== null) {
+			return { ok: false, lines: fsError(error.code, error.path) };
+		}
+
+		return { ok: true, lines: [] };
 	},
 };

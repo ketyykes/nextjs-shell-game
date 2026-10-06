@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { fsError, noInput } from "../messages";
-import { catCommand, splitContentLines } from "./cat";
+import { catCommand, joinContentLines, splitContentLines } from "./cat";
 import { createContext } from "./testFixtures";
 
 describe("cat", () => {
@@ -104,5 +104,20 @@ describe("splitContentLines", () => {
 
 	it("只去掉最後一個換行，中間與結尾多出的空行照印", () => {
 		expect(splitContentLines("a\n\nb\n\n")).toEqual(["a", "", "b", ""]);
+	});
+});
+
+describe("joinContentLines", () => {
+	it("沒有行時是空字串", () => {
+		expect(joinContentLines([])).toBe("");
+	});
+
+	it("每一行結尾都補換行，空行也保留", () => {
+		expect(joinContentLines(["a", "", "b"])).toBe("a\n\nb\n");
+	});
+
+	it("跟 splitContentLines 互為反向", () => {
+		const lines = ["ERROR", "", "OK"];
+		expect(splitContentLines(joinContentLines(lines))).toEqual(lines);
 	});
 });

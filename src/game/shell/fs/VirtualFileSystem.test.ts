@@ -900,6 +900,42 @@ describe("寫入操作", () => {
 			expect(fs.glob("/deck3/reactor", "status.txt/*")).toEqual([]);
 		});
 
+		it("路徑中間那段的萬用字元也會展開", () => {
+			const fs = createCh3Fs();
+			expect(fs.glob("/deck3/reactor/backup", "*/notes.txt")).toEqual(["old/notes.txt"]);
+			expect(fs.glob("/deck3/reactor", "*/*.log")).toEqual(["logs/a.log", "logs/ab.log", "logs/b.log"]);
+			expect(fs.glob("/deck3/reactor", "?ogs/a.log")).toEqual(["logs/a.log"]);
+			expect(fs.glob("/home", "/deck3/*/backup/c*")).toEqual([
+				"/deck3/reactor/backup/coolant.cfg",
+				"/deck3/reactor/backup/core.cfg",
+			]);
+		});
+
+		it("多段萬用字元依每一層的名稱排序，隱藏檔照樣排除", () => {
+			const fs = createCh3Fs();
+			expect(fs.glob("/deck3/reactor", "*/*")).toEqual([
+				"backup/coolant.cfg",
+				"backup/core.cfg",
+				"backup/old",
+				"logs/a.log",
+				"logs/ab.log",
+				"logs/b.log",
+				"logs/c.txt",
+			]);
+		});
+
+		it("結尾是 / 時只配目錄，結果保留 /", () => {
+			const fs = createCh3Fs();
+			expect(fs.glob("/deck3/reactor", "*/")).toEqual(["backup/", "logs/"]);
+		});
+
+		it("中間那段配到的東西底下沒有後面的路徑時排除，全部沒有就回傳空陣列", () => {
+			const fs = createCh3Fs();
+			expect(fs.glob("/deck3/reactor", "*/core.cfg")).toEqual(["backup/core.cfg"]);
+			expect(fs.glob("/deck3/reactor", "*/z.log")).toEqual([]);
+			expect(fs.glob("/deck3/reactor", "nope*/a.log")).toEqual([]);
+		});
+
 		it("沒有萬用字元時，存在回傳 [pattern]，不存在回傳空陣列", () => {
 			const fs = createCh3Fs();
 			expect(fs.glob("/deck3/reactor", "logs/a.log")).toEqual(["logs/a.log"]);

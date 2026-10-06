@@ -56,6 +56,17 @@ describe("COMMAND_DOCS", () => {
 	it("cat 的說明提到可以一次讀多個檔案", () => {
 		expect(COMMAND_DOCS.cat.description.join("\n")).toContain("多個");
 	});
+
+	it("grep 的用法與說明涵蓋正規表示式、-E 與 -F", () => {
+		const doc = COMMAND_DOCS.grep;
+		const text = doc.description.join("\n");
+		expect(doc.usage).toContain("-E");
+		expect(doc.usage).toContain("-F");
+		expect(text).toContain("正規表示式");
+		expect(text).toContain("-E");
+		expect(text).toContain("-F");
+		expect(doc.examples.some((example) => example.command.includes("-E"))).toBe(true);
+	});
 });
 
 describe("COMMAND_DOC_ORDER", () => {

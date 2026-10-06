@@ -9,7 +9,7 @@
  * 指令與路徑用反引號包住。
  */
 
-import type { FsErrorCode, ParseError } from "./types";
+import type { FsErrorCode, ParseError, RegexErrorCode } from "./types";
 
 // ---------------------------------------------------------------------------
 // 解析階段的錯誤
@@ -175,6 +175,41 @@ export function noInput(command: string, example: string): string[] {
 }
 
 // ---------------------------------------------------------------------------
+// grep 樣式、多餘參數
+// ---------------------------------------------------------------------------
+
+/** 每種樣式錯誤的原因說明，`invalidPattern` 的第一行用。 */
+const REGEX_ERROR_REASONS: Record<RegexErrorCode, string> = {
+	TRAILING_BACKSLASH: "結尾多了一個反斜線 \\，反斜線要接在別的字元前面，例如 \\. 代表句點本身",
+	UNMATCHED_BRACKET: "[ 沒有對應的 ]，中括號要成對，例如 [0-9]",
+	UNMATCHED_PAREN: "括號群組沒有成對，( 和 ) 要一起出現",
+	UNMATCHED_BRACE: "{ 沒有對應的 }，次數要寫成 \\{3\\} 這種成對的形式",
+	INVALID_INTERVAL: "{} 裡的次數寫法不對，要寫成 {3} 或 {2,5}，而且前面的數字不能比後面大",
+	INVALID_RANGE: "[] 裡的範圍寫反了，要小的在前，例如 [a-z]、[0-9]",
+	INVALID_CLASS_NAME: "[[:名稱:]] 裡的名稱不認得，可以用 alpha、digit、alnum、upper、lower、space、punct",
+	CLASS_SYNTAX: "字元類別要寫兩層中括號，例如 [[:digit:]]，不是 [:digit:]",
+	INVALID_BACKREF: "\\1 這類回頭參照要對應到前面已經寫完的括號群組",
+};
+
+/** `grep` 的樣式不是合法的正規表示式。 */
+export function invalidPattern(command: string, pattern: string, code: RegexErrorCode): string[] {
+	return [
+		`\`${pattern}\` 不是合法的樣式：${REGEX_ERROR_REASONS[code]}。`,
+		`${command} 預設把 . * [ ] ^ $ \\ 當成特殊符號；只想照字面找這串字，加 -F，例如 ${command} -F "a[1" log.txt。`,
+	];
+}
+
+/** `grep` 同時給了 `-E` 與 `-F`。 */
+export function conflictingMatchers(command: string): string[] {
+	return [`${command} 的 -E 和 -F 不能一起用：-E 是延伸正規表示式，-F 是照字面比對，選一個就好。`];
+}
+
+/** 參數比指令能接受的多，例如 `uniq a b c`。`usage` 是完整用法。 */
+export function extraOperand(command: string, operand: string, usage: string): string[] {
+	return [`\`${command}\` 多了一個參數 \`${operand}\`，用法是 ${usage}。`, `不確定怎麼用的話，輸入 man ${command} 看說明。`];
+}
+
+// ---------------------------------------------------------------------------
 // 第五章：變數與權限
 // ---------------------------------------------------------------------------
 
@@ -195,7 +230,7 @@ export function invalidVariableName(name: string): string[] {
 export function invalidMode(value: string): string[] {
 	return [
 		`\`${value}\` 不是 chmod 認得的權限寫法。`,
-		"可以用 +r、-r、+x、u+r 這種符號寫法，或是 644、755 這種三位數字，例如 chmod +r log.txt。",
+		"可以用 +r、-r、+x、u+r 這種符號寫法（好幾段用逗號接起來，例如 u+x,g-w），或是 644、755 這種三位數字（也可以寫成 0644），例如 chmod +r log.txt。",
 	];
 }
 

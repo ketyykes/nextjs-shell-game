@@ -1,20 +1,32 @@
 /**
- * `grep`：從檔案或管線輸入裡挑出含有某個字串的行。
+ * `grep`：從檔案或管線輸入裡挑出符合樣式的行。
  *
- * 用法 `grep [-i] [-n] [-c] [-v] [-r] 字串 [檔案...]`：
+ * 用法 `grep [-i] [-n] [-c] [-v] [-r] [-E | -F] 樣式 [檔案...]`：
+ * - 樣式預設是基本正規表示式（BRE），`-E` 是延伸正規表示式（ERE），`-F` 是照字面比對，
+ *   三種語法的細節見 `grepPattern.ts`；`-E` 與 `-F` 同時給回 `conflictingMatchers`（跟 GNU grep 一樣）
  * - `-i` 不分大小寫，`-n` 行首加行號，`-c` 只印符合的行數，`-v` 反向（印不符合的行）
  * - `-r` 遞迴搜尋目錄，隱藏檔也搜，同一層依名稱排序、深度優先
  *
- * 字串一律是**字面比對**，不是正規表示式：新手打 `grep v3.1` 時 `.` 就是句點，不會意外配到別的字。
+ * 樣式不合法時回 `invalidPattern`，一個檔案都不讀。
  * 多個檔案或 `-r` 時每行前面加 `檔案路徑:`，路徑用玩家的寫法接相對子路徑（例如 `logs/2028/a.log:`），跟真的 grep 一樣。
  *
- * 沒有任何符合不算錯誤（`ok: true`、沒有輸出），避免懲罰探索；只有讀不到檔案、用法錯誤才算錯誤。
+ * 沒有任何符合不算錯誤（`ok: true`、沒有輸出），避免懲罰探索；只有讀不到檔案、用法錯誤、樣式不合法才算錯誤。
  */
 
 import type { CommandContext, CommandDefinition, CommandResult } from "../types";
 import { canRead, FsError } from "../types";
-import { directoryNeedsRecursive, fsError, missingOperand, noInput, unknownOption } from "../messages";
+import {
+	conflictingMatchers,
+	directoryNeedsRecursive,
+	fsError,
+	invalidPattern,
+	missingOperand,
+	noInput,
+	unknownOption,
+} from "../messages";
 import { splitContentLines } from "./cat";
+import { compileGrepPattern } from "./grepPattern";
+import type { GrepSyntax } from "./grepPattern";
 
 // ---------------------------------------------------------------------------
 // 選項解析
@@ -32,6 +44,8 @@ export interface GrepOptions {
 	invert: boolean;
 	/** `-r`：遞迴搜尋目錄。 */
 	recursive: boolean;
+	/** 樣式語法：預設 `basic`，`-E` 是 `extended`，`-F` 是 `fixed`。 */
+	syntax: GrepSyntax;
 }
 
 /** 選項解析結果：成功時帶選項、搜尋字串與檔名，失敗時帶要印出的錯誤訊息。 */
@@ -40,14 +54,24 @@ export type GrepParseResult =
 	| { ok: false; lines: string[] };
 
 /** 可以接受的選項字母。 */
-const SUPPORTED_FLAGS = new Set(["i", "n", "c", "v", "r"]);
+const SUPPORTED_FLAGS = new Set(["i", "n", "c", "v", "r", "E", "F"]);
 
 /** 搜尋目前目錄時的特殊路徑標記：子項前綴不加任何東西（GNU grep `-r` 不給路徑時的行為）。 */
 const CURRENT_DIR_IMPLICIT = "";
 
-/** 把一個旗標字母套進選項。 */
-function applyFlag(options: GrepOptions, flag: string): void {
-	if (flag === "i") {
+/**
+ * 把一個旗標字母套進選項。`-E` 與 `-F` 衝突時回傳 false（同一個重複給沒關係）。
+ */
+function applyFlag(options: GrepOptions, flag: string): boolean {
+	if (flag === "E" || flag === "F") {
+		const syntax: GrepSyntax = flag === "E" ? "extended" : "fixed";
+
+		if (options.syntax !== "basic" && options.syntax !== syntax) {
+			return false;
+		}
+
+		options.syntax = syntax;
+	} else if (flag === "i") {
 		options.ignoreCase = true;
 	} else if (flag === "n") {
 		options.lineNumber = true;
@@ -58,6 +82,8 @@ function applyFlag(options: GrepOptions, flag: string): void {
 	} else {
 		options.recursive = true;
 	}
+
+	return true;
 }
 
 /**
@@ -65,7 +91,14 @@ function applyFlag(options: GrepOptions, flag: string): void {
  * 第一個非選項參數是搜尋字串，其餘是檔名；選項可以放在任何位置。
  */
 export function parseGrepArgs(args: string[]): GrepParseResult {
-	const options: GrepOptions = { ignoreCase: false, lineNumber: false, count: false, invert: false, recursive: false };
+	const options: GrepOptions = {
+		ignoreCase: false,
+		lineNumber: false,
+		count: false,
+		invert: false,
+		recursive: false,
+		syntax: "basic",
+	};
 	const operands: string[] = [];
 	let optionsEnded = false;
 
@@ -89,7 +122,9 @@ export function parseGrepArgs(args: string[]): GrepParseResult {
 				return { ok: false, lines: unknownOption("grep", `-${flag}`) };
 			}
 
-			applyFlag(options, flag);
+			if (!applyFlag(options, flag)) {
+				return { ok: false, lines: conflictingMatchers("grep") };
+			}
 		}
 	}
 
@@ -105,15 +140,12 @@ export function parseGrepArgs(args: string[]): GrepParseResult {
 // 比對與格式化
 // ---------------------------------------------------------------------------
 
-/** 判斷一行是否該輸出：字面比對，`-i` 時兩邊都轉小寫，`-v` 時結果反過來。 */
-function isSelected(line: string, pattern: string, options: GrepOptions): boolean {
-	let found: boolean;
+/** 判斷一行是否符合樣式的函式（`compileGrepPattern` 編好的）。 */
+type LineTester = (line: string) => boolean;
 
-	if (options.ignoreCase) {
-		found = line.toLowerCase().includes(pattern.toLowerCase());
-	} else {
-		found = line.includes(pattern);
-	}
+/** 判斷一行是否該輸出：`-v` 時結果反過來。 */
+function isSelected(line: string, tester: LineTester, options: GrepOptions): boolean {
+	const found = tester(line);
 
 	if (options.invert) {
 		return !found;
@@ -126,7 +158,7 @@ function isSelected(line: string, pattern: string, options: GrepOptions): boolea
  * 對一組行做比對並格式化。
  * `label` 不是 null 時每行（或 `-c` 的計數）前面加 `label:`。
  */
-function matchLines(lines: string[], pattern: string, options: GrepOptions, label: string | null): string[] {
+function matchLines(lines: string[], tester: LineTester, options: GrepOptions, label: string | null): string[] {
 	let prefix = "";
 
 	if (label !== null) {
@@ -137,7 +169,7 @@ function matchLines(lines: string[], pattern: string, options: GrepOptions, labe
 	let matched = 0;
 
 	lines.forEach((line, index) => {
-		if (!isSelected(line, pattern, options)) {
+		if (!isSelected(line, tester, options)) {
 			return;
 		}
 
@@ -174,7 +206,7 @@ interface SearchOutput {
 /** 搜尋需要的共用參數。 */
 interface SearchSettings {
 	context: CommandContext;
-	pattern: string;
+	tester: LineTester;
 	options: GrepOptions;
 	/** 是否在每行前加檔案路徑。 */
 	showLabel: boolean;
@@ -205,7 +237,7 @@ function recordFsError(output: SearchOutput, error: unknown): void {
 
 /** 搜尋一個檔案。`path` 同時是讀檔路徑與顯示路徑。 */
 function searchFile(settings: SearchSettings, path: string, output: SearchOutput): void {
-	const { context, pattern, options, showLabel } = settings;
+	const { context, tester, options, showLabel } = settings;
 	let content: string;
 
 	try {
@@ -228,7 +260,7 @@ function searchFile(settings: SearchSettings, path: string, output: SearchOutput
 		label = path;
 	}
 
-	output.lines.push(...matchLines(splitContentLines(content), pattern, options, label));
+	output.lines.push(...matchLines(splitContentLines(content), tester, options, label));
 }
 
 /** 遞迴搜尋一個路徑：檔案直接搜，目錄依名稱排序逐一往下（隱藏檔也搜）。 */
@@ -273,12 +305,20 @@ export const grepCommand: CommandDefinition = {
 		}
 
 		const { options, pattern } = parsed;
+		const compiled = compileGrepPattern(pattern, options.syntax, options.ignoreCase);
+
+		// 樣式不合法就整個停下來，一個檔案都不讀（跟 GNU grep 一樣）
+		if (!compiled.ok) {
+			return { ok: false, lines: invalidPattern("grep", pattern, compiled.error) };
+		}
+
+		const tester = compiled.test;
 		let paths = parsed.paths;
 
 		// 沒給檔名：有 stdin 就讀 stdin；-r 時搜目前目錄（GNU grep 的行為）；否則沒東西可讀
 		if (paths.length === 0) {
 			if (context.stdin !== null) {
-				return { ok: true, lines: matchLines(context.stdin, pattern, options, null) };
+				return { ok: true, lines: matchLines(context.stdin, tester, options, null) };
 			}
 
 			if (!options.recursive) {
@@ -290,7 +330,7 @@ export const grepCommand: CommandDefinition = {
 
 		const settings: SearchSettings = {
 			context,
-			pattern,
+			tester,
 			options,
 			showLabel: options.recursive || paths.length > 1,
 		};

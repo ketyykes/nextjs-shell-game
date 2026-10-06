@@ -63,6 +63,12 @@ describe("FILE_COMMAND_DOCS", () => {
 		expect(text).toContain("x 是執行");
 	});
 
+	it("chmod 說明逗號組合與四位數字", () => {
+		const text = FILE_COMMAND_DOCS.chmod.description.join("\n");
+		expect(text).toContain("u+x,g-w");
+		expect(text).toContain("0644");
+	});
+
 	it("mkdir 說明 -p", () => {
 		expect(FILE_COMMAND_DOCS.mkdir.description.join("\n")).toContain("-p");
 	});

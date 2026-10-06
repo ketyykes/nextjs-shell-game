@@ -42,6 +42,12 @@ describe("sort 字串排序", () => {
 		expect(result.lines).toEqual(["03 TO ANY VESSEL", "02 KEPLER-9", "01 MAYDAY"]);
 	});
 
+	it("-u 沒有 -n 時依整行比較，大小寫不同不算重複", () => {
+		const result = sortCommand.run(["-u"], createSystemContext({ stdin: ["B", "b", "a", "A", "b"] }));
+
+		expect(result.lines).toEqual(["A", "B", "a", "b"]);
+	});
+
 	it("-u 排序後去掉相鄰重複的行", () => {
 		const result = sortCommand.run(
 			["-u", "fragments/part_01.txt", "fragments/part_02.txt"],
@@ -84,6 +90,30 @@ describe("sort -n 數字排序", () => {
 		const result = sortCommand.run(["-nr", "freq.txt"], createSystemContext());
 
 		expect(result.lines).toEqual(["100 epsilon", "10 alpha", "2.5 gamma", "2.5 delta", "noise", "-3 beta"]);
+	});
+
+	it("-nu 依數值相等去重，同值只留最先出現的一行（跟 GNU sort 一樣）", () => {
+		const result = sortCommand.run(
+			["-nu"],
+			createSystemContext({ stdin: ["1 b", "01 a", "2 x", "1 c", "foo", "bar"] }),
+		);
+
+		expect(result.lines).toEqual(["foo", "1 b", "2 x"]);
+	});
+
+	it("-nru 反向時也是同值留最先出現的一行", () => {
+		const result = sortCommand.run(
+			["-nru"],
+			createSystemContext({ stdin: ["1 b", "01 a", "2 x", "1 c", "foo", "bar"] }),
+		);
+
+		expect(result.lines).toEqual(["2 x", "1 b", "foo"]);
+	});
+
+	it("-nu 的同值不相鄰也會去掉", () => {
+		const result = sortCommand.run(["-nu"], createSystemContext({ stdin: ["3", "03", "1", "3.0"] }));
+
+		expect(result.lines).toEqual(["1", "3"]);
 	});
 
 	it("-n -r 分開寫效果一樣", () => {

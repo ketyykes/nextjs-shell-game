@@ -96,13 +96,14 @@ export const FILE_COMMAND_DOCS: Record<string, CommandDoc> = {
 			"每個檔案都有權限，用 ls -l 看第一欄，例如 -rw-r--r--：r 是讀取、w 是寫入、x 是執行，- 代表沒有。",
 			"九個字母三個一組，依序是擁有者、同群組、其他人；沒有 r 的話 cat 就讀不到。",
 			"符號寫法：+ 加上、- 拿掉、= 設成，前面可以加 u（擁有者）、g（群組）、o（其他人），不寫就是三組都改。",
-			"數字寫法：每組用一個數字，r 是 4、w 是 2、x 是 1 加起來，例如 644 就是 rw-r--r--。",
+			"好幾段符號寫法可以用逗號接起來，依序套用，例如 u+x,g-w；逗號前後不要有空格。",
+			"數字寫法：每組用一個數字，r 是 4、w 是 2、x 是 1 加起來，例如 644 就是 rw-r--r--；寫成四位數 0644 也可以。",
 		],
 		examples: [
 			{ command: "chmod +r /deck5/captain/sealed/log_final.txt", explanation: "把讀取權限加回封存日誌，之後就能用 cat 讀" },
 			{ command: "chmod u+r log_final.txt", explanation: "只幫擁有者加上讀取權限" },
 			{ command: "chmod 644 /deck5/captain/sealed/log_final.txt", explanation: "用數字設成 rw-r--r--，擁有者可讀寫、其他人可讀" },
-			{ command: "chmod o-r log_final.txt", explanation: "拿掉其他人的讀取權限" },
+			{ command: "chmod u+rw,o-r log_final.txt", explanation: "擁有者加上讀寫，同時拿掉其他人的讀取權限" },
 		],
 	},
 };

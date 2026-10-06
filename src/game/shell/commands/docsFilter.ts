@@ -60,13 +60,17 @@ export const FILTER_COMMAND_DOCS: Record<string, CommandDoc> = {
 	},
 	grep: {
 		name: "grep",
-		summary: "從檔案裡挑出含有某個字串的行",
-		usage: "grep [-i] [-n] [-c] [-v] [-r] 字串 [檔案...]",
+		summary: "從檔案裡挑出符合樣式的行",
+		usage: "grep [-i] [-n] [-c] [-v] [-r] [-E | -F] 樣式 [檔案...]",
 		description: [
-			"幾千行日誌裡只想看跟某件事有關的行，就用 grep，它只印出含有那個字串的行。",
-			"-i 不分大小寫，-n 在行首加行號，-c 只印有幾行符合，-v 反過來印「不含」字串的行。",
+			"幾千行日誌裡只想看跟某件事有關的行，就用 grep，它只印出符合樣式的行；只打一般文字時，就是找含有那串字的行。",
+			"-i 不分大小寫，-n 在行首加行號，-c 只印有幾行符合，-v 反過來印「不符合」的行。",
 			"-r 會走進目錄，把底下所有檔案（包括子目錄與隱藏檔）都搜一遍，每行前面標出檔案路徑。",
-			"字串裡有空白時要用引號包起來，例如 grep \"DOOR LOCK\" door_events.log。",
+			"樣式是正規表示式，有幾個符號有特別意思：. 代表任意一個字，* 代表前一個字重複零次以上。",
+			"^ 代表行首、$ 代表行尾，[abc] 代表其中一個字、[0-9] 代表一個數字；要找這些符號本身，在前面加 \\ 並用引號包起來，例如 grep \"v3\\.1\"。",
+			"-E 是延伸正規表示式，多了 +（一次以上）、?（可有可無）、|（或）和 ( ) 群組，例如 grep -E \"ERROR|WARN\"。",
+			"-F 把樣式完全照字面比對，要找含 . [ * 這些符號的字串時最省事，例如 grep -F \"a[1]\"。",
+			"樣式裡有空白或特殊符號時要用引號包起來，例如 grep \"DOOR LOCK\" door_events.log。",
 			"grep 常跟管線一起用：cat log.txt | grep ERROR，左邊讀檔案，右邊只留下含 ERROR 的行。",
 		],
 		examples: [
@@ -74,6 +78,9 @@ export const FILTER_COMMAND_DOCS: Record<string, CommandDoc> = {
 			{ command: "grep -in nova /deck2/logs/door_events.log", explanation: "不分大小寫找 nova，並顯示是第幾行" },
 			{ command: "grep -r LOCK /deck2/logs", explanation: "搜遍 logs 底下所有日誌，找出含 LOCK 的行" },
 			{ command: "grep -c ERROR /deck2/logs/nova_core.log", explanation: "只算 NOVA 核心日誌裡有幾行 ERROR" },
+			{ command: "grep \"^21:4\" /deck2/logs/evac_2028-06-02.log", explanation: "只看 21:40 到 21:49 開頭的紀錄，^ 代表行首" },
+			{ command: "grep -E \"ERROR|WARN\" /deck2/logs/evac_2028-06-02.log", explanation: "一次找出含 ERROR 或 WARN 的行" },
+			{ command: "grep -F \"v3.1\" /deck2/logs/nova_core.log", explanation: "照字面找 v3.1，. 就只是句點" },
 		],
 	},
 	find: {

@@ -21,11 +21,37 @@ describe("applyModeSpec", () => {
 		["u=rw", "--x--x--x", "rw---x--x"],
 		["-w", "rw-rw-rw-", "r--r--r--"],
 		["ug+rw", "---------", "rw-rw----"],
+		["0644", "---------", "rw-r--r--"],
+		["0700", "rwxrwxrwx", "rwx------"],
+		["1755", "---------", "rwxr-xr-x"],
+		["6444", "---------", "r--r--r--"],
+		["u+x,g-w", "rw-rw-r--", "rwxr--r--"],
+		["a=r,u+w", "rwxrwxrwx", "rw-r--r--"],
+		["u=rwx,go=rx", "---------", "rwxr-xr-x"],
+		["ug=rw,o=", "rwxrwxrwx", "rw-rw----"],
+		["u+r-x", "rwxrwxrwx", "rw-rwxrwx"],
+		["+r,-w", "-wx-wx-wx", "r-xr-xr-x"],
 	])("%s 套在 %s 上得到 %s", (spec, current, expected) => {
 		expect(applyModeSpec(spec, current)).toBe(expected);
 	});
 
-	it.each([["abc"], ["u+"], ["+z"], ["64"], ["6444"], ["888"], ["x+r"], ["-R"], [""]])("%s 不合法回傳 null", (spec) => {
+	it.each([
+		["abc"],
+		["u+"],
+		["+z"],
+		["64"],
+		["06444"],
+		["888"],
+		["8644"],
+		["x+r"],
+		["-R"],
+		[""],
+		["u+x,"],
+		[",u+x"],
+		["u+x,,g-w"],
+		["u+x,644"],
+		["u+x,zz"],
+	])("%s 不合法回傳 null", (spec) => {
 		expect(applyModeSpec(spec, "rw-r--r--")).toBeNull();
 	});
 });
@@ -50,6 +76,30 @@ describe("chmod", () => {
 
 		expect(result.ok).toBe(true);
 		expect(context.fs.getFile(context.cwd, "status.txt").mode).toBe("rw-------");
+	});
+
+	it("逗號組合的符號寫法依序套用", () => {
+		const context = createFileContext();
+		const result = chmodCommand.run(["u+x,go-r", "status.txt"], context);
+
+		expect(result).toEqual({ ok: true, lines: [] });
+		expect(context.fs.getFile(context.cwd, "status.txt").mode).toBe("rwx------");
+	});
+
+	it("四位數字寫法，第一位的特殊權限不影響九碼權限", () => {
+		const context = createFileContext();
+		const result = chmodCommand.run(["0640", "status.txt"], context);
+
+		expect(result).toEqual({ ok: true, lines: [] });
+		expect(context.fs.getFile(context.cwd, "status.txt").mode).toBe("rw-r-----");
+	});
+
+	it("逗號組合裡有一段不合法時整個不動", () => {
+		const context = createFileContext();
+		const result = chmodCommand.run(["u+x,zz", "status.txt"], context);
+
+		expect(result).toEqual({ ok: false, lines: invalidMode("u+x,zz") });
+		expect(context.fs.getFile(context.cwd, "status.txt").mode).toBe("rw-r--r--");
 	});
 
 	it("可以改目錄的權限", () => {

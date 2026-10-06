@@ -1,6 +1,14 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { directoryNeedsRecursive, fsError, missingOperand, noInput, unknownOption } from "../messages";
+import {
+	conflictingMatchers,
+	directoryNeedsRecursive,
+	fsError,
+	invalidPattern,
+	missingOperand,
+	noInput,
+	unknownOption,
+} from "../messages";
 import { grepCommand } from "./grep";
 import { createFilterContext, createSealedContext, EVAC_LINES } from "./filterFixtures";
 
@@ -25,10 +33,22 @@ describe("grep 基本比對", () => {
 		expect(result).toEqual({ ok: true, lines: [UPPER_ERROR_LINE, LOWER_ERROR_LINE] });
 	});
 
-	it("字串是字面比對，. 不是萬用字元", () => {
-		const result = grepCommand.run(["."], createFilterContext({ stdin: ["abc", "a.c"] }));
+	it("預設是基本正規表示式：. 配任意一個字元", () => {
+		const result = grepCommand.run(["a.c"], createFilterContext({ stdin: ["abc", "a.c", "ac"] }));
 
-		expect(result).toEqual({ ok: true, lines: ["a.c"] });
+		expect(result).toEqual({ ok: true, lines: ["abc", "a.c"] });
+	});
+
+	it("^ 是行首，[...] 配其中一個字", () => {
+		const result = grepCommand.run(["^21:4[25]", EVAC], createFilterContext());
+
+		expect(result).toEqual({ ok: true, lines: [UPPER_ERROR_LINE, LOWER_ERROR_LINE] });
+	});
+
+	it("基本正規表示式裡的 | 是字面字元", () => {
+		const result = grepCommand.run(["ERROR|WARN", EVAC], createFilterContext());
+
+		expect(result).toEqual({ ok: true, lines: [] });
 	});
 
 	it("沒有任何符合不算錯誤：ok 為 true、沒有輸出", () => {
@@ -94,15 +114,102 @@ describe("grep 選項", () => {
 	});
 
 	it("不認得的選項回報 unknownOption", () => {
-		const result = grepCommand.run(["-E", "ERROR", EVAC], createFilterContext());
+		const result = grepCommand.run(["-j", "ERROR", EVAC], createFilterContext());
 
-		expect(result).toEqual({ ok: false, lines: unknownOption("grep", "-E") });
+		expect(result).toEqual({ ok: false, lines: unknownOption("grep", "-j") });
 	});
 
 	it("長選項回報 unknownOption", () => {
 		const result = grepCommand.run(["--color", "ERROR", EVAC], createFilterContext());
 
 		expect(result).toEqual({ ok: false, lines: unknownOption("grep", "--color") });
+	});
+});
+
+describe("grep -E 與 -F", () => {
+	it("-E 是延伸正規表示式，| 代表「或」", () => {
+		const result = grepCommand.run(["-E", "ERROR|WARN", EVAC], createFilterContext());
+
+		expect(result).toEqual({ ok: true, lines: [UPPER_ERROR_LINE, EVAC_LINES[2]] });
+	});
+
+	it("-E 可以跟 -i、-n 合併", () => {
+		const result = grepCommand.run(["-Ein", "error|warn", EVAC], createFilterContext());
+
+		expect(result).toEqual({
+			ok: true,
+			lines: [`2:${UPPER_ERROR_LINE}`, `3:${EVAC_LINES[2]}`, `4:${LOWER_ERROR_LINE}`],
+		});
+	});
+
+	it("-E 搭配 -c 與 -v", () => {
+		const result = grepCommand.run(["-Evc", "^21:4[0-3]", EVAC], createFilterContext());
+
+		expect(result).toEqual({ ok: true, lines: ["2"] });
+	});
+
+	it("-F 照字面比對，. 就是句點", () => {
+		const result = grepCommand.run(["-F", "a.c"], createFilterContext({ stdin: ["abc", "a.c"] }));
+
+		expect(result).toEqual({ ok: true, lines: ["a.c"] });
+	});
+
+	it("-F 時 [ 不是特殊符號，不會回報樣式錯誤", () => {
+		const result = grepCommand.run(["-F", "a[1"], createFilterContext({ stdin: ["a[1]", "a1"] }));
+
+		expect(result).toEqual({ ok: true, lines: ["a[1]"] });
+	});
+
+	it("-Fi 字面比對不分大小寫", () => {
+		const result = grepCommand.run(["-Fi", "error", EVAC], createFilterContext());
+
+		expect(result).toEqual({ ok: true, lines: [UPPER_ERROR_LINE, LOWER_ERROR_LINE] });
+	});
+
+	it("-E 與 -F 一起用回報 conflictingMatchers", () => {
+		expect(grepCommand.run(["-E", "-F", "x", EVAC], createFilterContext())).toEqual({
+			ok: false,
+			lines: conflictingMatchers("grep"),
+		});
+		expect(grepCommand.run(["-FE", "x", EVAC], createFilterContext())).toEqual({
+			ok: false,
+			lines: conflictingMatchers("grep"),
+		});
+	});
+
+	it("同一個選項重複給沒關係", () => {
+		const result = grepCommand.run(["-E", "-E", "ERROR|WARN", EVAC], createFilterContext());
+
+		expect(result.lines).toEqual([UPPER_ERROR_LINE, EVAC_LINES[2]]);
+	});
+
+	it("-r 也用正規表示式比對", () => {
+		const result = grepCommand.run(["-r", "^ERROR .*紀錄$", "archive"], createFilterContext());
+
+		expect(result).toEqual({
+			ok: true,
+			lines: ["archive/.purged.log:ERROR 隱藏紀錄", "archive/old.log:ERROR 舊紀錄"],
+		});
+	});
+});
+
+describe("grep 不合法的樣式", () => {
+	it("回報 invalidPattern，ok 為 false", () => {
+		const result = grepCommand.run(["[a", EVAC], createFilterContext());
+
+		expect(result).toEqual({ ok: false, lines: invalidPattern("grep", "[a", "UNMATCHED_BRACKET") });
+	});
+
+	it("-E 的群組沒關也回報 invalidPattern", () => {
+		const result = grepCommand.run(["-E", "(ERROR", EVAC], createFilterContext());
+
+		expect(result).toEqual({ ok: false, lines: invalidPattern("grep", "(ERROR", "UNMATCHED_PAREN") });
+	});
+
+	it("樣式不合法時不讀檔案，也不回報檔案錯誤", () => {
+		const result = grepCommand.run(["a\\", "missing.log"], createFilterContext());
+
+		expect(result).toEqual({ ok: false, lines: invalidPattern("grep", "a\\", "TRAILING_BACKSLASH") });
 	});
 });
 

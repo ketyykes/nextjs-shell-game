@@ -20,6 +20,18 @@ export function splitContentLines(content: string): string[] {
 	return lines;
 }
 
+/**
+ * 把終端機的行組回檔案內容（`splitContentLines` 的反向）：每一行結尾都補換行，沒有行時是空字串。
+ * 重導向 `>`、`>>` 與 `uniq` 的輸出檔都用它寫檔。
+ */
+export function joinContentLines(lines: string[]): string {
+	if (lines.length === 0) {
+		return "";
+	}
+
+	return `${lines.join("\n")}\n`;
+}
+
 export const catCommand: CommandDefinition = {
 	name: "cat",
 	run(args, context): CommandResult {

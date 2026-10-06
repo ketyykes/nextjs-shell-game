@@ -422,11 +422,11 @@ describe("Shell 管線", () => {
 });
 
 describe("Shell 重導向", () => {
-	it("ls > list.txt 不印輸出，之後 cat 讀得到", () => {
+	it("ls > list.txt 不印輸出，之後 cat 讀得到；目標檔先建立，所以清單裡有它自己（跟 bash 一樣）", () => {
 		const shell = createShell();
 		const result = shell.execute("ls > list.txt");
 		expect(result).toMatchObject({ isError: false, lines: [] });
-		expect(shell.execute("cat list.txt").lines).toEqual(LISTING);
+		expect(shell.execute("cat list.txt").lines).toEqual(["list.txt", ...LISTING]);
 	});
 
 	it("寫入的內容每行結尾都有換行", () => {
@@ -464,12 +464,59 @@ describe("Shell 重導向", () => {
 		expect(shell.fs.readFile("/home/tech", "copy.txt")).toBe("喚醒排程：三年後\n原始設定：永不\n修改者：\n");
 	});
 
-	it("指令失敗時不寫檔，印出錯誤", () => {
+	it("指令失敗時照 bash 先建立空的目標檔，印出指令的錯誤", () => {
 		const shell = createShell();
 		const result = shell.execute("cat nope.txt > out.txt");
 		expect(result.isError).toBe(true);
 		expect(result.lines).toEqual(pathNotFound("nope.txt"));
-		expect(shell.fs.exists("/home/tech", "out.txt")).toBe(false);
+		expect(shell.fs.readFile("/home/tech", "out.txt")).toBe("");
+	});
+
+	it("> 在指令執行前就清空既有檔案，指令失敗時留下空檔", () => {
+		const shell = createShell();
+		shell.execute("pwd > where.txt");
+		const result = shell.execute("cat nope.txt > where.txt");
+		expect(result.isError).toBe(true);
+		expect(shell.fs.readFile("/home/tech", "where.txt")).toBe("");
+	});
+
+	it("> 先清空再執行，所以讀同一個檔案會讀到空的（跟 bash 一樣）", () => {
+		const shell = createShell();
+		shell.execute("pwd > where.txt");
+		const result = shell.execute("cat where.txt > where.txt");
+		expect(result).toMatchObject({ isError: false, lines: [] });
+		expect(shell.fs.readFile("/home/tech", "where.txt")).toBe("");
+	});
+
+	it(">> 目標不存在時先建空檔，指令失敗也留下空檔", () => {
+		const shell = createShell();
+		const result = shell.execute("cat nope.txt >> log.txt");
+		expect(result.isError).toBe(true);
+		expect(shell.fs.readFile("/home/tech", "log.txt")).toBe("");
+	});
+
+	it(">> 目標已存在時指令失敗不動原本的內容", () => {
+		const shell = createShell();
+		shell.execute("pwd > where.txt");
+		shell.execute("cat nope.txt >> where.txt");
+		expect(shell.fs.readFile("/home/tech", "where.txt")).toBe("/home/tech\n");
+	});
+
+	it("管線中間失敗時目標檔也已經建立，整行只算一次錯誤", () => {
+		const probe = createProbe();
+		const shell = createShellWith([probe.command, failCommand]);
+		const result = shell.execute("fail | probe > out.txt");
+		expect(result).toMatchObject({ isError: true, lines: ["boom"] });
+		expect(probe.calls).toHaveLength(0);
+		expect(shell.fs.readFile("/home/tech", "out.txt")).toBe("");
+	});
+
+	it("目標路徑不合法時指令不會執行，只回報目標的錯誤", () => {
+		const shell = createShell();
+		const result = shell.execute("cd /deck1 > nodir/out.txt");
+		expect(result.isError).toBe(true);
+		expect(result.lines).toEqual(pathNotFound("nodir/out.txt"));
+		expect(shell.cwd).toBe("/home/tech");
 	});
 
 	it("目標的父目錄不存在時回報路徑錯誤", () => {
@@ -606,6 +653,30 @@ describe("Shell 萬用字元", () => {
 		shell.execute("cd ~");
 		shell.execute("probe /comms/*.log");
 		expect(probe.calls[0].args).toEqual(["/comms/signal_a.log", "/comms/signal_b.log"]);
+	});
+
+	it("路徑中間的萬用字元也會展開", () => {
+		const probe = createProbe();
+		const shell = createCommsShell([probe.command]);
+		shell.execute("cd /");
+		shell.execute("probe c*/signal_?.log");
+		expect(probe.calls[0].args).toEqual(["comms/signal_a.log", "comms/signal_b.log"]);
+	});
+
+	it("重導向新建的目標檔不會被同一行的萬用字元配到（bash 先展開再開檔）", () => {
+		const probe = createProbe();
+		const shell = createCommsShell([probe.command]);
+		const result = shell.execute("probe *.log > all.log");
+		expect(result.isError).toBe(false);
+		expect(probe.calls[0].args).toEqual(["signal_a.log", "signal_b.log"]);
+		expect(shell.fs.exists("/comms", "all.log")).toBe(true);
+	});
+
+	it("目標檔原本就存在時照樣會被萬用字元配到", () => {
+		const probe = createProbe();
+		const shell = createCommsShell([probe.command]);
+		shell.execute("probe *.txt > notes.txt");
+		expect(probe.calls[0].args).toEqual(["notes.txt"]);
 	});
 
 	it("被引號包住的參數不展開", () => {

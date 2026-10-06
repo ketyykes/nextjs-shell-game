@@ -2,6 +2,8 @@
  * `sort`：把輸入的行排序後印出。
  *
  * 支援 `-r`（反向）、`-n`（依行首數字）、`-u`（去重）與任意組合。
+ * `-u` 跟 GNU sort 一樣依「排序比較結果相等」去重：沒有 `-n` 時整行相同才算重複，
+ * 有 `-n` 時行首數值相等就算重複（`1 b` 與 `01 a` 只留一行），同值留排序後的第一行，也就是最先出現的那行。
  * 可以接多個檔案，內容接起來一起排；沒給檔名時讀管線的 `stdin`。
  *
  * 字串比較用 code unit（`a < b`），不用 `localeCompare`，
@@ -72,7 +74,7 @@ export interface SortOptions {
 	reverse: boolean;
 	/** `-n`：依行首數字排序。 */
 	numeric: boolean;
-	/** `-u`：排序後相鄰相同的行只留一個。 */
+	/** `-u`：排序比較結果相等的行只留第一個（`-n` 時數值相等就算重複）。 */
 	unique: boolean;
 }
 
@@ -155,7 +157,10 @@ function compareStrings(a: string, b: string): number {
 	return 0;
 }
 
-/** 依選項排序，回傳新陣列。`Array.prototype.sort` 在 ES2019 之後保證穩定。 */
+/**
+ * 依選項排序，回傳新陣列。`Array.prototype.sort` 在 ES2019 之後保證穩定。
+ * `-u` 時排序後相鄰而且比較結果相等（`compare` 回 0）的行只留第一行。
+ */
 export function sortLines(lines: string[], options: SortOptions): string[] {
 	const direction = options.reverse ? -1 : 1;
 
@@ -173,7 +178,17 @@ export function sortLines(lines: string[], options: SortOptions): string[] {
 		return sorted;
 	}
 
-	return sorted.filter((line, index) => index === 0 || line !== sorted[index - 1]);
+	const unique: string[] = [];
+
+	for (const line of sorted) {
+		const kept = unique[unique.length - 1];
+
+		if (kept === undefined || compare(kept, line) !== 0) {
+			unique.push(line);
+		}
+	}
+
+	return unique;
 }
 
 // ---------------------------------------------------------------------------

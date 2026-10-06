@@ -12,6 +12,7 @@
  */
 
 import { ALL_COMMANDS } from "./commands";
+import { joinContentLines } from "./commands/cat";
 import { complete as completeInput } from "./completion";
 import { CommandHistory } from "./history";
 import { commandNotFound, fsError, missingSpace, parseError } from "./messages";
@@ -46,6 +47,9 @@ export interface ShellSessionState {
 	/** 程序清單（第六章）。舊存檔沒有這個欄位，還原時用預設值。 */
 	processes?: ProcessInfo[];
 }
+
+/** 重導向開檔的結果：成功時帶這次新建的目標檔絕對路徑（原本就存在為 null），失敗時帶錯誤訊息。 */
+type RedirectOpenResult = { ok: true; createdPath: string | null } | { ok: false; lines: string[] };
 
 /** 萬用字元：沒被引號包住而且含這兩個字元的參數才展開。 */
 const GLOB_CHAR_PATTERN = /[*?]/;
@@ -160,7 +164,11 @@ export class Shell {
 	 *
 	 * 管線依序執行，前一個指令的 `lines` 是下一個的 `stdin`；任何一個失敗（或不存在）就停下，
 	 * 回傳那個指令的錯誤。每個指令的副作用（換目錄、hint、環境變數、程序清單）都會套用。
-	 * 最後一個指令成功而且有重導向時，輸出寫進檔案，畫面上不印。
+	 *
+	 * 有重導向時跟 bash 一樣**先開檔再執行**：`>` 先建立或清空目標檔，`>>` 在目標不存在時先建空檔，
+	 * 所以指令失敗（例如 `cat missing.txt > out.txt`）也會留下空的目標檔；目標本身不合法（父目錄不存在、是目錄）
+	 * 時只回報目標的錯誤，管線一個指令都不執行。最後一個指令成功時輸出寫進檔案，畫面上不印。
+	 * 不管哪一種失敗，整行都只算一次錯誤。
 	 */
 	execute(input: string): ShellExecution {
 		// 指令看到的歷史不含目前這一筆，所以先取再 push
@@ -175,6 +183,19 @@ export class Shell {
 			return this.finish(input, true, [], false);
 		}
 
+		const redirect = parsed.pipeline.redirect;
+		let createdTarget: string | null = null;
+
+		if (redirect !== null) {
+			const opened = this.openRedirect(redirect);
+
+			if (!opened.ok) {
+				return this.finish(input, false, opened.lines, false);
+			}
+
+			createdTarget = opened.createdPath;
+		}
+
 		let stdin: string[] | null = null;
 		let clearScreen = false;
 
@@ -185,7 +206,7 @@ export class Shell {
 				return this.finish(input, false, this.describeUnknownCommand(name), clearScreen);
 			}
 
-			const args = this.expandGlobs(parsedCommand.args);
+			const args = this.expandGlobs(parsedCommand.args, createdTarget);
 			const result = this.runCommand(command, args, this.buildContext(previousHistory, stdin));
 			this.applySideEffects(result);
 			if (result.clearScreen === true) {
@@ -198,11 +219,11 @@ export class Shell {
 		}
 
 		const output = stdin ?? [];
-		if (parsed.pipeline.redirect === null) {
+		if (redirect === null) {
 			return this.finish(input, true, output, clearScreen);
 		}
 
-		const redirectError = this.writeRedirect(parsed.pipeline.redirect, output);
+		const redirectError = this.writeRedirect(redirect, output);
 		if (redirectError !== null) {
 			return this.finish(input, false, redirectError, clearScreen);
 		}
@@ -297,15 +318,20 @@ export class Shell {
 	/**
 	 * 萬用字元展開：沒被引號包住而且含 `*` 或 `?` 的參數用 `fs.glob` 展開，
 	 * 沒有任何相符時保留原字串（bash 行為），讓指令自己回報找不到。
+	 * `excludedPath` 是這一行的重導向剛建立的目標檔（絕對路徑）：bash 先展開萬用字元才開檔，
+	 * 所以 `cat *.log > all.log` 配不到新建的 `all.log`。
 	 */
-	private expandGlobs(args: ParsedWord[]): string[] {
+	private expandGlobs(args: ParsedWord[], excludedPath: string | null): string[] {
+		const fs = this.options.fs;
 		const expanded: string[] = [];
 		for (const arg of args) {
 			if (arg.quoted || !GLOB_CHAR_PATTERN.test(arg.value)) {
 				expanded.push(arg.value);
 				continue;
 			}
-			const matches = this.options.fs.glob(this.currentCwd, arg.value);
+			const matches = fs
+				.glob(this.currentCwd, arg.value)
+				.filter((match) => fs.resolvePath(this.currentCwd, match) !== excludedPath);
 			if (matches.length === 0) {
 				expanded.push(arg.value);
 			} else {
@@ -316,14 +342,38 @@ export class Shell {
 	}
 
 	/**
+	 * 執行指令前先開重導向的目標檔（bash 行為）：`>` 建立或清空，`>>` 不存在時建立空檔、存在時不動。
+	 * 成功時帶「這次新建的目標檔」絕對路徑（原本就存在則為 null），失敗（父目錄不存在、目標是目錄等）帶要印的錯誤訊息。
+	 */
+	private openRedirect(redirect: Redirect): RedirectOpenResult {
+		const fs = this.options.fs;
+		const { target } = redirect;
+		const existed = fs.exists(this.currentCwd, target);
+
+		try {
+			if (redirect.kind === "overwrite" || !existed) {
+				fs.writeFile(this.currentCwd, target, "");
+			} else if (fs.getNode(this.currentCwd, target).type === "dir") {
+				throw new FsError("EISDIR", target);
+			}
+		} catch (error) {
+			if (error instanceof FsError) {
+				return { ok: false, lines: fsError(error.code, error.path) };
+			}
+			throw error;
+		}
+
+		const createdPath = existed ? null : fs.resolvePath(this.currentCwd, target);
+		return { ok: true, createdPath };
+	}
+
+	/**
 	 * 把輸出寫進重導向的目標檔案，每行結尾都補換行；沒有輸出時寫入空字串。
+	 * 目標檔在執行前已經由 `openRedirect` 開好，這裡只是把內容寫進去。
 	 * 成功回傳 null，失敗回傳要印的錯誤訊息。
 	 */
 	private writeRedirect(redirect: Redirect, lines: string[]): string[] | null {
-		let content = "";
-		if (lines.length > 0) {
-			content = `${lines.join("\n")}\n`;
-		}
+		const content = joinContentLines(lines);
 
 		try {
 			if (redirect.kind === "append") {
