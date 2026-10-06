@@ -56,11 +56,14 @@ ORDER=(
   br_entry br_nav br_captain br_security br_escape br_exit ch5_outro
   nv_entry nv_monitor nv_memory nv_core nv_scheduler nv_escape ch6_outro ending
 )
+# 原圖不進版控，換一台電腦時只有 public/scenes 的縮圖：成品已存在也跳過，參考圖退回用 640x360 的冷凍艙縮圖
+REF="scene-cryo-original.png"
+if [[ ! -f "$REF" ]]; then REF="../../../public/scenes/scene-cryo.png"; fi
 for name in $ORDER; do
   out="scene-${name}-original.png"
-  if [[ -f "$out" ]]; then echo "skip $name (exists)"; continue; fi
+  if [[ -f "$out" || -f "../../../public/scenes/scene-${name}.png" ]]; then echo "skip $name (exists)"; continue; fi
   echo "=== $name $(date +%H:%M:%S) ==="
-  codex exec --skip-git-repo-check -s workspace-write -i scene-cryo-original.png -- <<PROMPT
+  codex exec --skip-git-repo-check -s workspace-write -i "$REF" -- <<PROMPT
 附上的圖是這個遊戲已定稿的冷凍艙插圖，請沿用它的像素密度、配色與光線風格。請用你的 image_generation 工具產生一張圖：${PREFIX} ${SCENES[$name]} 產生後把圖片存成目前目錄下的 ${out}，最後回報實際存檔的絕對路徑與圖片尺寸。
 PROMPT
   echo "=== done $name $(date +%H:%M:%S) exit=$? ==="

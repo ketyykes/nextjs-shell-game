@@ -13,8 +13,7 @@ import type { RoomId } from "@/game/phaser/events";
 
 /**
  * `public/scenes/scene-<名字>.png` 已存在的名字（`scenes.test.ts` 會跟目錄比對）。
- * 2026-10-01 codex 用量額度用完，第五章後三間（br_security、br_escape、br_exit）、`ch5_outro`、
- * 第六章全部與 `ending` 還沒產；重跑 `docs/assets-draft/scenes/generate-ch2-6.sh` 會只補缺的，
+ * 新增插圖時重跑 `docs/assets-draft/scenes/generate-ch2-6.sh`（只補缺的），
  * 再跑 `node scripts/resize-scenes.mjs` 並把名字加進來。
  */
 export const AVAILABLE_SCENES: ReadonlySet<string> = new Set([
@@ -51,10 +50,23 @@ export const AVAILABLE_SCENES: ReadonlySet<string> = new Set([
 	"com_archive",
 	"com_exit",
 	"ch4_outro",
-	// 第五章（前三間）
+	// 第五章
 	"br_entry",
 	"br_nav",
 	"br_captain",
+	"br_security",
+	"br_escape",
+	"br_exit",
+	"ch5_outro",
+	// 第六章與片尾
+	"nv_entry",
+	"nv_monitor",
+	"nv_memory",
+	"nv_core",
+	"nv_scheduler",
+	"nv_escape",
+	"ch6_outro",
+	"ending",
 ]);
 
 /** 第一章開場過場。 */
