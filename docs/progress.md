@@ -84,7 +84,7 @@
 | M2-3 Terminal 元件群 | ✅ | `src/components/terminal/`：Terminal、TerminalFrame（inline SVG 9-slice）、OutputBlock、DialogueBlock、PromptInput、useTerminalKeyboard、useTypewriter |
 | M2-4 Magic UI Terminal 評估 | ❌ | 試裝看過：外框是固定圓角加 macOS 三色圓點、`max-w-lg`、靠 `useInView` 觸發的展示型序列動畫，沒有輸入列，跟像素邊框與標題列對不上；打字動畫自己寫十幾行。已移除，全部自製 |
 | M2-5 鍵盤處理 | ✅ | Enter、Tab（多候選時列在輸出區）、↑↓、Esc、輸入法組字中不處理（`isComposing` 與 Safari `keyCode 229`）、全形字元即時琥珀提示 |
-| M2-6 CRT 效果 | ✅ | `src/components/game/CrtOverlay.tsx`（掃描線、暗角、閃爍各自 prop，`prefers-reduced-motion` 自動關閃爍）、`OxygenVignette.tsx`（低於 30% 的琥珀暗角）。`/play` 底部有三個開關的暫時設定列，M7-5 做正式選單後移除 |
+| M2-6 CRT 效果 | ✅ | `src/components/game/CrtOverlay.tsx`（掃描線、暗角、閃爍各自 prop，`prefers-reduced-motion` 自動關閃爍）、`OxygenVignette.tsx`（低於 30% 的琥珀暗角）。`/play` 底部原本有三個開關的暫時設定列，M7-5 做正式選單後已移除 |
 | /play 整合 | ✅ | `src/app/play/page.tsx` 加 `src/components/game/PlayScreen.tsx`；`src/game/chapters/ch1-life-support.ts` 先放 T1 的檔案系統、hint、banner。e2e 在 `e2e/play.spec.ts` |
 
 **M2 暫時的簡化，之後要改**：第一次開 T1 就把它教的 pwd、ls、cat 算學會（M5 改成過關才學會）；終端機固定開 `ch1-t1`，關閉後只顯示「重新開啟」按鈕（M4 由 Phaser 事件開關）；配色與字型只套在 `/play`，首頁還是模板。
@@ -127,8 +127,8 @@
 - ✅ **M5-2 ch1-life-support.ts**（4.4）：六台終端機的檔案系統、目標、三段式 hint、NOVA 三時機台詞、章節 `intro`／`outro` 都寫了，測試用真的 Shell 跑每台的正解序列並檢查文字不含性別指涉。正解序列表見 `src/game/chapters/ch1-life-support.test.ts`。劇情文字是初稿，Danny 可直接改檔案內容，測試會抓格式錯誤。
 - ✅ **M5-3 卡關偵測**（4.8）：`src/game/story/pressure.ts` 加 `src/components/game/useTerminalPressure.ts`。連續五次錯誤或三分鐘沒進展，NOVA 在終端機內嵌說 `nova.onStuck`（沒寫就套 `hints[0]`），同一台過關前只說一次。
 - ✅ **M5-4 環境反應階梯與氧氣值**（4.8）：累積錯誤每 9 次循環一輪：3 燈閃（`ambient:flicker`，關閉閃爍設定時不發）、6 門聲（`sfx:play door`）、9 NOVA 台詞（章節 `novaErrorLines` 輪流）。計數存在 store 的 `errorCount`，過關歸零。氧氣在 M4 已做。
-- ✅ **M5-5 章節結束**（4.7）：`ChapterEndScreen.tsx` 三階段：outro 插圖與 NOVA 結尾台詞逐句打字、指令回顧卡、「第二章開發中」回標題。六台都過關且終端機關著時顯示，`ch1.outroShown` 旗標只播一次，掛載時自動存檔。
-- **完成定義**：一位沒碰過終端機的人能靠 hint 通關第一章。**這點還沒有真人驗證**，只有 e2e 跑過 T1 與測試跑過六台的正解序列，Danny 玩一輪是下一步。
+- ✅ **M5-5 章節結束**（4.7）：`ChapterEndScreen.tsx` 三階段：outro 插圖與 NOVA 結尾台詞逐句打字、指令回顧卡、結束選項（M8 起有下一章時是「進入第 N 章」與「回標題」，第六章後接片尾；沒有下一章也沒有片尾時才顯示「下一章開發中」）。六台都過關且終端機關著時顯示，`ch1.outroShown` 旗標只播一次，掛載時自動存檔。
+- **完成定義**：一位沒碰過終端機的人能靠 hint 通關第一章。**這點還沒有真人驗證**，e2e 已從標題走完六台（`happy-path.spec.ts`），Danny 第六場起已開始試玩，但還沒有「沒碰過終端機的新手」實測。
 
 ### M6 插圖與音效 ✅
 
@@ -392,9 +392,9 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 
 沒有排定順序，Danny 決定要不要做。
 
-- **真人試玩與調整**：第 4 節的三項雜項（試玩、試聽、潤稿）。
+- **真人試玩與調整**：第 4 節的試玩、試聽、潤稿（含第二到六章）與補產插圖。
 - **M6/M7 的小尾巴**：設定的「關閉閃爍」目前管 CRT 閃爍與燈閃，但人影閃現與鏡頭震動還是會播（決策 #10）；Phaser 內的「按 E」文字還是系統 monospace，沒換 bitmap 字型；`CommandCheatSheet` 與 `ObjectivePanel` 在 1280 以下的視窗沒測過排版。
-- **存檔格式升級**：`SAVE_VERSION` 還是 1，`migrate` 只是框架；第二章動工前決定要不要存角色位置與目前艙區。
+- **存檔格式升級**：`SAVE_VERSION` 還是 1（決策 #32），`migrate` 只是框架；若之後要存角色位置與目前艙區（推翻決策 #15）再升版。
 - **章節選擇**：存檔格式有 `chapter`，但標題畫面沒有「選章」；要做的話在 `TitleScreen` 加選單、用 `resetChapter` 加 `advanceChapter` 的組合跳章。
 - **第六章 NOVA 立繪**：`nova-core.png`（損毀多面體）已在 `public/scenes/`，但 NOVA 對話框全程用 `nova-eye`；可以在第六章核心艙改用它。
 - **shell 的已知邊界（M8 刻意不做）**：萬用字元只在路徑最後一段；`grep` 沒有正規表示式；`chmod` 不支援 `u+x,g-w` 逗號寫法與四位數字；`sort -u` 只去完全相同的行；重導向不會像 bash 先建空檔；`uniq` 只收一個檔案。
