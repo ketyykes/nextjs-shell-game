@@ -329,3 +329,57 @@ describe("complete：壞路徑不 throw", () => {
 		});
 	});
 });
+
+describe("管線與 man 後補指令名", () => {
+	it("ps | gr 補成 grep：管線右邊的第一個 token 是指令", () => {
+		const result = complete("ps | gr", { ...createContext(), commandNames: [...COMMAND_NAMES, "grep"] });
+
+		expect(result.completed).toBe("ps | grep ");
+		expect(result.candidates).toEqual(["grep"]);
+	});
+
+	it("管線後還沒打字時列出全部指令", () => {
+		const result = complete("ps | ", createContext());
+
+		expect(result.candidates).toEqual([...COMMAND_NAMES].sort((a, b) => a.localeCompare(b, "en")));
+	});
+
+	it("man 的參數補指令名，不補路徑", () => {
+		const result = complete("man hi", createContext());
+
+		expect(result.completed).toBe("man hi");
+		expect(result.candidates).toEqual(["hint", "history"]);
+	});
+
+	it("help 的參數補指令名", () => {
+		const result = complete("help pw", createContext());
+
+		expect(result.completed).toBe("help pwd ");
+		expect(result.candidates).toEqual(["pwd"]);
+	});
+
+	it("一般指令的第二個參數仍然補路徑", () => {
+		const result = complete("cat wa", createContext());
+
+		expect(result.completed).toBe("cat wake_up.txt ");
+	});
+});
+
+describe("路徑裡的環境變數", () => {
+	it("$POD_DIR/ 用 env 展開後列出該目錄的內容", () => {
+		const context = { ...createContext(), env: { POD_DIR: "/deck1/medbay/records" } };
+		const result = complete("cat $POD_DIR/PT-2028", context);
+
+		// 回填時保留玩家輸入的 $POD_DIR 寫法，只有查目錄時展開
+		expect(result.completed).toBe("cat $POD_DIR/PT-2028-0417-KX993");
+		expect(result.candidates).toEqual(["PT-2028-0417-KX9931.txt", "PT-2028-0417-KX9932.txt"]);
+	});
+
+	it("沒定義的變數不展開，回原樣與空候選", () => {
+		const context = { ...createContext(), env: {} };
+		const result = complete("cat $NOPE/wa", context);
+
+		expect(result.completed).toBe("cat $NOPE/wa");
+		expect(result.candidates).toEqual([]);
+	});
+});

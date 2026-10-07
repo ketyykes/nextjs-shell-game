@@ -3,7 +3,8 @@
  *
  * 只處理「游標在輸入結尾」的情況：
  * - 輸入只有一個 token 且結尾沒有空白：補指令名。
- * - 其他情況：把最後一個 token 當路徑補全。
+ * - 最後一個 token 在 `|` 右邊，或是 `man`、`help` 的參數：補指令名。
+ * - 其他情況：把最後一個 token 當路徑補全；路徑裡的 `$NAME` 會用 `env` 展開查目錄，回填維持原寫法。
  *
  * 純字串與虛擬檔案系統運算，不依賴 React、Next.js 或 Phaser。
  * 含空白的檔名先不處理跳脫（tokenizer 也還不支援），第一章沒有這種檔名。
@@ -98,6 +99,18 @@ function completeCommandName(head: string, prefix: string, context: CompletionCo
 	return { completed: head + longestCommonPrefix(matches), candidates: matches };
 }
 
+/**
+ * 把路徑裡的 `$NAME` 換成環境變數的值，只用在查目錄，回填給玩家的字串維持原寫法。
+ * 沒給 `env` 或變數沒定義時原樣保留（之後 `fs.list` 查不到就回空候選，不會誤導）。
+ */
+function expandEnvInPath(path: string, env: Record<string, string> | undefined): string {
+	if (env === undefined) {
+		return path;
+	}
+
+	return path.replace(/\$([A-Za-z_][A-Za-z0-9_]*)/g, (whole, name: string) => env[name] ?? whole);
+}
+
 /** 路徑補全。`head` 是最後一個 token 之前的所有輸入（含空白），原樣保留。 */
 function completePath(head: string, token: string, context: CompletionContext): CompletionResult {
 	const original = head + token;
@@ -107,7 +120,7 @@ function completePath(head: string, token: string, context: CompletionContext): 
 
 	let entries: FsNode[];
 	try {
-		entries = context.fs.list(context.cwd, dirPart || ".", { includeHidden });
+		entries = context.fs.list(context.cwd, expandEnvInPath(dirPart, context.env) || ".", { includeHidden });
 	} catch (error) {
 		// 目錄部分不存在或不是目錄：原樣回傳，不 throw
 		if (error instanceof FsError) {
@@ -173,9 +186,15 @@ export function complete(input: string, context: CompletionContext): CompletionR
 
 	const head = input.slice(0, tokenStart);
 	const lastToken = input.slice(tokenStart);
+	const headTrimmed = head.trim();
 
 	// head 只有空白（或空字串）代表整行只有一個 token，而且結尾沒有空白
-	if (head.trim() === "" && lastToken !== "") {
+	if (headTrimmed === "" && lastToken !== "") {
+		return completeCommandName(head, lastToken, context);
+	}
+
+	// 管線右邊的第一個 token 也是指令；man 與 help 的參數是指令名，不是路徑
+	if (headTrimmed.endsWith("|") || headTrimmed === "man" || headTrimmed === "help") {
 		return completeCommandName(head, lastToken, context);
 	}
 

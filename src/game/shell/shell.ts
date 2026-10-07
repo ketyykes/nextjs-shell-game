@@ -237,6 +237,7 @@ export class Shell {
 			home: this.home,
 			fs: this.options.fs,
 			commandNames: this.commandNames,
+			env: this.currentEnv,
 		});
 	}
 

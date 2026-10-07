@@ -434,6 +434,8 @@ export interface CompletionContext {
 	fs: VirtualFs;
 	/** 可補全的指令名稱清單。 */
 	commandNames: string[];
+	/** 環境變數，補全 `$NAME/...` 這種路徑時展開用；沒給就不展開（第五章之前沒有變數）。 */
+	env?: Record<string, string>;
 }
 
 /**
