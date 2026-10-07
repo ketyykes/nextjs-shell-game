@@ -45,6 +45,8 @@ async function openCryoTerminal(page: Page): Promise<void> {
 	await page.keyboard.press("e");
 	await expect(page.getByTestId("terminal-modal")).toBeVisible();
 	await expect(page.getByLabel("指令輸入")).toBeFocused();
+	// 開啟終端機的那一下 e 不可以漏進輸入框變成預填字
+	await expect(page.getByLabel("指令輸入")).toHaveValue("");
 }
 
 test.describe("/play 地圖與終端機", () => {

@@ -91,13 +91,16 @@ export class TerminalZones {
 	 * keydown 與 keyup 落在同一幀時（例如自動化測試的 press）輪詢會漏掉。
 	 * 場景暫停後鍵盤事件不會再被處理，恢復由 Station 的 `terminal:close` handler 負責。
 	 */
-	private handleInteract(): void {
+	private handleInteract(_key: Phaser.Input.Keyboard.Key, event: KeyboardEvent | undefined): void {
 		if (this.isDestroyed || !this.interactEnabled || this.currentTerminalId === null) {
 			return;
 		}
 		if (!this.scene.scene.isActive()) {
 			return;
 		}
+		// 只攔「開啟終端機的這一下」：不攔的話這個 e 會漏進剛聚焦的指令輸入框變成預填字。
+		// addKey 刻意不開全域 capture（見 createKey），終端機裡才打得出字母 e。
+		event?.preventDefault();
 		emitGameEvent("terminal:open", { terminalId: this.currentTerminalId });
 		this.scene.scene.pause();
 	}
