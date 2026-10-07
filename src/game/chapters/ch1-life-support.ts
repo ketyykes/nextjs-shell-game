@@ -21,10 +21,10 @@ import type { ChapterDefinition, TerminalDefinition } from "./types";
 // 時間軸（mtime 一律 UTC，`ls -l` 直接顯示）
 // ---------------------------------------------------------------------------
 
-/** 船員入艙進行長程冷凍的日子。 */
+/** 船員冷凍入艙評估建檔的日子（實際入艙原排定於返航前，從未發生）。 */
 const CREW_INTAKE_MTIME = "2028-04-17T09:20:00Z";
 /** pod_06 手動建檔，撤離前一天。 */
-const POD_06_INTAKE_MTIME = "2028-06-01T22:14:00Z";
+const POD_06_INTAKE_MTIME = "2028-06-01T22:16:00Z";
 /** 撤離是三年前。 */
 const EVACUATION_MTIME = "2028-06-02T04:40:00Z";
 /** 阿彬最後一則留言，比喚醒排程被改早十六分鐘。 */
@@ -274,11 +274,11 @@ const quartersTerminal: TerminalDefinition = {
 						"今日目標：找到誰把泡麵藏在通風管。",
 					),
 				},
-				"day_312.txt": {
+				"day_313.txt": {
 					$type: "file",
 					owner: "abin",
 					mtime: EVACUATION_MTIME,
-					content: lines("第 312 天", "撤離日。艙門鎖了又開，開了又鎖。", "大家說是 NOVA 回滾前的故障。", "我晚點再走。"),
+					content: lines("第 313 天", "撤離日。艙門鎖了又開，開了又鎖。", "大家說是 NOVA 回滾前的故障。", "我晚點再走。"),
 				},
 				"day_900.txt": {
 					$type: "file",
@@ -413,7 +413,7 @@ function crewIntakeRecord(patientId: string, pod: string, role: string, remark: 
 		`艙位：${pod}`,
 		`職稱：${role}`,
 		"入艙評估：適合長期冷凍",
-		"出艙紀錄：2028-06-02 撤離日",
+		"入艙紀錄：無（原排定於返航前入艙）",
 		`備註：${remark}`,
 	);
 }
@@ -489,7 +489,7 @@ const medbayTerminal: TerminalDefinition = {
 					"PT-2028-0418-MR2216.txt": {
 						$type: "file",
 						mtime: CREW_INTAKE_MTIME,
-						content: crewIntakeRecord("PT-2028-0418-MR2216", "pod_05", "後勤", "慣用稱呼：阿彬。入艙前講了四個笑話"),
+						content: crewIntakeRecord("PT-2028-0418-MR2216", "pod_05", "後勤", "慣用稱呼：阿彬。評估時講了四個笑話"),
 					},
 					[`${POD_06_RECORD_ID}.txt`]: {
 						$type: "file",

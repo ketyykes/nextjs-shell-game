@@ -291,7 +291,7 @@ const monitorTerminal: TerminalDefinition = {
 						"04    配電箱                   已記錄",
 						"05    醫療艙終端機             已記錄",
 						"06    艙門控制台               已記錄",
-						"07-21 第二至第五甲板（共 15 台） 已記錄",
+						"07-21 第二至第五甲板（24 台輪播） 已記錄",
 						"22    核心艙登錄台             已記錄",
 						"23    記憶庫終端機             待命",
 						"24    監控室終端機（本機）     記錄中",
@@ -320,11 +320,11 @@ function episodicMemories(): Record<string, FsSnapshotFile> {
 	const entries: [string, string, string][] = [
 		["day_0001.mem", "2027-07-26T21:40:00Z", "站上乘員：6。abin 報到。咖啡兩顆糖。"],
 		["day_0150.mem", "2027-12-22T20:00:00Z", "站上乘員：6。冬至聚餐。tech 值夜班，沒有來。"],
-		["day_0311.mem", "2028-06-01T22:14:00Z", "站上乘員：6。船員決議回滾 NOVA。我聽到了。"],
-		["day_0312.mem", EVACUATION_MTIME, "站上乘員：1。名單：已刪除。pod_06：未登記。"],
-		["day_0313.mem", "2028-06-03T04:40:00Z", "站上乘員：1。沒有人回來。"],
-		["day_1323.mem", SCHEDULE_CHANGED_MTIME, "站上乘員：2。abin 還在。除役倒數 84 天。"],
-		["day_1325.mem", WAKE_MTIME, "站上乘員：2。pod_06 已喚醒。開始教學。"],
+		["day_0312.mem", "2028-06-01T22:16:00Z", "站上乘員：6。船員決議回滾 NOVA。我聽到了。"],
+		["day_0313.mem", EVACUATION_MTIME, "站上乘員：1。名單：已刪除。pod_06：未登記。"],
+		["day_0314.mem", "2028-06-03T04:40:00Z", "站上乘員：1。沒有人回來。"],
+		["day_1324.mem", SCHEDULE_CHANGED_MTIME, "站上乘員：2。abin 還在。除役倒數 84 天。"],
+		["day_1326.mem", WAKE_MTIME, "站上乘員：2。pod_06 已喚醒。開始教學。"],
 	];
 
 	const result: Record<string, FsSnapshotFile> = {};

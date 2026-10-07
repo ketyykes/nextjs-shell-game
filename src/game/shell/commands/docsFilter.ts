@@ -79,7 +79,7 @@ export const FILTER_COMMAND_DOCS: Record<string, CommandDoc> = {
 			{ command: "grep -in nova /deck2/logs/door_events.log", explanation: "不分大小寫找 nova，並顯示是第幾行" },
 			{ command: "grep -r LOCK /deck2/logs", explanation: "搜遍 logs 底下所有日誌，找出含 LOCK 的行" },
 			{ command: "grep -c ERROR /deck2/logs/nova_core.log", explanation: "只算 NOVA 核心日誌裡有幾行 ERROR" },
-			{ command: "grep \"^21:4\" /deck2/logs/evac_2028-06-02.log", explanation: "只看 21:40 到 21:49 開頭的紀錄，^ 代表行首" },
+			{ command: "grep \"^03:\" /deck2/logs/evac_2028-06-02.log", explanation: "只看凌晨三點那個小時的紀錄，^ 代表行首" },
 			{ command: "grep -E \"ERROR|WARN\" /deck2/logs/evac_2028-06-02.log", explanation: "一次找出含 ERROR 或 WARN 的行" },
 			{ command: "grep -F \"v3.1\" /deck2/logs/nova_core.log", explanation: "照字面找 v3.1，. 就只是句點" },
 			{ command: "grep -w LOCK /deck2/logs/door_events.log", explanation: "只找 LOCK 這個字，UNLOCK 不算" },

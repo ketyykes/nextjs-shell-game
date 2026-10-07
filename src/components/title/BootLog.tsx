@@ -42,6 +42,7 @@ export const BOOT_LINES: readonly BootLine[] = [
 	{ text: "查無此人", tone: "amber" },
 	{ text: "重試 1/3……查無此人", tone: "amber" },
 	{ text: "重試 2/3……查無此人", tone: "amber" },
+	{ text: "重試 3/3……查無此人", tone: "amber" },
 	{ text: "略過。", tone: "normal" },
 	{ text: "主電源離線。低功率模式。", tone: "normal" },
 	{ text: "移交站務系統……", tone: "dim" },
