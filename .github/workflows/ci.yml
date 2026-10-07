@@ -1,0 +1,26 @@
+# CI：push 到 main 與 PR 時跑 lint、型別檢查、單元測試與建置。
+# e2e (Playwright) 不在這裡跑：要下載瀏覽器且吃時間，先留在本機跑（progress.md 第 8 節有記錄）。
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: npx tsc --noEmit
+      - run: pnpm test --run
+      - run: pnpm build
