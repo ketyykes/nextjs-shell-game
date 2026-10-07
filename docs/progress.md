@@ -269,11 +269,14 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
   - **音效**：afinfo 驗過五個檔的時長都合理（按鍵 0.1s、blip 0.05s、門 0.5s、電力 1s、環境 8s），聽感仍待真人試聽。
   - **字型子集化**：`pnpm font:subset`（`scripts/subset-font.py`，需 fonttools）掃 src 用字切出 49KB 子集（決策 #55），production 截圖驗證像素中文字正常。
 - 驗證：87 檔 1842 個單元測試全綠（本場新增 13 個），tsc、lint、`pnpm build` 乾淨；e2e 全套 26 個跑過，`play.spec` Tab 補全與第 3 章兩個失敗單獨重跑都過（併發 flaky，非回歸）。
+- **e2e 全套併發 flaky**：26 個一起跑（2 workers）時，走路類測試每輪有 0 到 3 個不固定地紅，失敗的測試單獨重跑都綠；機器有其他負載（例如另一個 agent 在跑 dev server）時更明顯。判定回歸的方式：把紅的測試單獨跑，綠了就是 flaky。
 - 第二輪審計（設計漂移對照＋新手代理用 playwright 真玩第一章前兩台）再修一批：
   - **按 E 漏字 bug**（medium）：開終端機的那一下 e 會漏進剛聚焦的輸入框變成預填字，新手第一個指令變「els」。`TerminalZone.handleInteract` 對該次按鍵 `preventDefault`，e2e 加空輸入框斷言。
   - **九處新手引導死角**：開場 intro 補「方向鍵走到控制台旁按 E」、T1 過關補指路台詞、T1 banner 與 `commandNotFound` 直通 hint、T1 hint 1 補可操作引導、T2 hint 3 改絕對路徑＋家目錄放 note.txt（決策 #57 的 cd 陷阱）、cat 的 noInput 範例去掉管線噪音、終端機頁尾「（還沒有）」改「（過關後記錄）」。
   - **設計文件兩處註記**：4.6 遮罩 0.92、4.8 補 T1 三指令例外；nova-blip 播放範圍記成決策 #56。
-- commit `c0d9dd4` 到 `dd6b90c` 共二十一筆。待 Danny：刪模板殘留檔（見第 4 節）、決定要不要 push。
+  - **開著終端機重新整理會回到走路中途點**（追 e2e flaky 挖出的真 bug）：位置存檔靠「連續兩幀同座標」偵測停下，走到終端機旁立刻按 E 時場景先暫停、最後一段路沒存。`PositionReporter` 加 `flush()`，Station 在 `terminal:open` 時補存（用 `roomTracker.roomId` 純查詢，不能用 `update()`——會多發一次 `room:enter`，第一版就是這樣讓八個 e2e 紅掉的）。
+  - boot log 隱藏死的關閉鈕與「提示：輸入 hint」頁尾（`TerminalFrame` 加 `onClose?` 與 `hideFooter`），動畫中顯示「Enter 跳過」。
+- commit `c0d9dd4` 到 `8aabebb` 再加文件 commit，共二十六筆。待 Danny：刪模板殘留檔（見第 4 節）、決定要不要 push。
 - 下一步：無。候選工作見第 9 節。
 
 ### 2026-10-07（第十一場，M9-8：反斜線跳脫與 grep -w／-o）
