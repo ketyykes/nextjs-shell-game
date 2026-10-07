@@ -19,5 +19,7 @@ export default defineConfig({
 		environment: "jsdom",
 		// 只掃 src 底下的單元測試，避免撿到 e2e/ 的 Playwright 測試
 		include: ["src/**/*.{test,spec}.{ts,tsx}"],
+		// jsdom 每檔重建一次佔掉一半時間；vmThreads 讓同一個 worker 重用環境，又保住每檔隔離
+		pool: "vmThreads",
 	},
 });
