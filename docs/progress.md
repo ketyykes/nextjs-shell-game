@@ -18,12 +18,12 @@
 
 | 項目 | 內容 |
 |---|---|
-| 更新日期 | 2026-10-06 |
-| 最新 commit | 見 `git log --oneline -6`：第十場補齊插圖，再做 M9（shell、存檔 v2 與選章、Phaser 小尾巴、e2e、文件） |
+| 更新日期 | 2026-10-07 |
+| 最新 commit | 見 `git log --oneline -8`：第十場補齊插圖，再做 M9（shell、存檔 v2 與選章、Phaser 小尾巴、e2e、文件）；第十一場補引號外反斜線跳脫與 grep `-w`、`-o` |
 | 目前階段 | **M0 到 M9 全部完成**（M9 是第一版之後的小尾巴，見第 3 節）；第九場用 playwright-cli 從標題一路真玩到片尾（六章 36 台終端機、零頁面錯誤），抓到四個 bug 並全部修掉（見第 7 節第九場與第 8 節 #37 到 #39）。Danny 本人還沒玩過第二章以後 |
-| 程式碼狀態 | 標題 → 選角 → boot log → 六章地圖 → 片尾。`pnpm test --run` 87 個測試檔 1799 個測試全綠，`npx tsc --noEmit` 與 `pnpm lint` 乾淨；`PORT=3001 pnpm test:e2e` 26 個全綠（M9 新增 `save-v2.spec.ts` 7 個）。六章插圖 44 張全部到齊 |
+| 程式碼狀態 | 標題 → 選角 → boot log → 六章地圖 → 片尾。`pnpm test --run` 87 個測試檔 1829 個測試全綠，`npx tsc --noEmit` 與 `pnpm lint` 乾淨；`PORT=3001 pnpm test:e2e` 26 個全綠（M9 新增 `save-v2.spec.ts` 7 個）。六章插圖 44 張全部到齊 |
 | 下一步 | 沒有排定的里程碑。Danny 從第二章開始試玩（標題「繼續」或 `e2e/helpers/deck.ts` 的 `seedSave` 寫法可直接種到第 N 章）、看第 8 節 #23 到 #39 的決策、潤稿；候選工作見第 9 節 |
-| 遠端 | `origin` 是 SSH 網址 `git@github.com:ketyykes/nextjs-shell-game.git`，2026-10-02 已 push，本機與 `origin/main` 同步 |
+| 遠端 | `origin` 是 SSH 網址 `git@github.com:ketyykes/nextjs-shell-game.git`，最後一次 push 是 2026-10-02；第十場之後的 commit 還沒 push，push 前先問 Danny |
 
 ## 2. 里程碑總覽
 
@@ -180,6 +180,7 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 | M9-5 按 E 像素字型 | ✅ | `objects/pixelFont.ts` 讀 `--font-fusion-pixel`，12px、解析度 1；`document.fonts.load` 後 `style.update(true)` 強制重畫 |
 | M9-6 第六章 NOVA 立繪 | ✅ | `story/flags.novaPortraitFor`，`NovaDialogue` 的 `portrait` prop |
 | M9-7 小視窗排版 | ✅ | 1280 以下「按 E 開啟」提示往上移、NOVA 對話框在 1024 以下疊到目標面板上方；e2e 檢查 1280、1024、768 三種寬度互不重疊 |
+| M9-8 反斜線與 grep -w／-o | ✅ | 第十一場：`tokenizer.ts` 引號外的 `\` 跳脫下一個字元（`cd my\ dir`、`\|`、`\$HOME`），雙引號內多認 `\$`；`grepPattern.ts` 的 `wholeWord` 用前後環視包樣式、`matches` 給 `-o`，`-F` 也改走 RegExp；`grep -w`、`-o` 與 man 說明。用 Docker 的 GNU grep 3.8（`C.UTF-8`）對照 |
 
 ## 4. 待處理雜項
 
@@ -229,14 +230,14 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 - **e2e 的平行度**：整章走完的測試靠計時貼牆滑行，六個 worker 同時跑會讓瀏覽器掉幀、角色滑過門口（第二章在 T5 進了隔壁房）。`playwright.config.ts` 本機 workers 固定 2；單跑某章用 `-g "第 2 章"`。
 - **Vitest 與 CSS Module**：`postcss.config.mjs` 用字串宣告 `@tailwindcss/postcss`，Vite 解析不了，所以 `vitest.config.mts` 設了 `css.postcss: { plugins: [] }`，單元測試不跑 Tailwind。vitest 沒開 globals，Testing Library 不會自動 cleanup，元件測試要手動 `afterEach(cleanup)`。
 - **字型尺寸**：VT323 的 x-height 偏小，終端機字級不要低於 20px；Fusion Pixel 用 12 的整數倍最清楚。Next dev 模式左下角有 Next.js 的圓形工具按鈕，會蓋住 `/play` 的設定列，正式 build 沒有。
-- **Shell 引擎的已知邊界**（M1 刻意不做，之後章節需要再補）：
+- **Shell 引擎的已知邊界**（M9 補完之後仍刻意不做，之後章節需要再補）：
   - 快照的 key 不可含 `/`、空字串、`.`、`..`；目錄裡不要放名叫 `$type` 的子項，那是型別標記。
   - 路徑的 `..` 是純字串化簡，`wake_up.txt/..` 不會報 ENOTDIR；對檔案加結尾斜線會報 ENOTDIR。`~user` 不支援。
-  - 解析器對整行掃全形字元，包括引號內；彎引號 `“”‘’` 也算全形（中文輸入法按 `"` 會打出來）。引號外的反斜線不當跳脫，`cat a\ b` 會切成兩個參數。
+  - 解析器對整行掃全形字元，包括引號內；彎引號 `“”‘’` 也算全形（中文輸入法按 `"` 會打出來）。反斜線跳脫過的 word 整個不做萬用字元展開（跟引號同一個簡化，bash 只讓被跳脫的那個字元失效），例如 `\*.log*` 的結尾 `*` 也不展開。
   - 補全只處理游標在結尾，用空白切 token 不走 tokenizer；`cd ..` 與 `cd ~` 不帶斜線按 Tab 沒有候選。
   - `ls -l` 的日期固定用 UTC 顯示，劇本寫 mtime 時要自己算好想給玩家看的時間。
   - `messages.notADirectory` 的文案偏向 `cd`，`ls wake_up.txt/inner` 這種路徑中間是檔案的情況語意稍偏，之後可讓它帶指令名。
-  - 引號外的反斜線不當跳脫，所以 `grep v3\.1` 在遊戲裡照正規表示式解讀，真的 bash 會先變成 `v3.1`；man 說明建議用引號包。grep 不支援 `[.ch.]`、`[=e=]`、`-G`、`-P`、`-w`、`-x`、`-o`；`-i [[:upper:]]` 不跟 glibc 一樣配到中文。
+  - grep 不支援 `[.ch.]`、`[=e=]`、`-G`、`-P`、`-x`；`-i [[:upper:]]` 不跟 glibc 一樣配到中文。
   - `chmod` 的 `u+`、一兩位數字、五位數以上判為不合法；沒有 umask，不寫類別的 `+`、`-` 三組都改；四位數的第一位（setuid 等）接受但忽略。`sort` 沒有 `-f`。
 - **存檔 v2 與 e2e**：`seedSave` 刻意寫 v1 讓 migrate 在真瀏覽器跑一次。角色停下就存位置，所以「回標題再繼續」會出現在剛才停下的地方；e2e 的走路工具不能再假設角色一定在出生點（`play.spec.ts` 的 `openCryoTerminal` 先看提示是否已經出現）。
 - **e2e 的 `textContent()` 會無限等待**：元素不存在時 Playwright 的 `locator.textContent()` 預設沒有逾時，`alignToTerminal` 曾因此卡到整個測試 180 秒逾時、微調重試根本沒機會跑；查詢可能不存在的元素要給 `{ timeout }`。
@@ -251,6 +252,13 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 ## 7. 工作日誌
 
 每次 session 收工加一筆，最新在最上面。格式：日期、做了什麼、commit 範圍、下一步。
+
+### 2026-10-07（第十一場，M9-8：反斜線跳脫與 grep -w／-o）
+
+- Danny 問第 9 節「剩下的 shell 邊界」指什麼，解釋後要求改第 5 節標題（原本寫「M1 刻意不做」，容易誤會 M9 沒動過），並補最可能被玩家撞到的兩項：引號外反斜線跳脫、grep `-w`／`-o`。
+- 先用 Docker 的 GNU grep 3.8 實測 `-w`、`-o` 與各種組合（`-on`、`-oc`、`-ov`、空字串符合、`C.UTF-8` 下中文算文字字元），再寫紅燈測試。既有測試只刪了「引號外反斜線原樣保留」那一條（需求變了），其他斷言沒動。
+- 驗證：87 個測試檔 1829 個單元測試全綠，tsc、lint 乾淨；用第二章 T3 的真 Shell 抽查 `grep -w LOCK`（11 行，不含 UNLOCK）、`grep -oi nova | wc -l`、`mkdir my\ dir` 再 `cd my\ dir`。e2e 沒重跑（沒動 UI 與劇本）。
+- 下一步：同第十場之二。
 
 ### 2026-10-06（第十場之二，M9：第 9 節的小尾巴全部做掉）
 
@@ -429,6 +437,7 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 | 45 | grep 照真的 grep（BRE 預設、`-E`、`-F`），推翻 #28 | Danny 拍板；一般單字照樣比對得到，六章劇本的樣式都沒有特殊字元，不用改劇本 | `commands/grep.ts`、`grepPattern.ts` |
 | 46 | 第六章第一次走進 `nv_core` 之後對話框改用 `nova-core`，用艙區旗標判定所以重整後維持 | Danny 拍板；配合「看到本體」的揭露時點 | `story/flags.novaPortraitFor` |
 | 47 | 1280 以下「按 E 開啟」提示往上移（`lg:bottom-32`、更窄 `bottom-60`），1024 以下 NOVA 對話框疊到目標面板上方（`bottom-32`） | 1280 以下三個元件塞不進同一排，實測 1024 與 768 都重疊 | `PlayScreen` 的 `Hud`、`NovaDialogue` |
+| 48 | 引號外的反斜線跳脫過的 word 整個標成 `quoted`、不做萬用字元展開 | 沿用引號的整個 word 簡化，不用為每個字元記「是否被跳脫」；遊戲裡沒有需要 `a\ b*` 這種寫法的謎題 | `parser/tokenizer.ts`、`shell.ts` 的萬用字元展開 |
 
 ## 9. 第一版之後的候選工作
 
