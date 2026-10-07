@@ -89,3 +89,35 @@ describe("useNovaQueue", () => {
 		expect(result.current.queue).toEqual([]);
 	});
 });
+
+describe("dropStaleRoomMessages", () => {
+	it("丟掉佇列裡其他艙區的未播進房台詞，保留正在顯示的第一則", () => {
+		const { result } = renderHook(() => useNovaQueue());
+		act(() => {
+			result.current.enqueue("room-cryo", ["冷凍艙第一句", "冷凍艙第二句"]);
+			result.current.enqueue("room-corridor", ["走廊的台詞"]);
+		});
+		act(() => {
+			result.current.dropStaleRoomMessages("corridor");
+		});
+		// 正在顯示的 room-cryo-0 播完它，之後的 room-cryo-1 不用再播；走廊的留著
+		expect(result.current.queue.map((message) => message.id)).toEqual(["room-cryo-0", "room-corridor-0"]);
+	});
+
+	it("intro 與過關台詞不是進房台詞，不會被丟", () => {
+		const { result } = renderHook(() => useNovaQueue());
+		act(() => {
+			result.current.enqueue("intro-2", ["開場一", "開場二"]);
+			result.current.enqueue("room-cryo", ["冷凍艙台詞"]);
+			result.current.enqueue("solved-ch1-t1", ["過關台詞"]);
+		});
+		act(() => {
+			result.current.dropStaleRoomMessages("corridor");
+		});
+		expect(result.current.queue.map((message) => message.id)).toEqual([
+			"intro-2-0",
+			"intro-2-1",
+			"solved-ch1-t1-0",
+		]);
+	});
+});

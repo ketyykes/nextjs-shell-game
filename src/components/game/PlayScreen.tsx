@@ -370,6 +370,8 @@ function PlayScreenReady() {
 		});
 		const unsubscribeRoom = onGameEvent("room:enter", ({ roomId }) => {
 			setCurrentRoom(roomId);
+			// 玩家走得比台詞佇列快：換房時丟掉還沒播的舊房介紹，才不會在新房聽上一間的台詞
+			nova.dropStaleRoomMessages(roomId);
 			// 進房台詞每間只說一次，用劇情旗標跨重整去重
 			const store = useGameStore.getState();
 			const flag = roomEnteredFlag(chapter.chapter, roomId);

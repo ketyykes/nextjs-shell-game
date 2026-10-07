@@ -9,6 +9,12 @@ export interface UseNovaQueueResult {
 	enqueue: (prefix: string, lines: string[]) => void;
 	/** onShown 的 handler：移掉 id 對應的那則 */
 	dismiss: (id: string) => void;
+	/**
+	 * 進入新艙區時呼叫：丟掉佇列裡「其他艙區的進房台詞」（id 以 `room-` 開頭且不屬於新艙區），
+	 * 正在顯示的第一則讓它播完。台詞停留數秒、玩家走得比佇列快，不丟的話
+	 * 走到下一間還在聽上一間的介紹（新手走查在五章都重現）。intro 與過關台詞不受影響。
+	 */
+	dropStaleRoomMessages: (roomId: string) => void;
 	clear: () => void;
 }
 
@@ -36,9 +42,21 @@ export function useNovaQueue(): UseNovaQueueResult {
 		setQueue((previous) => previous.filter((message) => message.id !== id));
 	}, []);
 
+	const dropStaleRoomMessages = useCallback((roomId: string) => {
+		setQueue((previous) =>
+			previous.filter((message, index) => {
+				// 第一則正在顯示，讓它自然播完，不要突然消失
+				if (index === 0) {
+					return true;
+				}
+				return !message.id.startsWith("room-") || message.id.startsWith(`room-${roomId}-`);
+			}),
+		);
+	}, []);
+
 	const clear = useCallback(() => {
 		setQueue([]);
 	}, []);
 
-	return { queue, enqueue, dismiss, clear };
+	return { queue, enqueue, dismiss, dropStaleRoomMessages, clear };
 }
