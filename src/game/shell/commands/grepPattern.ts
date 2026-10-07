@@ -10,6 +10,10 @@
  *   開頭的 `*`、`+`、`?`、次數會被忽略（GNU 只給警告）；不是次數寫法的 `{` 與沒有對應 `(` 的 `)` 是字面字元。
  * - `fixed`（`-F`）：整串照字面比對，不會有樣式錯誤。
  *
+ * `wholeWord`（`-w`）：符合的字串前後要是行首行尾或非文字字元。用前後環視包住整個樣式，
+ * JS 的回溯會自己試同一個起點較短的符合與後面的起點，跟 GNU grep 的結果一樣。
+ * 編好的結果除了判斷整行的 `test`，還有給 `-o` 用的 `matches`（不回傳空字串的符合）。
+ *
  * 兩種正規表示式語法都支援 `\1` 到 `\9` 回頭參照，以及 GNU 的 `\w \W \s \S \< \> \b \B`；
  * 其他「反斜線加普通字元」就是那個字元本身（例如 `\a` 是 `a`）。
  * 中括號裡的反斜線是字面字元（POSIX 規定），`[[:digit:]]` 這類字元類別照 UTF-8 語系對應到 Unicode 類別。
@@ -25,8 +29,16 @@ import type { RegexErrorCode } from "../types";
 /** 樣式語法：`basic` 是預設的 BRE、`extended` 是 `-E`、`fixed` 是 `-F`。 */
 export type GrepSyntax = "basic" | "extended" | "fixed";
 
-/** 編譯結果：成功時帶判斷一行是否符合的函式，失敗時帶錯誤代碼。 */
-export type GrepPatternResult = { ok: true; test: (line: string) => boolean } | { ok: false; error: RegexErrorCode };
+/** 編譯好的樣式：判斷一行是否符合，以及挑出一行裡所有符合的片段。 */
+export interface CompiledGrepPattern {
+	ok: true;
+	test: (line: string) => boolean;
+	/** 由左到右、不重疊的符合片段，空字串的符合不算（`grep -o` 的行為）。 */
+	matches: (line: string) => string[];
+}
+
+/** 編譯結果：成功時帶編好的樣式，失敗時帶錯誤代碼。 */
+export type GrepPatternResult = CompiledGrepPattern | { ok: false; error: RegexErrorCode };
 
 // ---------------------------------------------------------------------------
 // 常數
@@ -676,24 +688,46 @@ class PatternTranslator {
 // 公開函式
 // ---------------------------------------------------------------------------
 
-/** 字面比對：`-i` 時兩邊都轉小寫。 */
-function compileFixed(pattern: string, ignoreCase: boolean): GrepPatternResult {
-	if (ignoreCase) {
-		const lowered = pattern.toLowerCase();
-		return { ok: true, test: (line) => line.toLowerCase().includes(lowered) };
+/** 字面比對：每個字元都當字面字元轉成 JS 樣式。 */
+function translateFixed(pattern: string): string {
+	return Array.from(pattern).map(escapeLiteral).join("");
+}
+
+/** 把 JS 樣式包成編好的結果；`wholeWord` 時前後加單字邊界的環視。 */
+function buildCompiled(source: string, ignoreCase: boolean, wholeWord: boolean): CompiledGrepPattern {
+	let wrapped = source;
+
+	if (wholeWord) {
+		wrapped = `(?<![${WORD_CHARS}])(?:${source})(?![${WORD_CHARS}])`;
 	}
 
-	return { ok: true, test: (line) => line.includes(pattern) };
+	// `u` 讓 `.` 與中括號以「字」為單位、可以用 `\p{...}`；`-i` 對應 JS 的 `i`。test 不加 `g`，才沒有狀態
+	const flags = ignoreCase ? "iu" : "u";
+	const regex = new RegExp(wrapped, flags);
+	const globalRegex = new RegExp(wrapped, `${flags}g`);
+
+	return {
+		ok: true,
+		test: (line) => regex.test(line),
+		matches: (line) =>
+			Array.from(line.matchAll(globalRegex), (match) => match[0]).filter((text) => text !== ""),
+	};
 }
 
 /**
  * 編譯 `grep` 的樣式。樣式不合法時回傳錯誤代碼，訊息由 `messages.invalidPattern` 組。
  *
  * @example compileGrepPattern("ERROR|WARN", "extended", false) // test("WARN x") 為 true
+ * @example compileGrepPattern("foo", "basic", false, true) // test("foobar") 為 false
  */
-export function compileGrepPattern(pattern: string, syntax: GrepSyntax, ignoreCase: boolean): GrepPatternResult {
+export function compileGrepPattern(
+	pattern: string,
+	syntax: GrepSyntax,
+	ignoreCase: boolean,
+	wholeWord = false,
+): GrepPatternResult {
 	if (syntax === "fixed") {
-		return compileFixed(pattern, ignoreCase);
+		return buildCompiled(translateFixed(pattern), ignoreCase, wholeWord);
 	}
 
 	let source: string;
@@ -708,9 +742,5 @@ export function compileGrepPattern(pattern: string, syntax: GrepSyntax, ignoreCa
 		throw error;
 	}
 
-	// `u` 讓 `.` 與中括號以「字」為單位、可以用 `\p{...}`；`-i` 對應 JS 的 `i`。不加 `g`，test 才沒有狀態
-	const flags = ignoreCase ? "iu" : "u";
-	const regex = new RegExp(source, flags);
-
-	return { ok: true, test: (line) => regex.test(line) };
+	return buildCompiled(source, ignoreCase, wholeWord);
 }

@@ -184,6 +184,81 @@ describe("字面比對（grep -F）", () => {
 	});
 });
 
+describe("整個單字比對（grep -w）", () => {
+	/** 編譯成 -w 樣式後挑出符合的行。 */
+	function wordMatching(pattern: string, lines: string[], syntax: GrepSyntax = "basic"): string[] {
+		const result = compileGrepPattern(pattern, syntax, false, true);
+
+		if (!result.ok) {
+			throw new Error(`樣式 ${pattern} 編譯失敗：${result.error}`);
+		}
+
+		return lines.filter((line) => result.test(line));
+	}
+
+	it("符合的字串前後要是行首行尾或非文字字元", () => {
+		expect(wordMatching("foo", ["foo bar", "foobar baz", "bar_foo foo", "foo-foo", "xfoo"])).toEqual([
+			"foo bar",
+			"bar_foo foo",
+			"foo-foo",
+		]);
+	});
+
+	it("同一個起點不行時會試較短的符合與後面的起點", () => {
+		expect(wordMatching("ab*", ["xabbb ab", "xabbb abx"])).toEqual(["xabbb ab"]);
+	});
+
+	it("中文字算文字字元（UTF-8 語系的 GNU grep）", () => {
+		expect(wordMatching("警告", ["警告 錯誤", "警告錯誤", "錯誤:警告"])).toEqual(["警告 錯誤", "錯誤:警告"]);
+	});
+
+	it("-F 也能整個單字比對，. 照字面", () => {
+		expect(wordMatching("v3.1", ["v3.1 v301", "v301", "v3.12"], "fixed")).toEqual(["v3.1 v301"]);
+	});
+
+	it("可以配到空字串的樣式只符合沒有文字字元相鄰的位置", () => {
+		expect(wordMatching("x*", ["foo bar", "", "a b"])).toEqual([""]);
+	});
+});
+
+describe("挑出符合的片段（grep -o）", () => {
+	/** 編譯樣式後回傳一行裡所有符合的片段。 */
+	function matchesOf(pattern: string, line: string, options: { syntax?: GrepSyntax; ignoreCase?: boolean; wholeWord?: boolean } = {}): string[] {
+		const result = compileGrepPattern(pattern, options.syntax ?? "basic", options.ignoreCase ?? false, options.wholeWord ?? false);
+
+		if (!result.ok) {
+			throw new Error(`樣式 ${pattern} 編譯失敗：${result.error}`);
+		}
+
+		return result.matches(line);
+	}
+
+	it("依序回傳每個不重疊的符合片段", () => {
+		expect(matchesOf("fo*", "foo-foo fx")).toEqual(["foo", "foo", "f"]);
+	});
+
+	it("-E 的「或」各自回傳", () => {
+		expect(matchesOf("b..|f..", "foobar baz", { syntax: "extended" })).toEqual(["foo", "bar", "baz"]);
+	});
+
+	it("空字串的符合不回傳", () => {
+		expect(matchesOf("x*", "abc")).toEqual([]);
+	});
+
+	it("-i 時回傳行裡原本的大小寫", () => {
+		expect(matchesOf("foo", "Foo FOO", { ignoreCase: true })).toEqual(["Foo", "FOO"]);
+	});
+
+	it("搭配 -w 只回傳整個單字的符合", () => {
+		expect(matchesOf("foo", "foobar foo bar_foo foo", { wholeWord: true })).toEqual(["foo", "foo"]);
+	});
+
+	it("-F 也回傳字面符合，中文以字為單位", () => {
+		expect(matchesOf("a.c", "a.c abc a.c", { syntax: "fixed" })).toEqual(["a.c", "a.c"]);
+		expect(matchesOf("錯.", "警告 錯誤 錯誤:")).toEqual(["錯誤", "錯誤"]);
+	});
+});
+
 describe("不合法的樣式", () => {
 	it.each<[string, GrepSyntax, RegexErrorCode]>([
 		["a\\", "basic", "TRAILING_BACKSLASH"],

@@ -5,7 +5,7 @@
  * - `normal`：引號外，空白分隔 token，`|`、`>`、`>>` 切成符號 token。
  * - `singleQuote`：單引號內，一切照抄，直到下一個 `'`。
  * - `doubleQuote`：雙引號內，照抄直到下一個 `"`；
- *   只處理兩種跳脫：`\"` 變成字面的 `"`、`\\` 變成字面的 `\`，
+ *   只處理三種跳脫：`\"`、`\\`、`\$` 變成字面的 `"`、`\`、`$`，
  *   其他反斜線原樣保留（例如 `"a\b"` 是 `a\b`），跟 bash 在雙引號內的行為一致。
  *
  * 變數展開（第五章）：有給 `options.env` 時，在 `normal` 與 `doubleQuote` 狀態把
@@ -15,8 +15,10 @@
  * 引號外展開後整個 word 是空字串（例如 `echo $NOPE`）時，這個 word 直接丟掉，跟 bash 一樣；
  * 有引號包住的空字串（例如 `"$NOPE"`）保留。
  *
- * 引號外的反斜線目前「不」當跳脫字元，原樣保留（例如 `a\ b` 會切成 `a\` 與 `b`）。
- * 第一章檔名沒有空白，之後若要支援 `cd my\ dir` 再加。
+ * 引號外的反斜線跳脫下一個字元，跟 bash 一樣：`a\ b` 是一個 token `a b`、`v3\.1` 是 `v3.1`、
+ * `\|`、`\>`、`\'`、`\$` 都是字面字元。跳脫過的 word 標成 `quoted`，所以 `\*.log` 不做萬用字元展開
+ * （跟引號一樣是整個 word 的簡化：bash 只讓被跳脫的那個字元失去萬用字元意義）。
+ * 行尾單獨的反斜線原樣保留，跟 `bash -c 'echo a\'` 一樣。
  *
  * 引號可以出現在 token 中間，例如 `ab"c d"e` 是一個 token `abc de`，`quoted` 為 true。
  */
@@ -168,7 +170,7 @@ export function tokenize(input: string, options: ParseOptions = {}): TokenizeRes
 			}
 			if (char === "\\") {
 				const next = chars[index + 1];
-				if (next === '"' || next === "\\") {
+				if (next === '"' || next === "\\" || next === "$") {
 					buffer += next;
 					index += 2;
 					continue;
@@ -185,6 +187,16 @@ export function tokenize(input: string, options: ParseOptions = {}): TokenizeRes
 		}
 
 		// 以下是 normal 狀態
+		const escaped = chars[index + 1];
+		if (char === "\\" && escaped !== undefined) {
+			buffer += escaped;
+			hasWord = true;
+			wordQuoted = true;
+			hasOtherPart = true;
+			index += 2;
+			continue;
+		}
+
 		if (isWhitespace(char)) {
 			flushWord();
 			index += 1;

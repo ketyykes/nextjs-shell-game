@@ -97,12 +97,53 @@ describe("tokenize：引號", () => {
 		expect(tokensOf('echo "a\\nb"')).toEqual([word("echo"), word("a\\nb", true)]);
 	});
 
-	it("引號外的反斜線原樣保留，不當跳脫", () => {
-		expect(tokensOf("cat a\\ b")).toEqual([word("cat"), word("a\\"), word("b")]);
-	});
 
 	it("沒給 env 時雙引號內的 $ 照抄，不做變數展開", () => {
 		expect(tokensOf('echo "$HOME"')).toEqual([word("echo"), word("$HOME", true)]);
+	});
+});
+
+describe("tokenize：引號外的反斜線跳脫", () => {
+	const env = { HOME: "/home/crew" };
+
+	it("反斜線加空白是字面空白，不切 token", () => {
+		expect(tokensOf("cat a\\ b")).toEqual([word("cat"), word("a b", true)]);
+	});
+
+	it("反斜線加普通字元就是那個字元本身", () => {
+		expect(tokensOf("grep v3\\.1")).toEqual([word("grep"), word("v3.1", true)]);
+	});
+
+	it("兩個反斜線是一個字面反斜線", () => {
+		expect(tokensOf("echo a\\\\b")).toEqual([word("echo"), word("a\\b", true)]);
+	});
+
+	it("跳脫的管線與重導向符號是一般字元", () => {
+		expect(tokensOf("echo a\\|b \\> c")).toEqual([word("echo"), word("a|b", true), word(">", true), word("c")]);
+	});
+
+	it("跳脫的引號是字面引號，不開始引號段落", () => {
+		expect(tokensOf("echo \\'hi\\\"")).toEqual([word("echo"), word("'hi\"", true)]);
+	});
+
+	it("跳脫的 $ 不做變數展開", () => {
+		expect(tokensOf("echo \\$HOME $HOME", { env })).toEqual([word("echo"), word("$HOME", true), word("/home/crew")]);
+	});
+
+	it("跳脫的萬用字元標成 quoted，不做萬用字元展開", () => {
+		expect(tokensOf("ls \\*.log")).toEqual([word("ls"), word("*.log", true)]);
+	});
+
+	it("單獨跳脫空白也是一個 token", () => {
+		expect(tokensOf("echo \\ ")).toEqual([word("echo"), word(" ", true)]);
+	});
+
+	it("結尾的反斜線原樣保留（bash -c 的行為）", () => {
+		expect(tokensOf("echo a\\")).toEqual([word("echo"), word("a\\")]);
+	});
+
+	it("雙引號內 \\$ 是字面的 $，不展開", () => {
+		expect(tokensOf('echo "\\$HOME"', { env })).toEqual([word("echo"), word("$HOME", true)]);
 	});
 });
 

@@ -61,11 +61,12 @@ export const FILTER_COMMAND_DOCS: Record<string, CommandDoc> = {
 	grep: {
 		name: "grep",
 		summary: "從檔案裡挑出符合樣式的行",
-		usage: "grep [-i] [-n] [-c] [-v] [-r] [-E | -F] 樣式 [檔案...]",
+		usage: "grep [-i] [-n] [-c] [-v] [-r] [-w] [-o] [-E | -F] 樣式 [檔案...]",
 		description: [
 			"幾千行日誌裡只想看跟某件事有關的行，就用 grep，它只印出符合樣式的行；只打一般文字時，就是找含有那串字的行。",
 			"-i 不分大小寫，-n 在行首加行號，-c 只印有幾行符合，-v 反過來印「不符合」的行。",
 			"-r 會走進目錄，把底下所有檔案（包括子目錄與隱藏檔）都搜一遍，每行前面標出檔案路徑。",
+			"-w 只算整個單字，grep -w LOCK 不會配到 UNLOCK；-o 只印符合的那一段，一段一行，接 wc -l 就能算出現幾次。",
 			"樣式是正規表示式，有幾個符號有特別意思：. 代表任意一個字，* 代表前一個字重複零次以上。",
 			"^ 代表行首、$ 代表行尾，[abc] 代表其中一個字、[0-9] 代表一個數字；要找這些符號本身，在前面加 \\ 並用引號包起來，例如 grep \"v3\\.1\"。",
 			"-E 是延伸正規表示式，多了 +（一次以上）、?（可有可無）、|（或）和 ( ) 群組，例如 grep -E \"ERROR|WARN\"。",
@@ -81,6 +82,8 @@ export const FILTER_COMMAND_DOCS: Record<string, CommandDoc> = {
 			{ command: "grep \"^21:4\" /deck2/logs/evac_2028-06-02.log", explanation: "只看 21:40 到 21:49 開頭的紀錄，^ 代表行首" },
 			{ command: "grep -E \"ERROR|WARN\" /deck2/logs/evac_2028-06-02.log", explanation: "一次找出含 ERROR 或 WARN 的行" },
 			{ command: "grep -F \"v3.1\" /deck2/logs/nova_core.log", explanation: "照字面找 v3.1，. 就只是句點" },
+			{ command: "grep -w LOCK /deck2/logs/door_events.log", explanation: "只找 LOCK 這個字，UNLOCK 不算" },
+			{ command: "grep -oi nova /deck2/logs/door_events.log | wc -l", explanation: "算 nova 一共出現幾次；-c 算的是有幾行" },
 		],
 	},
 	find: {

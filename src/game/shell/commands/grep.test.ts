@@ -193,6 +193,64 @@ describe("grep -E 與 -F", () => {
 	});
 });
 
+describe("grep -w 與 -o", () => {
+	const WORD_LINES = ["foo bar", "foobar baz", "bar_foo foo", "foo-foo"];
+
+	it("-w 只挑出整個單字符合的行", () => {
+		const result = grepCommand.run(["-w", "foo"], createFilterContext({ stdin: WORD_LINES }));
+
+		expect(result).toEqual({ ok: true, lines: ["foo bar", "bar_foo foo", "foo-foo"] });
+	});
+
+	it("-o 每個符合的片段印一行", () => {
+		const result = grepCommand.run(["-o", "fo*"], createFilterContext({ stdin: WORD_LINES }));
+
+		expect(result).toEqual({ ok: true, lines: ["foo", "foo", "foo", "foo", "foo", "foo"] });
+	});
+
+	it("-on 每個片段前面都加所在的行號", () => {
+		const result = grepCommand.run(["-on", "foo"], createFilterContext({ stdin: WORD_LINES }));
+
+		expect(result).toEqual({ ok: true, lines: ["1:foo", "2:foo", "3:foo", "3:foo", "4:foo", "4:foo"] });
+	});
+
+	it("-ow 只印整個單字的片段", () => {
+		const result = grepCommand.run(["-ow", "foo"], createFilterContext({ stdin: WORD_LINES }));
+
+		expect(result).toEqual({ ok: true, lines: ["foo", "foo", "foo", "foo"] });
+	});
+
+	it("多個檔案時 -o 的每個片段前面加檔案路徑", () => {
+		const result = grepCommand.run(["-o", "C[23]", EVAC, EVAC], createFilterContext());
+
+		expect(result).toEqual({ ok: true, lines: [`${EVAC}:C2`, `${EVAC}:C3`, `${EVAC}:C2`, `${EVAC}:C3`] });
+	});
+
+	it("-oc 照樣計算符合的行數", () => {
+		const result = grepCommand.run(["-oc", "foo"], createFilterContext({ stdin: WORD_LINES }));
+
+		expect(result).toEqual({ ok: true, lines: ["4"] });
+	});
+
+	it("-ov 沒有片段可印，沒有輸出也不算錯誤", () => {
+		const result = grepCommand.run(["-ov", "foo"], createFilterContext({ stdin: WORD_LINES }));
+
+		expect(result).toEqual({ ok: true, lines: [] });
+	});
+
+	it("-o 不印空字串的符合", () => {
+		const result = grepCommand.run(["-o", "x*"], createFilterContext({ stdin: WORD_LINES }));
+
+		expect(result).toEqual({ ok: true, lines: [] });
+	});
+
+	it("-wF 字面的整個單字比對", () => {
+		const result = grepCommand.run(["-wF", "v3.1"], createFilterContext({ stdin: ["v3.1 v301", "v3.12", "v301"] }));
+
+		expect(result).toEqual({ ok: true, lines: ["v3.1 v301"] });
+	});
+});
+
 describe("grep 不合法的樣式", () => {
 	it("回報 invalidPattern，ok 為 false", () => {
 		const result = grepCommand.run(["[a", EVAC], createFilterContext());

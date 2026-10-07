@@ -1,11 +1,14 @@
 /**
  * `grep`：從檔案或管線輸入裡挑出符合樣式的行。
  *
- * 用法 `grep [-i] [-n] [-c] [-v] [-r] [-E | -F] 樣式 [檔案...]`：
+ * 用法 `grep [-i] [-n] [-c] [-v] [-r] [-w] [-o] [-E | -F] 樣式 [檔案...]`：
  * - 樣式預設是基本正規表示式（BRE），`-E` 是延伸正規表示式（ERE），`-F` 是照字面比對，
  *   三種語法的細節見 `grepPattern.ts`；`-E` 與 `-F` 同時給回 `conflictingMatchers`（跟 GNU grep 一樣）
  * - `-i` 不分大小寫，`-n` 行首加行號，`-c` 只印符合的行數，`-v` 反向（印不符合的行）
  * - `-r` 遞迴搜尋目錄，隱藏檔也搜，同一層依名稱排序、深度優先
+ * - `-w` 只算整個單字的符合（前後是行首行尾或非文字字元，中文字算文字字元）
+ * - `-o` 只印符合的片段，每個片段一行（`-n`、檔名前綴照樣加）；空字串的符合不印，
+ *   `-c` 優先（照樣算行數），`-v` 時沒有片段可印（跟 GNU grep 一樣）
  *
  * 樣式不合法時回 `invalidPattern`，一個檔案都不讀。
  * 多個檔案或 `-r` 時每行前面加 `檔案路徑:`，路徑用玩家的寫法接相對子路徑（例如 `logs/2028/a.log:`），跟真的 grep 一樣。
@@ -26,7 +29,7 @@ import {
 } from "../messages";
 import { splitContentLines } from "./cat";
 import { compileGrepPattern } from "./grepPattern";
-import type { GrepSyntax } from "./grepPattern";
+import type { CompiledGrepPattern, GrepSyntax } from "./grepPattern";
 
 // ---------------------------------------------------------------------------
 // 選項解析
@@ -44,6 +47,10 @@ export interface GrepOptions {
 	invert: boolean;
 	/** `-r`：遞迴搜尋目錄。 */
 	recursive: boolean;
+	/** `-w`：只算整個單字的符合。 */
+	wordRegexp: boolean;
+	/** `-o`：只印符合的片段。 */
+	onlyMatching: boolean;
 	/** 樣式語法：預設 `basic`，`-E` 是 `extended`，`-F` 是 `fixed`。 */
 	syntax: GrepSyntax;
 }
@@ -54,7 +61,7 @@ export type GrepParseResult =
 	| { ok: false; lines: string[] };
 
 /** 可以接受的選項字母。 */
-const SUPPORTED_FLAGS = new Set(["i", "n", "c", "v", "r", "E", "F"]);
+const SUPPORTED_FLAGS = new Set(["i", "n", "c", "v", "r", "w", "o", "E", "F"]);
 
 /** 搜尋目前目錄時的特殊路徑標記：子項前綴不加任何東西（GNU grep `-r` 不給路徑時的行為）。 */
 const CURRENT_DIR_IMPLICIT = "";
@@ -79,6 +86,10 @@ function applyFlag(options: GrepOptions, flag: string): boolean {
 		options.count = true;
 	} else if (flag === "v") {
 		options.invert = true;
+	} else if (flag === "w") {
+		options.wordRegexp = true;
+	} else if (flag === "o") {
+		options.onlyMatching = true;
 	} else {
 		options.recursive = true;
 	}
@@ -97,6 +108,8 @@ export function parseGrepArgs(args: string[]): GrepParseResult {
 		count: false,
 		invert: false,
 		recursive: false,
+		wordRegexp: false,
+		onlyMatching: false,
 		syntax: "basic",
 	};
 	const operands: string[] = [];
@@ -140,12 +153,12 @@ export function parseGrepArgs(args: string[]): GrepParseResult {
 // 比對與格式化
 // ---------------------------------------------------------------------------
 
-/** 判斷一行是否符合樣式的函式（`compileGrepPattern` 編好的）。 */
-type LineTester = (line: string) => boolean;
+/** `compileGrepPattern` 編好的樣式：判斷整行與挑出片段。 */
+type LineTester = Pick<CompiledGrepPattern, "test" | "matches">;
 
 /** 判斷一行是否該輸出：`-v` 時結果反過來。 */
 function isSelected(line: string, tester: LineTester, options: GrepOptions): boolean {
-	const found = tester(line);
+	const found = tester.test(line);
 
 	if (options.invert) {
 		return !found;
@@ -179,11 +192,21 @@ function matchLines(lines: string[], tester: LineTester, options: GrepOptions, l
 			return;
 		}
 
+		let linePrefix = prefix;
+
 		if (options.lineNumber) {
-			output.push(`${prefix}${index + 1}:${line}`);
-		} else {
-			output.push(`${prefix}${line}`);
+			linePrefix = `${prefix}${index + 1}:`;
 		}
+
+		// -v 選到的是不符合的行，沒有片段可印
+		if (options.onlyMatching) {
+			if (!options.invert) {
+				output.push(...tester.matches(line).map((text) => `${linePrefix}${text}`));
+			}
+			return;
+		}
+
+		output.push(`${linePrefix}${line}`);
 	});
 
 	if (options.count) {
@@ -305,14 +328,14 @@ export const grepCommand: CommandDefinition = {
 		}
 
 		const { options, pattern } = parsed;
-		const compiled = compileGrepPattern(pattern, options.syntax, options.ignoreCase);
+		const compiled = compileGrepPattern(pattern, options.syntax, options.ignoreCase, options.wordRegexp);
 
 		// 樣式不合法就整個停下來，一個檔案都不讀（跟 GNU grep 一樣）
 		if (!compiled.ok) {
 			return { ok: false, lines: invalidPattern("grep", pattern, compiled.error) };
 		}
 
-		const tester = compiled.test;
+		const tester = compiled;
 		let paths = parsed.paths;
 
 		// 沒給檔名：有 stdin 就讀 stdin；-r 時搜目前目錄（GNU grep 的行為）；否則沒東西可讀

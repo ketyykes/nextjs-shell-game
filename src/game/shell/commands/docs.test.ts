@@ -67,6 +67,16 @@ describe("COMMAND_DOCS", () => {
 		expect(text).toContain("-F");
 		expect(doc.examples.some((example) => example.command.includes("-E"))).toBe(true);
 	});
+
+	it("grep 的用法、說明與範例涵蓋 -w 與 -o", () => {
+		const doc = COMMAND_DOCS.grep;
+		const text = doc.description.join("\n");
+		for (const flag of ["-w", "-o"]) {
+			expect(doc.usage).toContain(flag);
+			expect(text).toContain(flag);
+			expect(doc.examples.some((example) => example.command.includes(flag))).toBe(true);
+		}
+	});
 });
 
 describe("COMMAND_DOC_ORDER", () => {
