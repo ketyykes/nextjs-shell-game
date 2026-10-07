@@ -18,10 +18,10 @@
 
 | 項目 | 內容 |
 |---|---|
-| 更新日期 | 2026-10-07 |
-| 最新 commit | 見 `git log --oneline -8`：第十場補齊插圖，再做 M9（shell、存檔 v2 與選章、Phaser 小尾巴、e2e、文件）；第十一場補引號外反斜線跳脫與 grep `-w`、`-o` |
+| 更新日期 | 2026-10-08 |
+| 最新 commit | 見 `git log --oneline -12`：第十一場補引號外反斜線跳脫與 grep `-w`、`-o`；第十二場（自主迭代）做門面（README、OG、icon、robots/sitemap、CI）、場景圖壓縮、UX 訊息修正與十一處劇情時間線修正 |
 | 目前階段 | **M0 到 M9 全部完成**（M9 是第一版之後的小尾巴，見第 3 節）；第九場用 playwright-cli 從標題一路真玩到片尾（六章 36 台終端機、零頁面錯誤），抓到四個 bug 並全部修掉（見第 7 節第九場與第 8 節 #37 到 #39）。Danny 本人還沒玩過第二章以後 |
-| 程式碼狀態 | 標題 → 選角 → boot log → 六章地圖 → 片尾。`pnpm test --run` 87 個測試檔 1829 個測試全綠，`npx tsc --noEmit` 與 `pnpm lint` 乾淨；`PORT=3001 pnpm test:e2e` 26 個全綠（M9 新增 `save-v2.spec.ts` 7 個）。六章插圖 44 張全部到齊 |
+| 程式碼狀態 | 標題 → 選角 → boot log → 六章地圖 → 片尾。`pnpm test --run` 87 個測試檔 1832 個測試全綠，`npx tsc --noEmit` 與 `pnpm lint` 乾淨；`PORT=3001 pnpm test:e2e` 26 個全綠（M9 新增 `save-v2.spec.ts` 7 個）。六章插圖 44 張全部到齊，場景 PNG 已 256 色量化（18.8MB → 8.3MB） |
 | 下一步 | 沒有排定的里程碑。Danny 從第二章開始試玩（標題「繼續」或 `e2e/helpers/deck.ts` 的 `seedSave` 寫法可直接種到第 N 章）、看第 8 節 #23 到 #39 的決策、潤稿；候選工作見第 9 節 |
 | 遠端 | `origin` 是 SSH 網址 `git@github.com:ketyykes/nextjs-shell-game.git`，最後一次 push 是 2026-10-02；第十場之後的 commit 還沒 push，push 前先問 Danny |
 
@@ -196,7 +196,8 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 - ⬜ **試聽五個音效**：agent 看檔名挑的，沒人聽過，見 M6-3。
 - ⬜ **劇情文字潤稿**：六台終端機的檔案內容、NOVA 台詞、boot log、章節結尾都是 agent 初稿，`src/game/chapters/ch1-life-support.ts` 與 `src/components/title/BootLog.tsx`，改完跑 `pnpm test --run src/game/chapters` 會檢查格式與性別指涉。
 - ✅ **補產 12 張插圖**：2026-10-01 codex 額度用完時缺的第五章後三間、`ch5_outro`、第六章六間 `nv_*`、`ch6_outro`、`ending`，2026-10-06 第十場補齊，`AVAILABLE_SCENES` 已列滿 44 張（含第一章 8 張）。
-- ⬜ **第二到六章劇情潤稿與試玩**：五章劇本（`src/game/chapters/ch2-*.ts` 到 `ch6-*.ts`）全是 agent 初稿，Danny 還沒玩過。幾個 agent 留白給你決定的點：第二章冷卻日誌「三年來兩人份熱負載」的第二個人是誰沒交代（阿彬留言只說「裡面有一個是我」）；第六章 T6 NOVA 最後一句「祝旅途平安，技師」暗示它沒死透；第一章的 `day_312` 從 2027-07-26 起算其實是第 313 天（第六章沿用第一章寫法）。
+- ⬜ **第二到六章劇情潤稿與試玩**：五章劇本（`src/game/chapters/ch2-*.ts` 到 `ch6-*.ts`）全是 agent 初稿，Danny 還沒玩過。剩下的留白點：第二章冷卻日誌「三年來兩人份熱負載」的第二個人是誰沒交代（阿彬留言只說「裡面有一個是我」）；第六章 T6 NOVA 最後一句「祝旅途平安，技師」暗示它沒死透。（`day_312` 差一與其他十處時間線矛盾已在第十二場修掉，見第 8 節 #49 到 #51。）
+- ⬜ **刪模板殘留檔**：第十二場的審計發現 `src/app/favicon.ico`（Next 預設圖，已被 `icon.png` 取代）與 `public/{file,globe,next,vercel,window}.svg`（create-next-app 殘留，無引用）。自動模式不給 agent 刪檔，Danny 執行：`git rm src/app/favicon.ico public/{file,globe,next,vercel,window}.svg` 後 commit。
 - ⬜ **淘汰的原圖只在 Danny 的 Mac 上**：`nova-portrait`、`nova-v2`、`nova-v3`、`nova-id`、`nova-mannequin`、`nova-lowres`、`technician-b` 的 `-original.png` 沒進版控也不需要，另一台電腦看不到是正常的。
 
 ## 5. 已知陷阱與環境備註
@@ -252,6 +253,18 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 ## 7. 工作日誌
 
 每次 session 收工加一筆，最新在最上面。格式：日期、做了什麼、commit 範圍、下一步。
+
+### 2026-10-08（第十二場，/loop 自主迭代：門面、效能、UX 與劇情修正）
+
+- Danny 下 `/loop`「10/8 早上 7 點前自我優化迭代這款遊戲，任何角度都可以」，中途補充「不確定的先記錄、讓我知道改了什麼、自己決定不要再問、記得自我驗證」。
+- 先開三路審計 workflow（劇情文字、UX 引導、技術健檢，共 22 項發現），再逐批修：
+  - **門面**：README 從模板文案改寫成遊戲介紹；OG 中繼資料與 1200x630 分享圖（scene-intro 像素放大裁切）；nova-eye 做 64px 分頁 icon；robots.ts、sitemap.ts、metadataBase；GitHub Actions CI。
+  - **效能**：場景 PNG 256 色量化 18.8MB → 8.3MB（決策 #52）；移除全專案沒用到的 Geist 字型（省兩個 preload woff2，production 截圖驗證標題頁正常）。
+  - **UX**：`grep 樣式 目錄` 的「加 -r」提示原本會教玩家打出搜錯東西的指令，改成帶樣式與目的地的完整示範（決策 #54）；`head -n 0` 的「0 不是數字」改成「要接 1 以上的整數」。
+  - **劇情**：十一處時間線矛盾（決策 #49 到 #51 與：pod_06 建檔 22:14 → 22:16 對齊撤離日誌分段、鎖門與艦長質問兩段對調、回滾從封存範圍內移除、`rollback_nova.sh` 統一成 ch3 玩家親眼看到的 `rollback.sh`、ch6 螢幕牆 15 台 → 24 台輪播、boot log 補「重試 3/3」、man 的 `grep "^21:4"` 範例對 evac log 永遠空輸出 → 改 `"^03:"`）。
+- 驗證：87 檔 1832 個單元測試全綠（新增 3 個），tsc、lint、`pnpm build` 乾淨；e2e 沒重跑（沒動地圖與互動流程，終端機檔案內容的改動由章節測試涵蓋）。
+- commit `c0d9dd4` 到 `b2bb61e` 共九筆。待 Danny：刪模板殘留檔（見第 4 節）、決定要不要 push。
+- 下一步：Tab 補全兩項（管線後補指令名、`$VAR` 路徑補全）、標題頁 351KB 劇本 chunk 瘦身（審計 UX／tech 的剩餘發現）。
 
 ### 2026-10-07（第十一場，M9-8：反斜線跳脫與 grep -w／-o）
 
@@ -438,6 +451,12 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 | 46 | 第六章第一次走進 `nv_core` 之後對話框改用 `nova-core`，用艙區旗標判定所以重整後維持 | Danny 拍板；配合「看到本體」的揭露時點 | `story/flags.novaPortraitFor` |
 | 47 | 1280 以下「按 E 開啟」提示往上移（`lg:bottom-32`、更窄 `bottom-60`），1024 以下 NOVA 對話框疊到目標面板上方（`bottom-32`） | 1280 以下三個元件塞不進同一排，實測 1024 與 768 都重疊 | `PlayScreen` 的 `Hud`、`NovaDialogue` |
 | 48 | 引號外的反斜線跳脫過的 word 整個標成 `quoted`、不做萬用字元展開 | 沿用引號的整個 word 簡化，不用為每個字元記「是否被跳脫」；遊戲裡沒有需要 `a\ b*` 這種寫法的謎題 | `parser/tokenizer.ts`、`shell.ts` 的萬用字元展開 |
+| 49 | 逐日編號以「2027-07-26＝第 1 天」為錨點，差一的全部 +1：ch1 `day_312` → `day_313`（檔名與內文）、ch6 五個 `.mem` 檔名 +1 | ch6 `day_0150`（2027-12-22 冬至聚餐）編號正確，證明錨點既定，錯的是撤離日那一側；已驗算含 2028-02-29 閏日 | `ch1-life-support.ts`、`ch6-nova-core.ts` 的 MEMORY 清單 |
+| 50 | 乘員離站改搭**補給船**（第 19、27、28 段與 `evac_2028-06-02.log`），刪掉「逃生艙 1／2 發射」 | ch5 四艘逃生艙的 `launch.log` 全寫「停靠，未使用」、NOVA 也說「四艘，都還在」，ch2 卻寫發射了兩艘；補給船當晚停靠也解釋了「為何偏偏那晚撤離」。玩家自己則是搭 ch6 的 EP-2 離站，不衝突 | `ch2-datacenter.ts` 的 `EVAC_SUMMARIES` 與 evac log |
+| 51 | 五位船員的冷凍入艙表改成**評估建檔**（「出艙紀錄：撤離日」→「入艙紀錄：無（原排定於返航前入艙）」） | 名單五人 5 月下旬到撤離夜都在活動（checklist、access.log、艦長日誌），不可能從 4/17 冷凍到撤離日；評估表保留「名單五人、冷凍艙六個」的鉤子 | `ch1-life-support.ts` 的 `crewIntakeRecord` |
+| 52 | 場景 PNG 用 sharp 做 256 色量化（`palette: true, quality: 100`），只在變小時取代 | 像素風插圖色數本來就少：抽查最大三張 RMSE ≤0.8%、目視無差異，18.8MB 降到 8.3MB；sharp 專案裡就有，不用 brew 裝 oxipng | 重跑 codex 產圖後要再壓一次；嫌有損就 `git revert 2280f97` |
+| 53 | CI（GitHub Actions）只跑 lint、tsc、單元測試、build，不跑 e2e；sitemap 與 `metadataBase` 的網域吃 `NEXT_PUBLIC_SITE_URL`，沒設時用 localhost；分頁 icon 用 nova-eye 縮 64px | e2e 要裝 Playwright 瀏覽器、吃 CI 分鐘數，而且走路類測試在共用 runner 上容易 flaky；網域還沒定 | `.github/workflows/ci.yml`、`src/app/sitemap.ts`、`layout.tsx`、`icon.png` |
+| 54 | `directoryNeedsRecursive` 改成呼叫端傳完整示範指令（grep 帶樣式、cp 帶目的地） | 原本一律建議「指令 -r 路徑」，grep 照著打會把樣式當路徑搜錯東西、cp 會缺目的地再錯一次，對新手是陷阱 | `messages.ts` 與 rm／cp／grep 三個呼叫端 |
 
 ## 9. 第一版之後的候選工作
 
