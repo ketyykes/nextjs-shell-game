@@ -21,7 +21,7 @@
 | 更新日期 | 2026-10-08 |
 | 最新 commit | 見 `git log --oneline -12`：第十一場補引號外反斜線跳脫與 grep `-w`、`-o`；第十二場（自主迭代）做門面（README、OG、icon、robots/sitemap、CI）、場景圖壓縮、UX 訊息修正與十一處劇情時間線修正 |
 | 目前階段 | **M0 到 M9 全部完成**（M9 是第一版之後的小尾巴，見第 3 節）；第九場用 playwright-cli 從標題一路真玩到片尾（六章 36 台終端機、零頁面錯誤），抓到四個 bug 並全部修掉（見第 7 節第九場與第 8 節 #37 到 #39）。Danny 本人還沒玩過第二章以後 |
-| 程式碼狀態 | 標題 → 選角 → boot log → 六章地圖 → 片尾。`pnpm test --run` 87 個測試檔 1832 個測試全綠，`npx tsc --noEmit` 與 `pnpm lint` 乾淨；`PORT=3001 pnpm test:e2e` 26 個全綠（M9 新增 `save-v2.spec.ts` 7 個）。六章插圖 44 張全部到齊，場景 PNG 已 256 色量化（18.8MB → 8.3MB） |
+| 程式碼狀態 | 標題 → 選角 → boot log → 六章地圖 → 片尾。`pnpm test --run` 88 個測試檔 1859 個測試全綠，`npx tsc --noEmit` 與 `pnpm lint` 乾淨；`PORT=3001 pnpm test:e2e` 26 個全綠（M9 新增 `save-v2.spec.ts` 7 個）。六章插圖 44 張全部到齊，場景 PNG 已 256 色量化（18.8MB → 8.3MB） |
 | 下一步 | 沒有排定的里程碑。Danny 從第二章開始試玩（標題「繼續」或 `e2e/helpers/deck.ts` 的 `seedSave` 寫法可直接種到第 N 章）、看第 8 節 #23 到 #39 的決策、潤稿；候選工作見第 9 節 |
 | 遠端 | `origin` 是 SSH 網址 `git@github.com:ketyykes/nextjs-shell-game.git`，最後一次 push 是 2026-10-02；第十場之後的 commit 還沒 push，push 前先問 Danny |
 
@@ -197,6 +197,7 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 - ⬜ **劇情文字潤稿**：六台終端機的檔案內容、NOVA 台詞、boot log、章節結尾都是 agent 初稿，`src/game/chapters/ch1-life-support.ts` 與 `src/components/title/BootLog.tsx`，改完跑 `pnpm test --run src/game/chapters` 會檢查格式與性別指涉。
 - ✅ **補產 12 張插圖**：2026-10-01 codex 額度用完時缺的第五章後三間、`ch5_outro`、第六章六間 `nv_*`、`ch6_outro`、`ending`，2026-10-06 第十場補齊，`AVAILABLE_SCENES` 已列滿 44 張（含第一章 8 張）。
 - ⬜ **第二到六章劇情潤稿與試玩**：五章劇本（`src/game/chapters/ch2-*.ts` 到 `ch6-*.ts`）全是 agent 初稿，Danny 還沒玩過。剩下的留白點：第二章冷卻日誌「三年來兩人份熱負載」的第二個人是誰沒交代（阿彬留言只說「裡面有一個是我」）；第六章 T6 NOVA 最後一句「祝旅途平安，技師」暗示它沒死透。（`day_312` 差一與其他十處時間線矛盾已在第十二場修掉，見第 8 節 #49 到 #51。）
+- ⬜ **NOVA 地圖台詞佇列會落後進度**（第三輪走查，三個代理在五章都重現）：每則台詞停留數秒且不能跳過，玩家走得比佇列快，常在 T2 門口還聽 T1 的台詞。修法方向：訊息帶 roomId，進新艙區丟棄（或快轉）佇列裡其他房的 onEnterRoom；`NovaDialogue.tsx` 已預留 `NOVA_SKIP_EVENT` 可一併做 Enter 跳過。影響演出節奏，方向請 Danny 定。
 - ⬜ **刪模板殘留檔**：第十二場的審計發現 `src/app/favicon.ico`（Next 預設圖，已被 `icon.png` 取代）與 `public/{file,globe,next,vercel,window}.svg`（create-next-app 殘留，無引用）。自動模式不給 agent 刪檔，Danny 執行：`git rm src/app/favicon.ico public/{file,globe,next,vercel,window}.svg` 後 commit。
 - ⬜ **淘汰的原圖只在 Danny 的 Mac 上**：`nova-portrait`、`nova-v2`、`nova-v3`、`nova-id`、`nova-mannequin`、`nova-lowres`、`technician-b` 的 `-original.png` 沒進版控也不需要，另一台電腦看不到是正常的。
 
@@ -277,7 +278,13 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
   - **開著終端機重新整理會回到走路中途點**（追 e2e flaky 挖出的真 bug）：位置存檔靠「連續兩幀同座標」偵測停下，走到終端機旁立刻按 E 時場景先暫停、最後一段路沒存。`PositionReporter` 加 `flush()`，Station 在 `terminal:open` 時補存（用 `roomTracker.roomId` 純查詢，不能用 `update()`——會多發一次 `room:enter`，第一版就是這樣讓八個 e2e 紅掉的）。
   - boot log 隱藏死的關閉鈕與「提示：輸入 hint」頁尾（`TerminalFrame` 加 `onClose?` 與 `hideFooter`），動畫中顯示「Enter 跳過」。
   - **36 台 hint 機械驗證**：寫一次性測試抽出每台 hint 裡「輸入 X」的指令照抄執行（帶上劇本的 env 與 processes），真實缺陷 0 個——28 台直接照抄過關，8 台的答案尾步在「例如…」或要玩家代入 find 輸出的路徑（刻意的組合層設計）。腳本太脆不保留，驗證方法記在這裡：抽取 regex `輸入(?:一次)? ([a-z$][\x20-\x7e]*)`、頓號拆多指令。
-- commit `c0d9dd4` 到 `8aabebb` 再加文件 commit，共二十六筆。待 Danny：刪模板殘留檔（見第 4 節）、決定要不要 push。
+- 第三輪走查（三個新手代理分頭真玩第二到六章，各起自己的 dev server）回報 23 項，當場修掉 19 項：
+  - **cp/mv 的目的地陷阱**（high，ch3 T4 實測永久卡死）：`cp core.cfg config/` 在 config/ 不存在時會默默建出「名叫 config 的檔案」，之後 mkdir 被擋、hint 正解也失效。改成尾斜線目的地必須是既有目錄，否則 ENOENT／ENOTDIR（跟真的 cp 一樣）。
+  - **shell 訊息五處**：mkdir 上層不存在時教 `-p`；`pathNotFound` 含斜線或 `~` 的路徑不再說「這個目錄下…用 ls 看看」（會把人導去錯的地方）；`kill 9 1207` 提示訊號要加 dash；`export NAME = VALUE` 不再把 VALUE 多罵一次；`kill -9` 在回顧卡有自己的說明。
+  - **章節文案十七處**：ch2 六台目標描述補地點、T2 hint 3 改絕對路徑、T6 教 `-name` 要加 `*`；ch3 T3 hint 與 onStuck 補「搬了但還帶點」的救援；ch4 T1 描述補路徑、T2 標題去「管線」術語＋hint 明講完成條件、T4 hint 補「不要帶 -c」、T5 判定防 `>` 覆寫（決策 #58）；ch6 T1 hint 指路、T4 補描述、T5 不劇透核心狀態（決策 #59）、T6 發射程序檔補 `cat launch.txt` 檢查法。
+  - 四項刻意不修，理由與替代修法見決策 #60。
+- 驗證：88 檔 1859 個單元測試全綠，tsc、lint 乾淨；chapters＋happy-path e2e 七個全過（六章正解不受判定嚴格化影響）。
+- commit `c0d9dd4` 到 `e49e566` 再加文件 commit，共三十三筆。待 Danny：刪模板殘留檔與 NOVA 佇列方向（見第 4 節）、決定要不要 push。
 - 下一步：無。候選工作見第 9 節。
 
 ### 2026-10-07（第十一場，M9-8：反斜線跳脫與 grep -w／-o）
@@ -474,6 +481,9 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 | 55 | Fusion Pixel 依「src 掃出的專案用字＋ASCII」切子集（931KB → 49KB，1288 字元），`pnpm font:subset` 重切，`subset.test.ts` 缺字時紅燈 | 顯示的中文字全部寫在 src 裡，掃出來就是完整集合；玩家亂打的罕用字 fallback 系統字型仍可讀，只是不是像素風 | `scripts/subset-font.py`、`fonts.ts` 改回全字型檔 |
 | 56 | NOVA 的 nova-blip 音效維持只在「首次進艙區台詞」播放，其他說話時機（intro、過關、終端機內）刻意靜音 | 第二輪審計發現與設計 4.10 有落差；但 NOVA 台詞很密，每句都 blip 會吵，進艙區那一下已足以建立「這個聲音=NOVA」的連結 | `PlayScreen.tsx` 的 `sfx:play` 呼叫處，想全掛就加進 `NovaDialogue` 與 `DialogueBlock` |
 | 57 | T2 的 cd 陷阱用「hint 3 改絕對路徑＋家目錄放 note.txt 指路」解，`cd` 不帶參數維持跟 bash 一樣靜默 | 新手代理實測裸打 `cd` 會被帶回空的家目錄且三段 hint 全失效；讓 cd 印「已回到家目錄」能救但偏離真實 shell 行為（設計第 1 節：指令教學永遠正確） | `ch1-life-support.ts` T2 的 hints 與 fs |
+| 58 | ch4 T5 的過關判定加 `fileContains(outbox, "它在聽")`：用 `>` 覆寫掉 abin 的舊訊息就不過關 | banner 宣稱「佇列只能追加」但實測覆寫照樣過關，教 `>>` 的關卡不用 `>>` 也能過；改判定比改 fs 禁寫簡單且 e2e 正解（`>>`）不受影響 | `ch4-comms.ts` T5 的 objective.check |
+| 59 | ch6 排程機房（T5）的 banner／onOpen／hint 1 改成不斷言核心已停 | 地圖不鎖終端機順序，亂序先到 T5 會看到「核心：無回應」但核心還活著；每台終端機的 processes 快照是獨立的、不隨章節進度變，文案不斷言是改動最小的解法 | `ch6-nova-core.ts` schedulerTerminal；要做劇情閘門得讓 onOpen 依 solvedTerminals 分支 |
+| 60 | 第三輪走查四項刻意不修：NOVA 台詞佇列落後（要讓訊息帶 roomId、進新房丟棄舊房 onEnterRoom，影響演出節奏，留給 Danny 拍板，見第 4 節）；cat 空檔案不印提示、find 零結果不印提示（偏離真實 shell，前者用 ch6 發射程序檔補檢查指令、後者用 ch2 T6 的 NOVA 台詞教 `*` 替代）；pathNotFound 不偵測「忘打 $」（messages 層拿不到 env，跨層改動大） | 教學價值與「指令行為貼近真實 shell」衝突時，優先改劇本文案不改指令行為 | 各項的替代修法已上；要翻案看第十二場日誌的第三輪段落 |
 
 ## 9. 第一版之後的候選工作
 
