@@ -10,7 +10,10 @@ export interface TerminalFrameProps {
 	title: string;
 	/** 已學指令，顯示在底部列。 */
 	learnedCommands: string[];
-	onClose: () => void;
+	/** 不給就不顯示「[Esc] 關閉」（例如 boot log 這種不能關的過場）。 */
+	onClose?: () => void;
+	/** 隱藏「已學／提示：輸入 hint」底部列（不能打字的過場畫面用，免得誤導）。 */
+	hideFooter?: boolean;
 	children: ReactNode;
 }
 
@@ -21,7 +24,7 @@ const CRT_DURATION_SECONDS = 0.18;
  * 終端機彈窗外框：像素 9-slice 邊框、標題列、底部列與 CRT 開關機動畫。
  * 高度由父層決定，內容區是 flex column，子元素自己決定誰要 `flex-1`。
  */
-export function TerminalFrame({ title, learnedCommands, onClose, children }: TerminalFrameProps) {
+export function TerminalFrame({ title, learnedCommands, onClose, hideFooter = false, children }: TerminalFrameProps) {
 	let learnedText = "（過關後記錄）";
 	if (learnedCommands.length > 0) {
 		learnedText = learnedCommands.join(" ");
@@ -42,22 +45,26 @@ export function TerminalFrame({ title, learnedCommands, onClose, children }: Ter
 		>
 			<div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-game-holo/40 px-3 py-1">
 				<h2 className="truncate text-game-holo">{title}</h2>
-				<button
-					type="button"
-					aria-label="關閉終端機"
-					onClick={onClose}
-					className="shrink-0 cursor-pointer text-game-dim transition-colors hover:text-game-amber focus-visible:text-game-amber focus-visible:outline-none"
-				>
-					[Esc] 關閉
-				</button>
+				{onClose !== undefined && (
+					<button
+						type="button"
+						aria-label="關閉終端機"
+						onClick={onClose}
+						className="shrink-0 cursor-pointer text-game-dim transition-colors hover:text-game-amber focus-visible:text-game-amber focus-visible:outline-none"
+					>
+						[Esc] 關閉
+					</button>
+				)}
 			</div>
 
 			<div className="flex min-h-0 flex-1 flex-col">{children}</div>
 
-			<div className="flex shrink-0 items-center justify-between gap-4 border-t-2 border-game-holo/40 px-3 py-1 text-game-dim">
-				<span className="truncate">{`已學：${learnedText}`}</span>
-				<span className="shrink-0">提示：輸入 hint</span>
-			</div>
+			{!hideFooter && (
+				<div className="flex shrink-0 items-center justify-between gap-4 border-t-2 border-game-holo/40 px-3 py-1 text-game-dim">
+					<span className="truncate">{`已學：${learnedText}`}</span>
+					<span className="shrink-0">提示：輸入 hint</span>
+				</div>
+			)}
 		</motion.div>
 	);
 }

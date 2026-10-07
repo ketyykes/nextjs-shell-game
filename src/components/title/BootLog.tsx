@@ -182,7 +182,7 @@ export function BootLog({
 			onClick={handleAdvance}
 		>
 			<div className="h-[min(80vh,40rem)] w-full max-w-4xl">
-				<TerminalFrame title="冷凍艙喚醒程序" learnedCommands={[]} onClose={() => {}}>
+				<TerminalFrame title="冷凍艙喚醒程序" learnedCommands={[]} hideFooter>
 					<div
 						ref={scrollRef}
 						className="min-h-0 flex-1 overflow-y-auto bg-black px-4 py-3"
@@ -214,9 +214,13 @@ export function BootLog({
 								<DialogueBlock speaker="NOVA" text={novaText} msPerChar={0} />
 							</div>
 						)}
-						{isFinished && (
+						{isFinished ? (
 							<p className="mt-4 animate-pulse text-game-prompt" data-testid="boot-continue">
 								按 Enter 繼續
+							</p>
+						) : (
+							<p className="mt-4 text-game-dim" data-testid="boot-skip">
+								Enter 跳過
 							</p>
 						)}
 					</div>

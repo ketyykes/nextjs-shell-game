@@ -85,3 +85,23 @@ describe("BootLog（打字動畫）", () => {
 		expect(onDone).toHaveBeenCalledTimes(1);
 	});
 });
+
+describe("BootLog 的外框不誤導", () => {
+	it("沒有關閉按鈕也沒有「提示：輸入 hint」頁尾（boot log 不能互動也不能打字）", () => {
+		render(<BootLog textSpeed="instant" novaFirstLine={NOVA_LINE} onDone={vi.fn()} lineGapMs={0} />);
+		expect(screen.queryByLabelText("關閉終端機")).toBeNull();
+		expect(screen.queryByText(/提示：輸入 hint/)).toBeNull();
+	});
+
+	it("動畫播放中顯示「Enter 跳過」，跳過後換成「按 Enter 繼續」", () => {
+		render(<BootLog textSpeed="normal" novaFirstLine={NOVA_LINE} onDone={vi.fn()} lineGapMs={0} />);
+		expect(screen.getByTestId("boot-skip").textContent).toBe("Enter 跳過");
+
+		// 第一次 Enter 跳過動畫直接顯示全部
+		act(() => {
+			press("Enter");
+		});
+		expect(screen.queryByTestId("boot-skip")).toBeNull();
+		expect(screen.getByTestId("boot-continue")).toBeDefined();
+	});
+});
