@@ -15,7 +15,7 @@ import { CharacterSelect } from "@/components/title/CharacterSelect";
 import { SettingsMenu } from "@/components/title/SettingsMenu";
 import type { ChapterOption } from "@/components/title/ChapterSelectPanel";
 import { TitleScreen } from "@/components/title/TitleScreen";
-import { chapterOneLifeSupport, getChapter } from "@/game/chapters";
+import { getChapterMeta, NOVA_FIRST_LINE } from "@/game/chapters/meta";
 import { INTRO_SCENE_IMAGE } from "@/game/story/scenes";
 import { selectHasSave, selectProgress, selectSettings, useGameStore, useStoreHydration } from "@/game/store";
 import type { CharacterId } from "@/game/store/types";
@@ -30,9 +30,6 @@ const INTRO_CARD = {
 	subtitle: "Kepler-9 研究站 · 木星軌道",
 };
 
-/** 開場 boot log 最後接的 NOVA 第一句，其餘句子進地圖後由 PlayScreen 排進對話框。 */
-const NOVA_FIRST_LINE = chapterOneLifeSupport.intro?.[0] ?? "技師，聽得到嗎？";
-
 const CHINESE_NUMERALS = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
 
 function chapterNumeral(chapter: number): string {
@@ -41,16 +38,16 @@ function chapterNumeral(chapter: number): string {
 
 /** 標題副標：有存檔顯示目前進度的章節，例如「資料中心 · 第二章」。 */
 function subtitleFor(chapter: number): string {
-	const definition = getChapter(chapter);
-	return `${definition.deckName} · 第${chapterNumeral(definition.chapter)}章`;
+	const meta = getChapterMeta(chapter);
+	return `${meta.deckName} · 第${chapterNumeral(meta.chapter)}章`;
 }
 
 /** 選章清單：第一章到最遠章節，例如「第二章 資料中心」。 */
 function chapterOptions(furthestChapter: number): ChapterOption[] {
 	const options: ChapterOption[] = [];
 	for (let chapter = 1; chapter <= furthestChapter; chapter += 1) {
-		const definition = getChapter(chapter);
-		options.push({ number: chapter, label: `第${chapterNumeral(chapter)}章 ${definition.deckName}` });
+		const meta = getChapterMeta(chapter);
+		options.push({ number: chapter, label: `第${chapterNumeral(chapter)}章 ${meta.deckName}` });
 	}
 	return options;
 }

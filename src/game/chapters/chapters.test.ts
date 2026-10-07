@@ -6,6 +6,9 @@ import { CHAPTER_COUNT } from "@/game/phaser/events";
 import { getTeachDoc } from "@/game/shell/commands/docs";
 import { deckTerminals } from "@/game/story/decks";
 import { CHAPTERS, chapterTeaches, FINAL_CHAPTER, findTerminal, getChapter, getNextChapter, isChapterComplete } from "./index";
+import { chapterOneLifeSupport } from "./index";
+import { CHAPTER_METAS, NOVA_FIRST_LINE } from "./meta";
+import { readFile } from "node:fs/promises";
 
 interface MarkerProperty {
 	name: string;
@@ -117,5 +120,22 @@ describe("章節註冊表", () => {
 				expect(getTeachDoc(baseName), `第 ${chapter.chapter} 章的「${teach}」查不到說明`).toBeDefined();
 			}
 		}
+	});
+});
+
+describe("章節 metadata（meta.ts 與劇本同步）", () => {
+	it("CHAPTER_METAS 的章節號與艙區名跟 CHAPTERS 一一對應", () => {
+		expect(CHAPTER_METAS.map((meta) => ({ chapter: meta.chapter, deckName: meta.deckName }))).toEqual(
+			CHAPTERS.map((chapter) => ({ chapter: chapter.chapter, deckName: chapter.deckName })),
+		);
+	});
+
+	it("NOVA_FIRST_LINE 等於第一章 intro 的第一句", () => {
+		expect(NOVA_FIRST_LINE).toBe(chapterOneLifeSupport.intro?.[0]);
+	});
+
+	it("meta.ts 不 import 劇本檔，標題頁才不會把六章拉進首載", async () => {
+		const source = await readFile(new URL("./meta.ts", import.meta.url), "utf8");
+		expect(source).not.toMatch(/from "\.\/(ch\d|index)/);
 	});
 });
