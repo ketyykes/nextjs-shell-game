@@ -269,7 +269,11 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
   - **音效**：afinfo 驗過五個檔的時長都合理（按鍵 0.1s、blip 0.05s、門 0.5s、電力 1s、環境 8s），聽感仍待真人試聽。
   - **字型子集化**：`pnpm font:subset`（`scripts/subset-font.py`，需 fonttools）掃 src 用字切出 49KB 子集（決策 #55），production 截圖驗證像素中文字正常。
 - 驗證：87 檔 1842 個單元測試全綠（本場新增 13 個），tsc、lint、`pnpm build` 乾淨；e2e 全套 26 個跑過，`play.spec` Tab 補全與第 3 章兩個失敗單獨重跑都過（併發 flaky，非回歸）。
-- commit `c0d9dd4` 到 `0774707` 共十二筆。待 Danny：刪模板殘留檔（見第 4 節）、決定要不要 push。
+- 第二輪審計（設計漂移對照＋新手代理用 playwright 真玩第一章前兩台）再修一批：
+  - **按 E 漏字 bug**（medium）：開終端機的那一下 e 會漏進剛聚焦的輸入框變成預填字，新手第一個指令變「els」。`TerminalZone.handleInteract` 對該次按鍵 `preventDefault`，e2e 加空輸入框斷言。
+  - **九處新手引導死角**：開場 intro 補「方向鍵走到控制台旁按 E」、T1 過關補指路台詞、T1 banner 與 `commandNotFound` 直通 hint、T1 hint 1 補可操作引導、T2 hint 3 改絕對路徑＋家目錄放 note.txt（決策 #57 的 cd 陷阱）、cat 的 noInput 範例去掉管線噪音、終端機頁尾「（還沒有）」改「（過關後記錄）」。
+  - **設計文件兩處註記**：4.6 遮罩 0.92、4.8 補 T1 三指令例外；nova-blip 播放範圍記成決策 #56。
+- commit `c0d9dd4` 到 `dd6b90c` 共二十一筆。待 Danny：刪模板殘留檔（見第 4 節）、決定要不要 push。
 - 下一步：無。候選工作見第 9 節。
 
 ### 2026-10-07（第十一場，M9-8：反斜線跳脫與 grep -w／-o）
@@ -464,6 +468,8 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 | 53 | CI（GitHub Actions）只跑 lint、tsc、單元測試、build，不跑 e2e；sitemap 與 `metadataBase` 的網域吃 `NEXT_PUBLIC_SITE_URL`，沒設時用 localhost；分頁 icon 用 nova-eye 縮 64px | e2e 要裝 Playwright 瀏覽器、吃 CI 分鐘數，而且走路類測試在共用 runner 上容易 flaky；網域還沒定 | `.github/workflows/ci.yml`、`src/app/sitemap.ts`、`layout.tsx`、`icon.png` |
 | 54 | `directoryNeedsRecursive` 改成呼叫端傳完整示範指令（grep 帶樣式、cp 帶目的地） | 原本一律建議「指令 -r 路徑」，grep 照著打會把樣式當路徑搜錯東西、cp 會缺目的地再錯一次，對新手是陷阱 | `messages.ts` 與 rm／cp／grep 三個呼叫端 |
 | 55 | Fusion Pixel 依「src 掃出的專案用字＋ASCII」切子集（931KB → 49KB，1288 字元），`pnpm font:subset` 重切，`subset.test.ts` 缺字時紅燈 | 顯示的中文字全部寫在 src 裡，掃出來就是完整集合；玩家亂打的罕用字 fallback 系統字型仍可讀，只是不是像素風 | `scripts/subset-font.py`、`fonts.ts` 改回全字型檔 |
+| 56 | NOVA 的 nova-blip 音效維持只在「首次進艙區台詞」播放，其他說話時機（intro、過關、終端機內）刻意靜音 | 第二輪審計發現與設計 4.10 有落差；但 NOVA 台詞很密，每句都 blip 會吵，進艙區那一下已足以建立「這個聲音=NOVA」的連結 | `PlayScreen.tsx` 的 `sfx:play` 呼叫處，想全掛就加進 `NovaDialogue` 與 `DialogueBlock` |
+| 57 | T2 的 cd 陷阱用「hint 3 改絕對路徑＋家目錄放 note.txt 指路」解，`cd` 不帶參數維持跟 bash 一樣靜默 | 新手代理實測裸打 `cd` 會被帶回空的家目錄且三段 hint 全失效；讓 cd 印「已回到家目錄」能救但偏離真實 shell 行為（設計第 1 節：指令教學永遠正確） | `ch1-life-support.ts` T2 的 hints 與 fs |
 
 ## 9. 第一版之後的候選工作
 
