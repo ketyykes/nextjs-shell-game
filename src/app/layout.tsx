@@ -15,7 +15,14 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Kepler-9",
-  description: "在廢棄太空站用 shell 指令解謎的恐怖冒險",
+  description:
+    "在廢棄太空站用 shell 指令解謎的恐怖冒險。俯視角像素探索，六章從 ls、cd 一路教到 ps、kill，專為沒碰過終端機的新手設計。",
+  openGraph: {
+    title: "Kepler-9",
+    description: "在廢棄太空站用 shell 指令解謎的恐怖冒險。",
+    type: "website",
+    locale: "zh_TW",
+  },
 };
 
 export default function RootLayout({
