@@ -17,13 +17,14 @@ async function openCryoTerminal(page: Page): Promise<void> {
 	// 場景剛就緒的第一幀鍵盤可能還沒接上，稍等再按
 	await page.waitForTimeout(300);
 
-	// 往左走再往上走，直到 HUD 出現「按 E」提示；走偏就往下退回去重走一次
+	// 角色若已站在終端機旁（reload 還原位置），等 nearby 偵測跟上就好，不要再走路走離它
 	let reached = await page
 		.getByTestId("interact-hint")
-		.waitFor({ timeout: 500 })
+		.waitFor({ timeout: 1500 })
 		.then(() => true)
 		.catch(() => false);
-	for (let attempt = 0; attempt < 2 && !reached; attempt += 1) {
+	// 往左走再往上走，直到 HUD 出現「按 E」提示；走偏就往下退回去重走一次
+	for (let attempt = 0; attempt < 3 && !reached; attempt += 1) {
 		await page.keyboard.down("ArrowLeft");
 		await page.waitForTimeout(700);
 		await page.keyboard.up("ArrowLeft");

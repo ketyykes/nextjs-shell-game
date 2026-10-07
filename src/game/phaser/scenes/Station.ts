@@ -476,6 +476,9 @@ export class Station extends Phaser.Scene {
 		this.unsubscribers.push(
 			onGameEvent("terminal:open", () => {
 				this.player.setInputEnabled(false);
+				// 場景即將暫停、update 不再跑；走到終端機旁立刻按 E 的位置要在這裡補存，
+				// 不然開著終端機重新整理會回到上一個停下點
+				this.positionReporter.flush(this.player.x, this.player.y, this.roomTracker.update(this.player.x, this.player.y));
 			}),
 			onGameEvent("terminal:close", () => {
 				if (this.scene.isPaused()) {

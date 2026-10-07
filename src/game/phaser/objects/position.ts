@@ -49,6 +49,25 @@ export class PositionReporter {
 		this.lastReported = rounded;
 		emitGameEvent("player:stopped", { ...rounded, roomId });
 	}
+
+	/**
+	 * 立刻回報目前位置，不等「連續兩幀同座標」的停止偵測。
+	 * 開終端機會暫停場景、update 不再跑，走到終端機旁立刻按 E 的那段路就存不到；
+	 * 場景暫停前呼叫這裡，重新整理後角色才會從終端機旁出發。
+	 */
+	flush(x: number, y: number, roomId: RoomId | null): void {
+		this.moving = false;
+		this.previous = { x, y };
+		if (roomId === null) {
+			return;
+		}
+		const rounded = { x: Math.round(x), y: Math.round(y) };
+		if (this.lastReported !== null && this.lastReported.x === rounded.x && this.lastReported.y === rounded.y) {
+			return;
+		}
+		this.lastReported = rounded;
+		emitGameEvent("player:stopped", { ...rounded, roomId });
+	}
 }
 
 function isFiniteNumber(value: unknown): value is number {

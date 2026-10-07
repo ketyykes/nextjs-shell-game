@@ -60,6 +60,45 @@ describe("PositionReporter", () => {
 	});
 });
 
+describe("PositionReporter.flush", () => {
+	let stopped: GameEventMap["player:stopped"][];
+	let unsubscribe: () => void;
+
+	beforeEach(() => {
+		stopped = [];
+		unsubscribe = onGameEvent("player:stopped", (payload) => {
+			stopped.push(payload);
+		});
+	});
+
+	afterEach(() => {
+		unsubscribe();
+		EventBus.removeAllListeners();
+	});
+
+	it("走路途中 flush 立刻發事件：開終端機暫停場景前要把目前位置寫進存檔", () => {
+		const reporter = new PositionReporter();
+		reporter.update(100, 200, "cryo");
+		reporter.update(110, 200, "cryo");
+		// 還在移動（沒有連續兩幀同座標），接著場景就被暫停了
+		reporter.flush(128.4, 480.6, "cryo");
+		expect(stopped).toEqual([{ x: 128, y: 481, roomId: "cryo" }]);
+	});
+
+	it("flush 到同一點不重複發", () => {
+		const reporter = new PositionReporter();
+		reporter.flush(128, 480, "cryo");
+		reporter.flush(128, 480, "cryo");
+		expect(stopped).toEqual([{ x: 128, y: 480, roomId: "cryo" }]);
+	});
+
+	it("艙區外 flush 不發", () => {
+		const reporter = new PositionReporter();
+		reporter.flush(128, 480, null);
+		expect(stopped).toEqual([]);
+	});
+});
+
 describe("resolveSpawnPoint", () => {
 	const fallback = { x: 96, y: 560 };
 	const bounds = { width: 1280, height: 768 };
