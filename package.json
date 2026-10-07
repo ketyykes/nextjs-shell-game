@@ -10,6 +10,7 @@
     "test": "vitest",
     "test:e2e": "playwright test",
     "sprites:slice": "node scripts/slice-sprites.mjs",
+    "font:subset": "python3 scripts/subset-font.py",
     "map:build": "node scripts/build-map.mjs"
   },
   "dependencies": {

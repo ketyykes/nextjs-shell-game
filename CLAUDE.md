@@ -52,6 +52,9 @@ pnpm map:build
 
 # 把 codex 產的場景原圖縮成 640x360 (public/scenes) 與 256x144 預覽 (docs/assets-draft/scenes)
 node scripts/resize-scenes.mjs
+
+# 重切 Fusion Pixel 字型子集 (劇本或 UI 加了新中文字、subset.test.ts 紅燈時跑；需要 fonttools 與 brotli)
+pnpm font:subset
 ```
 
 ## 測試

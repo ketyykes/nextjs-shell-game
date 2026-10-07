@@ -16,9 +16,11 @@ export const pressStart2P = Press_Start_2P({
 	variable: "--font-press-start",
 });
 
-// 繁體中文像素字型（12px 比例版），負責所有中文字，像素字型不需要度量補償
+// 繁體中文像素字型（12px 比例版），負責所有中文字，像素字型不需要度量補償。
+// .subset.woff2 是 `pnpm font:subset` 從全字型切出的專案用字子集（931KB → 49KB），
+// 劇本加了新字就重跑；玩家打出子集沒有的字會 fallback 系統字型，可讀只是不是像素風
 export const fusionPixel = localFont({
-	src: "./fonts/fusion-pixel-12px-proportional-zh_hant.woff2",
+	src: "./fonts/fusion-pixel-12px-proportional-zh_hant.subset.woff2",
 	variable: "--font-fusion-pixel",
 	display: "swap",
 	adjustFontFallback: false,
