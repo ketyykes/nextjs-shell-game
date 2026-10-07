@@ -9,6 +9,18 @@
 import type { CommandDoc } from "../types";
 
 export const CONCEPT_DOCS: Record<string, CommandDoc> = {
+	// kill 有指令條目，但「kill -9」是獨立的教學項目（teaches 兩個都列），
+	// 回顧卡查完整字串才分得出兩列的差別
+	"kill -9": {
+		name: "kill -9",
+		summary: "強制終止不理一般訊號的程序",
+		usage: "kill -9 PID",
+		description: [
+			"kill 是「請程序結束」，程序可以拒絕；kill -9 是強制終止，程序沒有拒絕的機會。",
+			"先用一般的 kill，不聽話的再用 -9。",
+		],
+		examples: [{ command: "kill -9 1207", explanation: "強制終止編號 1207 的程序" }],
+	},
 	">": {
 		name: ">",
 		summary: "把指令的輸出寫進檔案，覆蓋原本的內容",

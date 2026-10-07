@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { COMMAND_DOC_ORDER, COMMAND_DOCS, getCommandDoc } from "./docs";
+import { COMMAND_DOC_ORDER, COMMAND_DOCS, getCommandDoc, getTeachDoc } from "./docs";
 
 const CHAPTER_ONE_COMMANDS = ["pwd", "ls", "cd", "cat", "help", "hint", "man", "history", "clear"];
 /** 第二到六章的指令，照章節順序接在第一章後面（設計文件 4.3）。 */
@@ -109,5 +109,14 @@ describe("getCommandDoc", () => {
 	it("原型上的名稱不會被當成指令", () => {
 		expect(getCommandDoc("constructor")).toBeUndefined();
 		expect(getCommandDoc("toString")).toBeUndefined();
+	});
+});
+
+describe("getTeachDoc 的 kill -9 專屬條目", () => {
+	it("kill -9 有自己的一句話說明，跟 kill 不同（回顧卡才分得出兩列）", () => {
+		const forceDoc = getTeachDoc("kill -9");
+		const killDoc = getTeachDoc("kill");
+		expect(forceDoc).toBeDefined();
+		expect(forceDoc?.summary).not.toBe(killDoc?.summary);
 	});
 });

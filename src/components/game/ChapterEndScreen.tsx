@@ -81,7 +81,8 @@ function getBaseCommandName(learned: string): string {
 
 /** 查教學項目（指令或 `>`、`|` 這類概念）的一句話說明，查不到回傳空字串。 */
 function getCommandSummary(learned: string): string {
-	const doc = getTeachDoc(getBaseCommandName(learned));
+	// 「kill -9」這種帶旗標的教學項目有自己的條目，先查完整字串再退回指令名
+	const doc = getTeachDoc(learned.trim()) ?? getTeachDoc(getBaseCommandName(learned));
 	if (doc === undefined) {
 		return "";
 	}
