@@ -129,11 +129,11 @@ describe("export 錯誤", () => {
 		expect(result).toEqual({ ok: false, lines: invalidAssignment("=/opt/nova") });
 	});
 
-	it("等號兩邊有空格（拆成 NOVA_DIR、=、/opt/nova 三個參數）時，單獨的 = 回 invalidAssignment", () => {
+	it("等號兩邊有空格（拆成 NOVA_DIR、=、/opt/nova 三個參數）時，只回一次 invalidAssignment，不再罵後面的值", () => {
 		const result = exportCommand.run(["NOVA_DIR", "=", "/opt/nova"], createSystemContext());
 
 		expect(result.ok).toBe(false);
-		expect(result.lines).toEqual([...invalidAssignment("="), ...invalidVariableName("/opt/nova")]);
+		expect(result.lines).toEqual(invalidAssignment("="));
 	});
 
 	it("部分失敗時合法的仍然設定，整體 ok 為 false", () => {
@@ -155,5 +155,16 @@ describe("export 錯誤", () => {
 		const result = exportCommand.run(["-n", "NOVA_DIR"], createSystemContext());
 
 		expect(result).toEqual({ ok: false, lines: unknownOption("export", "-n") });
+	});
+});
+
+describe("export 等號旁有空格", () => {
+	it("export NAME = VALUE 只回一段空格提示，不再把 VALUE 當變數名稱罵", () => {
+		const result = exportCommand.run(["PASSENGERS", "=", "1"], createSystemContext());
+
+		expect(result.ok).toBe(false);
+		const text = result.lines.join("\n");
+		expect(text).toContain("空格");
+		expect(text).not.toContain("不能當變數名稱");
 	});
 });

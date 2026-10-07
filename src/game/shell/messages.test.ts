@@ -279,3 +279,19 @@ describe("所有訊息的共通規則", () => {
 		}
 	});
 });
+
+describe("pathNotFound 依路徑形態分流", () => {
+	it("單純檔名維持「這個目錄下沒有…用 ls 看看」", () => {
+		expect(pathNotFound("wake.txt").join("\n")).toContain("這個目錄下沒有");
+	});
+
+	it("含斜線的路徑不說「這個目錄下」，改教檢查路徑", () => {
+		const text = pathNotFound("/deck2/access.log").join("\n");
+		expect(text).not.toContain("這個目錄下");
+		expect(text).toContain("找不到");
+	});
+
+	it("~ 開頭的路徑同樣不說「這個目錄下」", () => {
+		expect(pathNotFound("~/repir/NOTES.txt").join("\n")).not.toContain("這個目錄下");
+	});
+});

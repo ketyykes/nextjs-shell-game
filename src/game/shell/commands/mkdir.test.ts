@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { fsError, missingOperand, unknownOption } from "../messages";
+import { fsError, missingOperand, mkdirParentMissing, unknownOption } from "../messages";
 import { createFileContext } from "./fileFixtures";
 import { mkdirCommand } from "./mkdir";
 
@@ -38,10 +38,10 @@ describe("mkdir", () => {
 		expect(result).toEqual({ ok: false, lines: fsError("EEXIST", "backup") });
 	});
 
-	it("父目錄不存在時回 ENOENT 訊息", () => {
+	it("父目錄不存在時教玩家用 mkdir -p", () => {
 		const result = mkdirCommand.run(["config/old"], createFileContext());
 
-		expect(result).toEqual({ ok: false, lines: fsError("ENOENT", "config/old") });
+		expect(result).toEqual({ ok: false, lines: mkdirParentMissing("config/old") });
 	});
 
 	it("-p 連父目錄一起建，已存在的目錄也不報錯", () => {
@@ -65,5 +65,17 @@ describe("mkdir", () => {
 		const result = mkdirCommand.run(["-x", "config"], createFileContext());
 
 		expect(result).toEqual({ ok: false, lines: unknownOption("mkdir", "-x") });
+	});
+});
+
+describe("mkdir 上層目錄不存在", () => {
+	it("不加 -p 建多層目錄時，錯誤訊息教玩家用 mkdir -p", () => {
+		const context = createFileContext();
+		const result = mkdirCommand.run(["auth/keys"], context);
+
+		expect(result.ok).toBe(false);
+		const text = result.lines.join("\n");
+		expect(text).toContain("mkdir -p auth/keys");
+		expect(text).not.toContain("用 ls 看看");
 	});
 });

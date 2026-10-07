@@ -8,7 +8,7 @@
  */
 
 import type { CommandDefinition, CommandResult } from "../types";
-import { fsError, missingOperand } from "../messages";
+import { fsError, missingOperand, mkdirParentMissing } from "../messages";
 import { captureFsError, parseFlagArgs } from "./fileArgs";
 
 export const mkdirCommand: CommandDefinition = {
@@ -33,7 +33,12 @@ export const mkdirCommand: CommandDefinition = {
 
 			if (error !== null) {
 				ok = false;
-				lines.push(...fsError(error.code, error.path));
+				// 上層目錄不存在時教 -p；這是教 mkdir -p 的關卡，通用訊息「用 ls 看看」答非所問
+				if (error.code === "ENOENT" && !parents) {
+					lines.push(...mkdirParentMissing(path));
+				} else {
+					lines.push(...fsError(error.code, error.path));
+				}
 			}
 		}
 

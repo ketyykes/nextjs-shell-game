@@ -77,9 +77,21 @@ export function parseError(error: ParseError): string[] {
 // 檔案系統錯誤
 // ---------------------------------------------------------------------------
 
-/** 路徑不存在。 */
+/**
+ * 路徑不存在。
+ * 單純檔名時「這個目錄下沒有」是對的；含斜線或 `~` 的路徑指向別處，
+ * 再說「這個目錄下、用 ls 看看」會把玩家導去錯的地方（新手走查實測三次撞到）。
+ */
 export function pathNotFound(path: string): string[] {
+	if (path.includes("/") || path.startsWith("~")) {
+		return [`找不到 \`${path}\`。檢查路徑有沒有拼錯，或先用 ls 看看上一層目錄裡實際有什麼。`];
+	}
 	return [`這個目錄下沒有 \`${path}\`，用 ls 看看有什麼。`];
+}
+
+/** `mkdir` 的上層目錄不存在：教 -p，不要只說「沒有這個路徑」。 */
+export function mkdirParentMissing(path: string): string[] {
+	return [`上層目錄不存在，要連著父目錄一起建的話用 -p：mkdir -p ${path}。`];
 }
 
 /** 對檔案做了目錄操作，例如 `cd` 到檔案，或路徑中間有一段是檔案。 */

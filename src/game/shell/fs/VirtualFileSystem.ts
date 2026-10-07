@@ -590,9 +590,14 @@ export class VirtualFileSystem implements VirtualFs {
 	/**
 	 * `move` 與 `copy` 共用的目的地解析：
 	 * `to` 是既有目錄就放進它底下並沿用 `sourceName`，否則把 `to` 當成新的完整路徑。
+	 * `to` 以 `/` 結尾代表玩家明確指目錄：目錄不存在就丟錯，不能默默當成新檔名
+	 * （`cp core.cfg config/` 在沒有 config/ 時建出「名叫 config 的檔案」會讓玩家卡死）。
 	 */
 	private resolveTransferDestination(cwd: string, to: string, sourceName: string): TransferDestination {
-		const targetPath = this.resolvePath(cwd, to);
+		const wantsDirectory = to.length > 1 && to.endsWith("/");
+		// 去掉尾斜線再解析，`core.cfg/` 才查得到那個檔案、報得出 ENOTDIR 而不是 ENOENT
+		const strippedTo = wantsDirectory ? to.replace(/\/+$/, "") : to;
+		const targetPath = this.resolvePath(cwd, strippedTo);
 		let target: FsNode | undefined;
 
 		try {
@@ -607,6 +612,13 @@ export class VirtualFileSystem implements VirtualFs {
 
 		if (target !== undefined && target.type === "dir") {
 			return { parent: target, name: sourceName, absolutePath: joinPath(targetPath, sourceName) };
+		}
+
+		if (wantsDirectory) {
+			if (target === undefined) {
+				throw new FsError("ENOENT", to);
+			}
+			throw new FsError("ENOTDIR", to);
 		}
 
 		return {

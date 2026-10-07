@@ -715,6 +715,16 @@ describe("寫入操作", () => {
 		});
 	});
 
+	describe("move 的目的地斜線", () => {
+		it("目的地以 / 結尾但目錄不存在時丟 ENOENT，來源不動", () => {
+			const fs = createCh3Fs();
+			expect(() => fs.move("/deck3/reactor", "status.txt", "config/")).toThrowError(
+				expect.objectContaining({ code: "ENOENT", path: "config/" }),
+			);
+			expect(fs.exists("/deck3/reactor", "status.txt")).toBe(true);
+		});
+	});
+
 	describe("copy", () => {
 		it("複製檔案成新名字，內容相同、mtime 是現在、擁有者是玩家、權限保留", () => {
 			const fs = createCh3Fs();
@@ -731,6 +741,21 @@ describe("寫入操作", () => {
 			});
 			expect(fs.getFile("/deck3/reactor", "backup/core.cfg").owner).toBe("chief");
 			expect(fs.getDir("/", "/deck3/reactor").mtime).toBe(nowIso);
+		});
+
+		it("目的地以 / 結尾但目錄不存在時丟 ENOENT，不可以默默建成檔案", () => {
+			const fs = createCh3Fs();
+			expect(() => fs.copy("/deck3/reactor", "status.txt", "config/")).toThrowError(
+				expect.objectContaining({ code: "ENOENT", path: "config/" }),
+			);
+			expect(fs.exists("/deck3/reactor", "config")).toBe(false);
+		});
+
+		it("目的地以 / 結尾但是個檔案時丟 ENOTDIR", () => {
+			const fs = createCh3Fs();
+			expect(() => fs.copy("/deck3/reactor", "backup/core.cfg", "status.txt/")).toThrowError(
+				expect.objectContaining({ code: "ENOTDIR", path: "status.txt/" }),
+			);
 		});
 
 		it("目標是既有目錄時複製進去並保留原名", () => {

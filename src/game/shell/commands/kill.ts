@@ -54,6 +54,14 @@ function parseKillArgs(args: string[]): KillParseResult {
 		}
 	}
 
+	// `kill 9 1207` 是本章最典型的手滑：9 不是 PID，是忘了 dash 的訊號
+	if (pids.length > 1 && (pids[0] === "9" || pids[0] === "15")) {
+		return {
+			ok: false,
+			lines: [`訊號要加 dash。你是不是要打 kill -${pids[0]} ${pids.slice(1).join(" ")}？`],
+		};
+	}
+
 	return { ok: true, force, pids };
 }
 

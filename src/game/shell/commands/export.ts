@@ -63,6 +63,10 @@ export const exportCommand: CommandDefinition = {
 
 			if (equalsIndex === 0) {
 				errors.push(...invalidAssignment(arg));
+				// `export NAME = VALUE` 的空格錯誤：後面的 VALUE 是同一個失誤，不再逐參數報錯
+				if (arg === "=") {
+					break;
+				}
 				continue;
 			}
 

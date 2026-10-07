@@ -143,3 +143,14 @@ describe("kill 錯誤", () => {
 		expect(result).toEqual({ ok: false, lines: unknownOption("kill", signal) });
 	});
 });
+
+describe("kill 忘記 dash 的訊號", () => {
+	it("kill 9 1207 提示訊號要加 dash，不把 9 當成程序編號", () => {
+		const result = killCommand.run(["9", "3141"], createSystemContext());
+
+		expect(result.ok).toBe(false);
+		const text = result.lines.join("\n");
+		expect(text).toContain("kill -9 3141");
+		expect(text).not.toContain("沒有編號 9");
+	});
+});
