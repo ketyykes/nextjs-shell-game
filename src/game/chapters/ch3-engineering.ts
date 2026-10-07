@@ -254,7 +254,7 @@ const storageTerminal: TerminalDefinition = {
 	initialCwd: "/deck3/storage",
 	banner: ["KEPLER-9 零件倉管理台 v1.4", "共用帳號 eng 登入中。"],
 	hints: [
-		"反應爐的零件清單不在一般列表裡，名字前面多了一個點。把它放回 inventory/，檔名照 inventory/ 裡那幾份清單的格式。",
+		"反應爐的零件清單不在一般列表裡，名字前面多了一個點。把它放回 inventory/，搬的時候把開頭的點拿掉，不然它還是隱藏檔。",
 		"ls -a 看得到隱藏檔。mv 來源 目的地 可以搬檔案，目的地寫成新名字就順便改名。",
 		"輸入 ls -a，再輸入 mv .parts_list.txt inventory/parts_list.txt。",
 	],
@@ -276,6 +276,7 @@ const storageTerminal: TerminalDefinition = {
 		onStuck: [
 			"清單不在一般的列表裡，技師。名字前面有個點的檔案，要多加一個選項才看得到。",
 			"找到之後用 mv 一次搬進 inventory，名字也一起改好。",
+			"已經搬進去但名字還帶著點的話，ls -a inventory 找得到它，再 mv 一次改名就好。",
 		],
 	},
 	fs: {

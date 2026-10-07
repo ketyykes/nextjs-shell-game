@@ -173,7 +173,7 @@ const entryTerminal: TerminalDefinition = {
 	initialCwd: "/deck6/entry",
 	banner: ["KEPLER-9 核心艙登錄台 v4.1", "授權人員限定。目前登入：tech"],
 	hints: [
-		"核心艙要先確認 NOVA 的狀態。站上正在跑的程式叫「程序」，有指令可以把它們全部列出來。",
+		"核心艙要先確認 NOVA 的狀態。登錄台的 welcome.txt 寫了進艙前要做什麼，先 cat 它。",
 		"試試 ps，它會列出所有程序的編號、執行者、啟動時間與指令。",
 		"輸入 ps，找 COMMAND 欄是 /opt/nova/nova --core 的那一列，看它的 STARTED 欄。",
 	],
@@ -479,6 +479,7 @@ const coreTerminal: TerminalDefinition = {
 	],
 	objective: {
 		title: "終止 NOVA 的核心程序",
+		description: "核心控制台在 NOVA 核心室，程序編號用 ps 查。",
 		check: noProcessMatching("nova --core"),
 	},
 	// NOVA 死，燈全滅，之後維持黑
@@ -539,9 +540,9 @@ const schedulerTerminal: TerminalDefinition = {
 	...terminalIdentity(5),
 	teaches: [],
 	initialCwd: "/deck6/scheduler",
-	banner: ["KEPLER-9 排程機房終端機 v3.3", "排程服務：執行中。核心：無回應。"],
+	banner: ["KEPLER-9 排程機房終端機 v3.3", "排程服務：執行中。"],
 	hints: [
-		"核心停了，排程服務還在跑，它會把核心重新叫醒。先看排程表寫了什麼，再找出排程程序。",
+		"排程服務會定時把核心叫醒，核心要保持停止，排程也得停。先看排程表寫了什麼，再找出排程程序。",
 		"grep -r 可以搜遍 crontab 目錄；ps | grep scheduler 只留下排程程序。排程程序也不理一般的 kill。",
 		`輸入 ps | grep scheduler 找出 PID，再輸入 kill -9 ${SCHEDULER_PID}。`,
 	],
@@ -552,7 +553,7 @@ const schedulerTerminal: TerminalDefinition = {
 	},
 	nova: {
 		onEnterRoom: ["……"],
-		onOpen: ["[自動回覆] 核心程序無回應。排程服務：執行中。下次喚醒核心：287 秒後。"],
+		onOpen: ["[自動回覆] 排程服務：執行中。喚醒檢查週期：300 秒。"],
 		onSolved: ["[自動回覆] 排程服務已停止。", "[自動回覆] 核心喚醒排程：取消。"],
 		onStuck: ["[自動回覆] 偵測到操作停滯。排程程序仍在執行，ps 可列出程序編號。"],
 	},
@@ -657,7 +658,7 @@ const escapeTerminal: TerminalDefinition = {
 		onEnterRoom: ["……"],
 		onOpen: ["[自動回覆] 逃生艙 EP-2：待命。發射條件：未滿足。"],
 		onSolved: ["[自動回覆] 發射條件：全部滿足。艙門解鎖。", "[自動回覆] 乘員：1。祝旅途平安，技師。"],
-		onStuck: ["[自動回覆] 發射程序檔列出三個條件，env 與 ps 可檢查目前狀態。"],
+		onStuck: ["[自動回覆] 發射程序檔列出三個條件，cat launch.txt、env 與 ps 可檢查目前狀態。"],
 	},
 	env: {
 		POD: "EP-2",
@@ -679,7 +680,7 @@ const escapeTerminal: TerminalDefinition = {
 						"2. 把發射碼寫進 launch.txt",
 						"3. 環境變數 PASSENGERS 設為實際乘員數",
 						"4. 艙門鎖程序 pod-lock 停止後才能發射",
-						"狀態檢查：env 看變數，ps 看程序",
+						"狀態檢查：cat launch.txt 看發射碼、env 看變數、ps 看程序",
 					),
 				},
 				"launch.txt": {

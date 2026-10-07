@@ -166,7 +166,7 @@ const entryTerminal: TerminalDefinition = {
 	],
 	objective: {
 		title: "把站台呼號寫進 callsign.txt",
-		description: "對外通訊要先登錄呼號。",
+		description: "呼號要寫進 /deck4/comms/callsign.txt。",
 		check: all(fileExists(CALLSIGN_PATH), fileContains(CALLSIGN_PATH, CALLSIGN)),
 	},
 	nova: {
@@ -290,12 +290,12 @@ const relayTerminal: TerminalDefinition = {
 	initialCwd: "/deck4/relay",
 	banner: ["KEPLER-9 中繼機房終端機 v2.7", "中繼網路：狀態不明。"],
 	hints: [
-		"巡檢紀錄裡回應過的中繼站很多，但那大多是撤離前的事。你要找的是最新一輪還有回應的那一座。",
+		"巡檢紀錄裡回應過的中繼站很多，但那大多是撤離前的事。你要找的是最新一輪還有回應的那一座——而且這一關要用一條 | 把兩個指令接起來才算完成。",
 		"| 會把左邊指令的輸出交給右邊的指令。先用 grep 挑出有「回應」的行，再交給 tail 只看最後一行。ls stations | wc -l 可以數出一共有幾座中繼站。",
 		"輸入 grep 回應 ping.log | tail -n 1。",
 	],
 	objective: {
-		title: "用管線找出最新一輪還在線的中繼站",
+		title: "找出最新一輪還有回應的中繼站",
 		description: "巡檢紀錄太長，一個指令看不完。",
 		check: all(usesPipe(), outputContains("來源：站內")),
 	},
@@ -445,7 +445,7 @@ const signalTerminal: TerminalDefinition = {
 	banner: ["KEPLER-9 訊號處理台 v3.2", "求救訊號範本：損毀，殘存 6 段碎片。"],
 	hints: [
 		"求救訊號被切成好幾段碎片，而且彼此重複。把碎片接起來、照編號排好、去掉重複，再存成 signal.txt。",
-		"uniq 只會合併「相鄰」的重複行，所以要先 sort 讓相同的行靠在一起，再用 | 交給 uniq；sort -u 也能一次做完。最後用 > 存檔。",
+		"uniq 只會合併「相鄰」的重複行，所以要先 sort 讓相同的行靠在一起，再用 | 交給 uniq；sort -u 也能一次做完。最後用 > 存檔，存檔時不要帶 -c，次數前綴不是訊號的一部分。",
 		"輸入 sort fragments/* | uniq > signal.txt。",
 	],
 	objective: {
@@ -525,7 +525,7 @@ const archiveTerminal: TerminalDefinition = {
 	objective: {
 		title: "把求救訊號加進發送佇列，確認傳送紀錄",
 		description: "佇列裡還有別人的訊息，不要覆寫。",
-		check: all(fileContains(OUTBOX_PATH, "MAYDAY"), readsTransmissionRecord()),
+		check: all(fileContains(OUTBOX_PATH, "MAYDAY"), fileContains(OUTBOX_PATH, "它在聽"), readsTransmissionRecord()),
 	},
 	// 讀到 /dev/null 與 nova-core 的那一刻，燈閃了一下
 	effect: { kind: "flicker" },

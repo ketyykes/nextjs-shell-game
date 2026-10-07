@@ -119,7 +119,7 @@ const entryTerminal: TerminalDefinition = {
 	],
 	objective: {
 		title: "查出最近是誰進出資料中心",
-		description: "門禁紀錄一行一筆，舊的在上、新的在下。",
+		description: "入口登錄台的門禁紀錄一行一筆，舊的在上、新的在下。",
 		check: any(commandTouches("tail", ACCESS_LOG_PATH), all(anyCommandIs("tail"), commandTouches("cat", ACCESS_LOG_PATH))),
 	},
 	nova: {
@@ -254,11 +254,11 @@ const archiveTerminal: TerminalDefinition = {
 	hints: [
 		"三十段日誌，每段應該剛好 3 行。先找出哪一段的行數不對，再讀它的開頭。",
 		"wc -l 會算出檔案有幾行，可以一次給很多個檔案，* 代表任意文字；head -n 5 只看前 5 行。",
-		"輸入 cd evac，再輸入 wc -l evac_*.log 比對行數，找到不是 3 行的那段，例如 head -n 5 evac_011.log。",
+		"輸入 cd /deck2/archive/evac，再輸入 wc -l evac_*.log 比對行數，找到不是 3 行的那段，例如 head -n 5 evac_011.log。",
 	],
 	objective: {
 		title: "找出撤離當晚行數不對的那段日誌",
-		description: "封存索引說每段固定 3 行。",
+		description: "日誌封存庫的封存索引說每段固定 3 行。",
 		check: readsFile(BROADCAST_SEGMENT_PATH),
 	},
 	nova: {
@@ -357,6 +357,7 @@ const racksTerminal: TerminalDefinition = {
 	],
 	objective: {
 		title: "查出撤離當晚是誰鎖了艙門",
+		description: "艙門事件日誌存在機櫃區的機櫃上。",
 		check: all(anyCommandIs("grep"), outputContains(NOVA_LOCK_MARK)),
 	},
 	// 看到來源是 NOVA 的那一刻，燈閃一下
@@ -461,7 +462,7 @@ const coolingTerminal: TerminalDefinition = {
 	],
 	objective: {
 		title: "找出冷卻日誌裡所有的異常紀錄",
-		description: "各季日誌依年份放在 logs/ 底下。",
+		description: "冷卻監控台的各季日誌依年份放在 logs/ 底下。",
 		check: all(any(anyCommandIs("grep"), readsFile(ABIN_COOLING_PATH)), outputContains(ABIN_COOLING_MARK)),
 	},
 	// 兩人份的熱負載：走廊盡頭人影閃一幀
@@ -534,7 +535,7 @@ const backupTerminal: TerminalDefinition = {
 	],
 	objective: {
 		title: "找出撤離當晚的回滾日誌",
-		description: "回滾作業日誌的檔名是 rollback_<日期>.log。",
+		description: "備援機房裡，回滾作業日誌的檔名是 rollback_<日期>.log。",
 		check: readsFile(ROLLBACK_LOG_PATH),
 	},
 	nova: {
@@ -666,13 +667,14 @@ const exitTerminal: TerminalDefinition = {
 	],
 	objective: {
 		title: "用有效的鑰匙打開資料中心艙門",
+		description: "鑰匙檔藏在出口旁的 vault 裡，找出 ACTIVE 的那把。",
 		check: readsFile(ACTIVE_KEY_PATH),
 	},
 	// 門開，通往工程艙
 	effect: { kind: "openDoor", doorId: EXIT_DOOR_ID },
 	nova: {
 		onEnterRoom: ["資料中心的出口。門後是往工程艙的通道。"],
-		onOpen: ["門鎖要一把有效的鑰匙。技師，你今天學的東西就夠用了。"],
+		onOpen: ["門鎖要一把有效的鑰匙。技師，你今天學的東西就夠用了。", "-name 比對的是完整檔名，樣式兩邊加 * 才接受部分符合。"],
 		onSolved: ["鑰匙有效。開門。", "你看，這次我沒有鎖。"],
 		onStuck: ["鑰匙不只一把，舊的都撤銷了。", "技師，先把每一把都找出來，再看哪一把還寫著 ACTIVE。"],
 	},

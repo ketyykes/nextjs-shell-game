@@ -417,11 +417,11 @@ describe("第三章文字", () => {
 		}
 	});
 
-	it("每台終端機都有 NOVA 卡關台詞，一到兩句", () => {
+	it("每台終端機都有 NOVA 卡關台詞，一到三句（T3 的第三句是搬錯狀態的救援）", () => {
 		for (const terminal of chapterThreeEngineering.terminals) {
 			const length = terminal.nova?.onStuck?.length ?? 0;
 			expect(length, terminal.id).toBeGreaterThanOrEqual(1);
-			expect(length, terminal.id).toBeLessThanOrEqual(2);
+			expect(length, terminal.id).toBeLessThanOrEqual(3);
 		}
 	});
 
