@@ -17,7 +17,7 @@ import type { FsErrorCode, ParseError, RegexErrorCode } from "./types";
 
 /** 指令不存在。 */
 export function commandNotFound(name: string): string[] {
-	return [`找不到指令 \`${name}\`，輸入 help 看看目前會的指令。`];
+	return [`找不到指令 \`${name}\`，輸入 help 看看目前會的指令，或輸入 hint 拿提示。`];
 }
 
 /** 忘記空格，例如 `cdmedbay` 其實是 `cd medbay`。 */

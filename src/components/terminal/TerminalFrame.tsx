@@ -22,7 +22,7 @@ const CRT_DURATION_SECONDS = 0.18;
  * 高度由父層決定，內容區是 flex column，子元素自己決定誰要 `flex-1`。
  */
 export function TerminalFrame({ title, learnedCommands, onClose, children }: TerminalFrameProps) {
-	let learnedText = "（還沒有）";
+	let learnedText = "（過關後記錄）";
 	if (learnedCommands.length > 0) {
 		learnedText = learnedCommands.join(" ");
 	}

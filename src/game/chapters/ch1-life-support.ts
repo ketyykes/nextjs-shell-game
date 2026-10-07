@@ -49,9 +49,9 @@ const cryoTerminal: TerminalDefinition = {
 	roomId: "cryo",
 	teaches: ["pwd", "ls", "cat"],
 	initialCwd: "/home/tech",
-	banner: ["KEPLER-9 冷凍艙控制台 v2.3", "低功率模式。輸入 help 查看可用指令。"],
+	banner: ["KEPLER-9 冷凍艙控制台 v2.3", "低功率模式。卡關就輸入 hint，我會提示你。"],
 	hints: [
-		"先搞清楚你在哪裡、周圍有什麼。終端機裡「看」的方式是用指令。",
+		"先搞清楚你在哪裡、周圍有什麼。終端機裡「看」的方式是用指令。再輸入一次 hint，我直接教你第一個。",
 		"試試 ls，它會列出這個目錄裡的東西。看到檔案之後，用 cat 讀它。",
 		"輸入 ls，然後輸入 cat wake_up.txt。喚醒排程寫在那個檔案裡。",
 	],
@@ -62,7 +62,7 @@ const cryoTerminal: TerminalDefinition = {
 	nova: {
 		onEnterRoom: ["喚醒程序……完成。", "你是……我查不到你的名字。", "這不太對。應該有名字的。"],
 		onOpen: ["這台控制台還有電。技師，試著看看裡面有什麼。"],
-		onSolved: ["名單上五個人，冷凍艙六個。", "你是第六個。我沒有第六個的紀錄。"],
+		onSolved: ["名單上五個人，冷凍艙六個。", "你是第六個。我沒有第六個的紀錄。", "先去隔壁的維生艙吧。主艙門為什麼沒電，那裡的監控台查得到。"],
 		onStuck: ["技師，你一直停在原地。", "先弄清楚你在哪裡、身邊有什麼。這台控制台只認指令，連「看」都要用指令。"],
 	},
 	fs: {
@@ -150,7 +150,7 @@ const lifeSupportTerminal: TerminalDefinition = {
 	hints: [
 		"三個子系統各有自己的目錄，狀態檔在目錄裡面。一個一個走進去看。",
 		"用 cd 加目錄名稱走進去，用 cat 讀狀態檔，cd .. 回到上一層。",
-		"輸入 cd power，再輸入 cat status.txt。看完可以用 cd .. 回來看剩下的子系統。",
+		"輸入 cd /deck1/systems/power，再輸入 cat status.txt。開頭是 / 的路徑從任何位置都走得到，迷路了就用它。",
 	],
 	objective: {
 		title: "找出主艙門斷電的原因",
@@ -168,7 +168,13 @@ const lifeSupportTerminal: TerminalDefinition = {
 	},
 	fs: {
 		home: {
-			tech: {},
+			tech: {
+				"note.txt": {
+					$type: "file",
+					mtime: WAKE_MTIME,
+					content: lines("系統提示：維生子系統的監控資料在 /deck1/systems。", "輸入 cd /deck1/systems 可以回到監控目錄。"),
+				},
+			},
 		},
 		deck1: {
 			systems: {
@@ -600,7 +606,7 @@ export const chapterOneLifeSupport: ChapterDefinition = {
 	deckName: "冷凍艙",
 	// 第一章開場斷電，只有角色周圍一圈光，配電箱（T4）過關才亮
 	map: { deck: 1, startDark: true },
-	intro: ["……連線建立。站務系統 NOVA，低功率模式。", "冷凍艙偵測到一個生命跡象。", "技師，聽得到嗎？先別急著動，燈還不穩。"],
+	intro: ["……連線建立。站務系統 NOVA，低功率模式。", "冷凍艙偵測到一個生命跡象。", "技師，聽得到嗎？先別急著動，燈還不穩。", "好了，燈穩了。用方向鍵或 WASD 走到亮著的控制台旁邊，按 E。"],
 	outro: [
 		"資料中心在那邊。",
 		"如果你想知道為什麼名單上沒有你，答案應該在那裡。",

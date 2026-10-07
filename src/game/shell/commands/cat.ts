@@ -38,7 +38,7 @@ export const catCommand: CommandDefinition = {
 		// 沒給檔名時讀管線前一個指令的輸出，例如 ls | cat；不在管線裡就提示要給輸入
 		if (args.length === 0) {
 			if (context.stdin === null) {
-				return { ok: false, lines: noInput("cat", "cat log.txt 或 ls | cat") };
+				return { ok: false, lines: noInput("cat", "cat wake_up.txt") };
 			}
 			return { ok: true, lines: [...context.stdin] };
 		}

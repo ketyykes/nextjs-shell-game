@@ -56,7 +56,7 @@ describe("cat", () => {
 
 		expect(result).toEqual({
 			ok: false,
-			lines: noInput("cat", "cat log.txt 或 ls | cat"),
+			lines: noInput("cat", "cat wake_up.txt"),
 		});
 	});
 

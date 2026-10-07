@@ -266,9 +266,9 @@ describe("Terminal", () => {
 		expect(screen.getByText("提示：輸入 hint")).toBeDefined();
 	});
 
-	it("還沒學任何指令時底部列顯示「還沒有」", () => {
+	it("還沒學任何指令時底部列顯示「過關後記錄」", () => {
 		render(<Harness learnedCommands={[]} />);
-		expect(screen.getByText("已學：（還沒有）")).toBeDefined();
+		expect(screen.getByText("已學：（過關後記錄）")).toBeDefined();
 	});
 
 	it("標題列顯示終端機名稱", () => {
