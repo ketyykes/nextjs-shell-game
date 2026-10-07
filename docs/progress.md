@@ -276,6 +276,7 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
   - **設計文件兩處註記**：4.6 遮罩 0.92、4.8 補 T1 三指令例外；nova-blip 播放範圍記成決策 #56。
   - **開著終端機重新整理會回到走路中途點**（追 e2e flaky 挖出的真 bug）：位置存檔靠「連續兩幀同座標」偵測停下，走到終端機旁立刻按 E 時場景先暫停、最後一段路沒存。`PositionReporter` 加 `flush()`，Station 在 `terminal:open` 時補存（用 `roomTracker.roomId` 純查詢，不能用 `update()`——會多發一次 `room:enter`，第一版就是這樣讓八個 e2e 紅掉的）。
   - boot log 隱藏死的關閉鈕與「提示：輸入 hint」頁尾（`TerminalFrame` 加 `onClose?` 與 `hideFooter`），動畫中顯示「Enter 跳過」。
+  - **36 台 hint 機械驗證**：寫一次性測試抽出每台 hint 裡「輸入 X」的指令照抄執行（帶上劇本的 env 與 processes），真實缺陷 0 個——28 台直接照抄過關，8 台的答案尾步在「例如…」或要玩家代入 find 輸出的路徑（刻意的組合層設計）。腳本太脆不保留，驗證方法記在這裡：抽取 regex `輸入(?:一次)? ([a-z$][\x20-\x7e]*)`、頓號拆多指令。
 - commit `c0d9dd4` 到 `8aabebb` 再加文件 commit，共二十六筆。待 Danny：刪模板殘留檔（見第 4 節）、決定要不要 push。
 - 下一步：無。候選工作見第 9 節。
 
