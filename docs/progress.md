@@ -267,6 +267,7 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
   - **標題頁瘦身**：新增 `chapters/meta.ts`（手寫輕量 metadata，`chapters.test.ts` 守護與劇本一致），TitleFlow 改用它，六章劇本與 zod 不再進 `/` 的首載 JS（也防了劇情文本爆雷）；用 `.next` 產物 grep 劇本字串驗證為零。
   - **vitest**：`pool: "vmThreads"` 重用 jsdom，全套 9.3 秒 → 4 秒。
   - **音效**：afinfo 驗過五個檔的時長都合理（按鍵 0.1s、blip 0.05s、門 0.5s、電力 1s、環境 8s），聽感仍待真人試聽。
+  - **字型子集化**：`pnpm font:subset`（`scripts/subset-font.py`，需 fonttools）掃 src 用字切出 49KB 子集（決策 #55），production 截圖驗證像素中文字正常。
 - 驗證：87 檔 1842 個單元測試全綠（本場新增 13 個），tsc、lint、`pnpm build` 乾淨；e2e 全套 26 個跑過，`play.spec` Tab 補全與第 3 章兩個失敗單獨重跑都過（併發 flaky，非回歸）。
 - commit `c0d9dd4` 到 `0774707` 共十二筆。待 Danny：刪模板殘留檔（見第 4 節）、決定要不要 push。
 - 下一步：無。候選工作見第 9 節。
@@ -462,6 +463,7 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 | 52 | 場景 PNG 用 sharp 做 256 色量化（`palette: true, quality: 100`），只在變小時取代 | 像素風插圖色數本來就少：抽查最大三張 RMSE ≤0.8%、目視無差異，18.8MB 降到 8.3MB；sharp 專案裡就有，不用 brew 裝 oxipng | 重跑 codex 產圖後要再壓一次；嫌有損就 `git revert 2280f97` |
 | 53 | CI（GitHub Actions）只跑 lint、tsc、單元測試、build，不跑 e2e；sitemap 與 `metadataBase` 的網域吃 `NEXT_PUBLIC_SITE_URL`，沒設時用 localhost；分頁 icon 用 nova-eye 縮 64px | e2e 要裝 Playwright 瀏覽器、吃 CI 分鐘數，而且走路類測試在共用 runner 上容易 flaky；網域還沒定 | `.github/workflows/ci.yml`、`src/app/sitemap.ts`、`layout.tsx`、`icon.png` |
 | 54 | `directoryNeedsRecursive` 改成呼叫端傳完整示範指令（grep 帶樣式、cp 帶目的地） | 原本一律建議「指令 -r 路徑」，grep 照著打會把樣式當路徑搜錯東西、cp 會缺目的地再錯一次，對新手是陷阱 | `messages.ts` 與 rm／cp／grep 三個呼叫端 |
+| 55 | Fusion Pixel 依「src 掃出的專案用字＋ASCII」切子集（931KB → 49KB，1288 字元），`pnpm font:subset` 重切，`subset.test.ts` 缺字時紅燈 | 顯示的中文字全部寫在 src 裡，掃出來就是完整集合；玩家亂打的罕用字 fallback 系統字型仍可讀，只是不是像素風 | `scripts/subset-font.py`、`fonts.ts` 改回全字型檔 |
 
 ## 9. 第一版之後的候選工作
 
@@ -469,4 +471,3 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 
 - **真人試玩與調整**：第 4 節的試玩、試聽、潤稿（含第二到六章）。
 - **部署**：`pnpm build` 已過、三個路由都是靜態，可直接上 Vercel 或任何靜態主機；CI 已在第十二場設好（`.github/workflows/ci.yml`），部署後記得設 `NEXT_PUBLIC_SITE_URL`（sitemap 與 OG 圖的網域都吃它）。
-- **Fusion Pixel 字型子集化**：繁中 woff2 931KB 是首載最大單一資產，可用 pyftsubset 依常用字表＋劇本實際用字切子集、unicode-range 分段載入；風險是之後劇本新增罕用字會缺字，要配 CI 用字掃描，所以第十二場沒做。
