@@ -262,9 +262,14 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
   - **效能**：場景 PNG 256 色量化 18.8MB → 8.3MB（決策 #52）；移除全專案沒用到的 Geist 字型（省兩個 preload woff2，production 截圖驗證標題頁正常）。
   - **UX**：`grep 樣式 目錄` 的「加 -r」提示原本會教玩家打出搜錯東西的指令，改成帶樣式與目的地的完整示範（決策 #54）；`head -n 0` 的「0 不是數字」改成「要接 1 以上的整數」。
   - **劇情**：十一處時間線矛盾（決策 #49 到 #51 與：pod_06 建檔 22:14 → 22:16 對齊撤離日誌分段、鎖門與艦長質問兩段對調、回滾從封存範圍內移除、`rollback_nova.sh` 統一成 ch3 玩家親眼看到的 `rollback.sh`、ch6 螢幕牆 15 台 → 24 台輪播、boot log 補「重試 3/3」、man 的 `grep "^21:4"` 範例對 evac log 永遠空輸出 → 改 `"^03:"`）。
-- 驗證：87 檔 1832 個單元測試全綠（新增 3 個），tsc、lint、`pnpm build` 乾淨；e2e 沒重跑（沒動地圖與互動流程，終端機檔案內容的改動由章節測試涵蓋）。
-- commit `c0d9dd4` 到 `b2bb61e` 共九筆。待 Danny：刪模板殘留檔（見第 4 節）、決定要不要 push。
-- 下一步：Tab 補全兩項（管線後補指令名、`$VAR` 路徑補全）、標題頁 351KB 劇本 chunk 瘦身（審計 UX／tech 的剩餘發現）。
+- 後半場把審計剩餘項做完：
+  - **Tab 補全**：管線右邊第一個 token 補指令名（`ps | gr<Tab>`）、`man`／`help` 的參數補指令名、路徑裡的 `$NAME` 用 env 展開查目錄（回填保留玩家原寫法，`CompletionContext` 加選填 `env`）。
+  - **標題頁瘦身**：新增 `chapters/meta.ts`（手寫輕量 metadata，`chapters.test.ts` 守護與劇本一致），TitleFlow 改用它，六章劇本與 zod 不再進 `/` 的首載 JS（也防了劇情文本爆雷）；用 `.next` 產物 grep 劇本字串驗證為零。
+  - **vitest**：`pool: "vmThreads"` 重用 jsdom，全套 9.3 秒 → 4 秒。
+  - **音效**：afinfo 驗過五個檔的時長都合理（按鍵 0.1s、blip 0.05s、門 0.5s、電力 1s、環境 8s），聽感仍待真人試聽。
+- 驗證：87 檔 1842 個單元測試全綠（本場新增 13 個），tsc、lint、`pnpm build` 乾淨；e2e 全套 26 個跑過，`play.spec` Tab 補全與第 3 章兩個失敗單獨重跑都過（併發 flaky，非回歸）。
+- commit `c0d9dd4` 到 `0774707` 共十二筆。待 Danny：刪模板殘留檔（見第 4 節）、決定要不要 push。
+- 下一步：無。候選工作見第 9 節。
 
 ### 2026-10-07（第十一場，M9-8：反斜線跳脫與 grep -w／-o）
 
@@ -463,4 +468,5 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 沒有排定順序，Danny 決定要不要做。
 
 - **真人試玩與調整**：第 4 節的試玩、試聽、潤稿（含第二到六章）。
-- **部署**：`pnpm build` 已過、三個路由都是靜態，可直接上 Vercel 或任何靜態主機；還沒設 CI。
+- **部署**：`pnpm build` 已過、三個路由都是靜態，可直接上 Vercel 或任何靜態主機；CI 已在第十二場設好（`.github/workflows/ci.yml`），部署後記得設 `NEXT_PUBLIC_SITE_URL`（sitemap 與 OG 圖的網域都吃它）。
+- **Fusion Pixel 字型子集化**：繁中 woff2 931KB 是首載最大單一資產，可用 pyftsubset 依常用字表＋劇本實際用字切子集、unicode-range 分段載入；風險是之後劇本新增罕用字會缺字，要配 CI 用字掃描，所以第十二場沒做。
