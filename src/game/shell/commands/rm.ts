@@ -34,7 +34,7 @@ function removeOne(context: CommandContext, path: string, options: RmOptions): s
 	}
 
 	if (isDir && !options.recursive) {
-		return directoryNeedsRecursive("rm", path);
+		return directoryNeedsRecursive("rm", path, `rm -r ${path}`);
 	}
 
 	const removeError = captureFsError(() =>

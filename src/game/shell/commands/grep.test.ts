@@ -2,7 +2,6 @@
 import { describe, expect, it } from "vitest";
 import {
 	conflictingMatchers,
-	directoryNeedsRecursive,
 	fsError,
 	invalidPattern,
 	missingOperand,
@@ -310,7 +309,13 @@ describe("grep 目錄與 -r", () => {
 	it("給目錄但沒加 -r 時提示要加 -r，ok 為 false", () => {
 		const result = grepCommand.run(["ERROR", "archive"], createFilterContext());
 
-		expect(result).toEqual({ ok: false, lines: directoryNeedsRecursive("grep", "archive") });
+		expect(result.ok).toBe(false);
+	});
+
+	it("提示的示範指令保留原本的搜尋樣式，照著打就能用", () => {
+		const result = grepCommand.run(["ERROR", "archive"], createFilterContext());
+
+		expect(result.lines.join("\n")).toContain("grep -r ERROR archive");
 	});
 
 	it("-r 遞迴搜目錄，隱藏檔也搜，路徑用玩家寫法接子路徑", () => {

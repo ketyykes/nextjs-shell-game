@@ -71,6 +71,14 @@ describe("head 數字錯誤", () => {
 		expect(result).toEqual({ ok: false, lines: invalidNumber("head", "0") });
 	});
 
+	it("-n 0 的提示說明要 1 以上的整數，不會說「0 不是數字」", () => {
+		const result = headCommand.run(["-n", "0", "door_events.log"], createFilterContext());
+		const text = result.lines.join("\n");
+
+		expect(text).toContain("1 以上的整數");
+		expect(text).not.toContain("不是數字");
+	});
+
 	it("-n 負數回報 invalidNumber", () => {
 		const result = headCommand.run(["-n", "-3", "door_events.log"], createFilterContext());
 

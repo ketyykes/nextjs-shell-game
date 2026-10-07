@@ -134,11 +134,15 @@ export function fsError(code: FsErrorCode, path: string): string[] {
 	}
 }
 
-/** `rm`、`cp` 對目錄操作但沒加 `-r`。 */
-export function directoryNeedsRecursive(command: string, path: string): string[] {
+/**
+ * `rm`、`cp`、`grep` 對目錄操作但沒加 `-r`。
+ * `example` 是照著打就能用的完整指令，由呼叫端帶上自己的其他參數組出來
+ * （例如 grep 要保留搜尋樣式、cp 要保留目的地），不能只是 `指令 -r 路徑`。
+ */
+export function directoryNeedsRecursive(command: string, path: string, example: string): string[] {
 	return [
 		`\`${path}\` 是目錄，${command} 預設只處理檔案。`,
-		`要連同裡面的東西一起處理，加上 -r：${command} -r ${path}。`,
+		`要連同裡面的東西一起處理，加上 -r：${example}。`,
 	];
 }
 
@@ -161,9 +165,9 @@ export function unknownOption(command: string, option: string): string[] {
 	return [`\`${command}\` 沒有 \`${option}\` 這個選項，輸入 man ${command} 看看有哪些選項可以用。`];
 }
 
-/** 選項需要一個數字但給的不是，例如 `head -n abc`。 */
+/** 選項需要正整數但給的不是，例如 `head -n abc`、`head -n 0`（0 也算無效，所以不能說「不是數字」）。 */
 export function invalidNumber(command: string, value: string): string[] {
-	return [`\`${value}\` 不是數字，${command} 的 -n 後面要接要顯示的行數，例如 ${command} -n 5 檔名。`];
+	return [`\`${value}\` 不是有效的行數，${command} 的 -n 後面要接 1 以上的整數，例如 ${command} -n 5 檔名。`];
 }
 
 /** 指令既沒有檔名參數，也不是管線裡的一環（沒有輸入可讀）。 */

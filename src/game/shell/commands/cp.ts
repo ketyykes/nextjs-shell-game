@@ -24,7 +24,7 @@ function copyOne(context: CommandContext, source: string, destination: string, r
 	}
 
 	if (isDir && !recursive) {
-		return directoryNeedsRecursive("cp", source);
+		return directoryNeedsRecursive("cp", source, `cp -r ${source} ${destination}`);
 	}
 
 	const copyError = captureFsError(() => context.fs.copy(context.cwd, source, destination, { recursive }));

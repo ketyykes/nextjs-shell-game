@@ -231,6 +231,8 @@ interface SearchSettings {
 	context: CommandContext;
 	tester: LineTester;
 	options: GrepOptions;
+	/** 玩家輸入的搜尋樣式原文，組「加上 -r」的示範指令時要帶著。 */
+	pattern: string;
 	/** 是否在每行前加檔案路徑。 */
 	showLabel: boolean;
 }
@@ -269,7 +271,7 @@ function searchFile(settings: SearchSettings, path: string, output: SearchOutput
 		// 沒加 -r 卻給了目錄：提示要加 -r，比單純說「是目錄」更有用
 		if (error instanceof FsError && error.code === "EISDIR" && !options.recursive) {
 			output.ok = false;
-			output.lines.push(...directoryNeedsRecursive("grep", path));
+			output.lines.push(...directoryNeedsRecursive("grep", path, `grep -r ${settings.pattern} ${path}`));
 			return;
 		}
 
@@ -355,6 +357,7 @@ export const grepCommand: CommandDefinition = {
 			context,
 			tester,
 			options,
+			pattern,
 			showLabel: options.recursive || paths.length > 1,
 		};
 		const output: SearchOutput = { ok: true, lines: [] };

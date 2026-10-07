@@ -247,7 +247,7 @@ describe("所有訊息的共通規則", () => {
 			missingCommandForRedirect(">"),
 			permissionDenied("x"),
 			resourceBusy("x"),
-			directoryNeedsRecursive("rm", "x"),
+			directoryNeedsRecursive("rm", "x", "rm -r x"),
 			invalidNumber("head", "abc"),
 			noInput("cat", "cat x"),
 			invalidAssignment("=x"),

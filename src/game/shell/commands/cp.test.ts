@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { directoryNeedsRecursive, fsError, missingOperand, unknownOption } from "../messages";
+import { fsError, missingOperand, unknownOption } from "../messages";
 import { cpCommand } from "./cp";
 import { CORE_CFG_CONTENT, COOLANT_CFG_CONTENT, createFileContext } from "./fileFixtures";
 
@@ -56,8 +56,15 @@ describe("cp", () => {
 		const context = createFileContext();
 		const result = cpCommand.run(["backup", "config"], context);
 
-		expect(result).toEqual({ ok: false, lines: directoryNeedsRecursive("cp", "backup") });
+		expect(result.ok).toBe(false);
 		expect(context.fs.exists(context.cwd, "config")).toBe(false);
+	});
+
+	it("提示的示範指令保留目的地，照著打就能用", () => {
+		const context = createFileContext();
+		const result = cpCommand.run(["backup", "config"], context);
+
+		expect(result.lines.join("\n")).toContain("cp -r backup config");
 	});
 
 	it("沒有參數時提示需要來源和目的地", () => {

@@ -29,7 +29,7 @@ describe("rm", () => {
 		const context = createFileContext();
 		const result = rmCommand.run(["trash"], context);
 
-		expect(result).toEqual({ ok: false, lines: directoryNeedsRecursive("rm", "trash") });
+		expect(result).toEqual({ ok: false, lines: directoryNeedsRecursive("rm", "trash", "rm -r trash") });
 		expect(context.fs.exists(context.cwd, "trash")).toBe(true);
 	});
 
@@ -66,7 +66,7 @@ describe("rm", () => {
 	it("-f 不會讓沒加 -r 的目錄被刪", () => {
 		const result = rmCommand.run(["-f", "trash"], createFileContext());
 
-		expect(result).toEqual({ ok: false, lines: directoryNeedsRecursive("rm", "trash") });
+		expect(result).toEqual({ ok: false, lines: directoryNeedsRecursive("rm", "trash", "rm -r trash") });
 	});
 
 	it.each([["-rf"], ["-fr"]])("%s 合併寫可以用", (flag) => {
