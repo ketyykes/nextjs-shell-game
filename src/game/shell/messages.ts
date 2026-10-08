@@ -233,6 +233,14 @@ export function missingOperand(command: string, what: string): string[] {
 	return [`${command} 需要${what}。`, `不確定怎麼用的話，輸入 man ${command} 看說明。`];
 }
 
+/** `cd` 給了兩個以上的參數，例如 `cd logs 2028`（bash：`cd: too many arguments`）。 */
+export function cdTooManyArguments(): string[] {
+	return [
+		"`cd` 的參數太多了，一次只能走進一個目錄，例如 cd logs。",
+		'要往下走好幾層用 / 接起來，例如 cd logs/2028；名稱裡有空白就用引號包起來，例如 cd "my dir"。',
+	];
+}
+
 /** 不認得的選項，例如 `ls -z`。 */
 export function unknownOption(command: string, option: string): string[] {
 	return [`\`${command}\` 沒有 \`${option}\` 這個選項，輸入 man ${command} 看看有哪些選項可以用。`];

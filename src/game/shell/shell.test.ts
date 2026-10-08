@@ -4,6 +4,7 @@ import { ALL_COMMANDS } from "./commands";
 import { CH1_TEST_SNAPSHOT, createTestFs, OVERRIDE_CONTENT } from "./commands/testFixtures";
 import { VirtualFileSystem } from "./fs";
 import {
+	cdTooManyArguments,
 	commandNotFound,
 	emptyCommand,
 	emptyListCommand,
@@ -785,6 +786,13 @@ describe("Shell 不支援的語法（M13-1）", () => {
 		shell.execute("probe > out.txt ; probe || probe");
 		expect(probe.calls).toHaveLength(0);
 		expect(shell.fs.exists(shell.cwd, "out.txt")).toBe(false);
+	});
+
+	it("cd 的萬用字元展開成好幾個目錄時報參數太多，不換目錄", () => {
+		const shell = createShell();
+		const result = shell.execute("cd pod_*");
+		expect(result).toMatchObject({ isError: true, lines: cdTooManyArguments() });
+		expect(shell.cwd).toBe("/home/tech");
 	});
 
 	it("引號內的這些符號是字面值", () => {

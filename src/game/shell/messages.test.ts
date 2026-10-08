@@ -37,6 +37,7 @@ import {
 	extraOperand,
 	emptyListCommand,
 	unsupportedSyntax,
+	cdTooManyArguments,
 } from "./messages";
 import type { FsErrorCode, ParseErrorCode, RegexErrorCode } from "./types";
 
@@ -167,6 +168,16 @@ describe("; 與 && 的訊息（M13）", () => {
 		expect(text).toContain("`&&`");
 		expect(text).toContain("成功");
 		expect(text).toContain("cd logs && ls");
+	});
+});
+
+describe("cd 參數太多（M13-1）", () => {
+	it("cdTooManyArguments 說明一次只能走進一個目錄，並教 / 與引號", () => {
+		const text = joinLines(cdTooManyArguments());
+		expect(text).toContain("參數太多");
+		expect(text).toContain("一次只能走進一個目錄");
+		expect(text).toContain("cd logs/2028");
+		expect(text).toContain('cd "my dir"');
 	});
 });
 

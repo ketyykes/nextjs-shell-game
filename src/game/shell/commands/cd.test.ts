@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { fsError } from "../messages";
+import { cdTooManyArguments, fsError } from "../messages";
 import { cdCommand } from "./cd";
 import { createContext } from "./testFixtures";
 
@@ -79,9 +79,15 @@ describe("cd", () => {
 		expect(result.nextCwd).toBeUndefined();
 	});
 
-	it("超過一個參數時只看第一個，不報錯", () => {
+	it("超過一個參數時跟 bash 一樣報「參數太多」，不換目錄（M13-1）", () => {
 		const result = cdCommand.run(["pod_01", "pod_02"], createContext());
 
-		expect(result).toEqual({ ok: true, lines: [], nextCwd: "/home/tech/pod_01" });
+		expect(result).toEqual({ ok: false, lines: cdTooManyArguments() });
+	});
+
+	it("參數太多時就算第一個不存在也只報參數太多（bash 先檢查參數個數）", () => {
+		const result = cdCommand.run(["nope", "pod_02"], createContext());
+
+		expect(result.lines).toEqual(cdTooManyArguments());
 	});
 });
