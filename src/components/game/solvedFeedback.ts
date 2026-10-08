@@ -1,6 +1,6 @@
 /**
  * 過關當下的系統級回饋（M10-1）：終端機裡的「目標達成」行與過關音效。
- * 純函式，不碰 store 與 EventBus，由 PlayScreen 的過關流程呼叫。
+ * 純函式，不碰 store 與 EventBus，由過關流程（`useSolveFlow`）呼叫。
  */
 
 import type { SfxName } from "@/game/phaser/events";
