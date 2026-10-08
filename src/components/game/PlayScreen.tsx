@@ -289,12 +289,12 @@ function PlayScreenReady() {
 		window.location.reload();
 	}, [advanceChapter, chapter.chapter, setFlag]);
 
-	// 右側面板組的 Alt 快捷鍵（4.6）：終端機、暫停、設定與章節結束畫面開著時不處理
+	// 右側面板組的 Alt 快捷鍵（4.6）：地圖上與終端機裡都能按（面板疊在彈窗之上），暫停、設定與章節結束畫面開著時不處理
 	const toggleSidePanel = useCallback((id: SidePanelId) => {
 		setSidePanel((current) => (current === id ? null : id));
 	}, []);
 	useSidePanelShortcuts({
-		enabled: openTerminal === null && !menuOpen && !showChapterEnd,
+		enabled: !menuOpen && !showChapterEnd,
 		onToggle: toggleSidePanel,
 	});
 

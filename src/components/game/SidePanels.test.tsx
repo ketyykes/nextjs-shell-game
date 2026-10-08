@@ -71,6 +71,23 @@ describe("SidePanels", () => {
 		expect(screen.getByText("Alt+L 收起")).toBeDefined();
 	});
 
+	it("已學指令的標籤與面板標題列顯示快捷鍵", () => {
+		renderPanels({ active: "commands" });
+		const commandsTab = tab(/已學指令/);
+		expect(commandsTab.textContent).toContain("Alt+C");
+		expect(commandsTab.getAttribute("aria-keyshortcuts")).toBe("Alt+C");
+		expect(screen.getByText("Alt+C 收起")).toBeDefined();
+	});
+
+	it("在標籤與面板上按滑鼠不會搶走焦點（終端機開著時打字不中斷）", () => {
+		renderPanels({ active: "commands" });
+		// fireEvent 回傳 false 代表預設行為被擋掉，瀏覽器就不會把焦點移到按鈕上
+		expect(fireEvent.mouseDown(tab(/已學指令/))).toBe(false);
+		expect(fireEvent.mouseDown(tab(/對話紀錄/))).toBe(false);
+		expect(fireEvent.mouseDown(screen.getByRole("button", { name: /pwd/ }))).toBe(false);
+		expect(fireEvent.mouseDown(screen.getByText("終端機內輸入 man <指令> 也看得到"))).toBe(false);
+	});
+
 	it("Apple 鍵盤改顯示 ⌥", () => {
 		renderPanels({ active: "log", appleKeyboard: true });
 		expect(tab(/對話紀錄/).textContent).toContain("⌥L");

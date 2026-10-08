@@ -8,6 +8,7 @@
  *   所以終端機開著時也能直接按，輸入框焦點不動、打到一半的字也不會被吃掉。
  * - Ctrl＋字母大多是瀏覽器保留鍵或真 shell 的編輯鍵（Ctrl+C、Ctrl+L、Ctrl+R），F 鍵在 Mac 筆電要多按 fn。
  * - 字母避開 Firefox 選單列的 Alt 加速鍵（F、E、V、S、B、T、H）與 Mac Option 的組字死鍵（E、I、N、U）。
+ *   C 取 Commands（已學指令）、L 取 Log（對話紀錄）。
  *
  * 比對用 `event.code`（實體鍵位）：Mac 按 Option+L 的 `event.key` 是「¬」，比 key 會認不得。
  */
@@ -16,8 +17,9 @@ import { useEffect, useRef } from "react";
 
 export type SidePanelId = "commands" | "log";
 
-/** 每個面板的快捷鍵字母，搭配 Alt。還沒有快捷鍵的面板不列。 */
-const SHORTCUT_LETTERS: Partial<Record<SidePanelId, string>> = {
+/** 每個面板的快捷鍵字母，搭配 Alt。 */
+const SHORTCUT_LETTERS: Record<SidePanelId, string> = {
+	commands: "C",
 	log: "L",
 };
 
@@ -38,12 +40,9 @@ function matchSidePanelShortcut(event: KeyboardEvent): SidePanelId | null {
 	return null;
 }
 
-/** 面板快捷鍵的顯示文字：一般鍵盤「Alt+L」，Apple 鍵盤「⌥L」。沒有快捷鍵的面板回 null。 */
-export function formatShortcut(id: SidePanelId, apple: boolean): string | null {
+/** 面板快捷鍵的顯示文字：一般鍵盤「Alt+L」，Apple 鍵盤「⌥L」。 */
+export function formatShortcut(id: SidePanelId, apple: boolean): string {
 	const letter = SHORTCUT_LETTERS[id];
-	if (letter === undefined) {
-		return null;
-	}
 	if (apple) {
 		return `⌥${letter}`;
 	}
@@ -51,12 +50,8 @@ export function formatShortcut(id: SidePanelId, apple: boolean): string | null {
 }
 
 /** 給 `aria-keyshortcuts` 用的標準寫法，跟平台無關。 */
-export function ariaShortcut(id: SidePanelId): string | undefined {
-	const letter = SHORTCUT_LETTERS[id];
-	if (letter === undefined) {
-		return undefined;
-	}
-	return `Alt+${letter}`;
+export function ariaShortcut(id: SidePanelId): string {
+	return `Alt+${SHORTCUT_LETTERS[id]}`;
 }
 
 /** Mac、iPad 的鍵盤把 Alt 標成 Option（⌥）。iPadOS 的 Safari 也自稱 Macintosh。 */

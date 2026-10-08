@@ -21,6 +21,25 @@ describe("useSidePanelShortcuts", () => {
 		expect(event.defaultPrevented).toBe(true);
 	});
 
+	it("Alt+C 切換已學指令", () => {
+		const onToggle = vi.fn();
+		renderHook(() => useSidePanelShortcuts({ enabled: true, onToggle }));
+		const event = pressKey({ key: "c", code: "KeyC", altKey: true });
+		expect(onToggle).toHaveBeenCalledWith("commands");
+		expect(event.defaultPrevented).toBe(true);
+	});
+
+	it("終端機輸入框裡按 Alt+C 也認得，而且不會打出字", () => {
+		const onToggle = vi.fn();
+		renderHook(() => useSidePanelShortcuts({ enabled: true, onToggle }));
+		const input = document.createElement("input");
+		document.body.append(input);
+		const event = pressKey({ key: "ç", code: "KeyC", altKey: true }, input);
+		input.remove();
+		expect(onToggle).toHaveBeenCalledWith("commands");
+		expect(event.defaultPrevented).toBe(true);
+	});
+
 	it("Mac 的 Option+L 打出的是 ¬，照實體鍵位一樣認得", () => {
 		const onToggle = vi.fn();
 		renderHook(() => useSidePanelShortcuts({ enabled: true, onToggle }));
@@ -91,6 +110,8 @@ describe("formatShortcut", () => {
 	it("一般鍵盤顯示 Alt+字母，Apple 鍵盤顯示 ⌥字母", () => {
 		expect(formatShortcut("log", false)).toBe("Alt+L");
 		expect(formatShortcut("log", true)).toBe("⌥L");
+		expect(formatShortcut("commands", false)).toBe("Alt+C");
+		expect(formatShortcut("commands", true)).toBe("⌥C");
 	});
 });
 
