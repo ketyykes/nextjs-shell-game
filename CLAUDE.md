@@ -11,11 +11,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Framework**: Next.js 16.3.5 (App Router，預設使用 Turbopack)
 - **React**: 19.3.0 (React Server Components)
 - **TypeScript**: 6.x，嚴格模式啟用（暫不升級到 7，原因見「版本限制」）
-- **樣式**: Tailwind CSS v4 + tw-animate-css
-- **UI 元件**: shadcn/ui (New York style)
-- **圖示**: lucide-react 1.x
-- **表單**: react-hook-form + zod + @hookform/resolvers
-- **資料取得**: SWR
+- **樣式**: Tailwind CSS v4
+- **UI 元件**: shadcn/ui (New York style)，目前沒有安裝任何元件（遊戲 UI 都是自刻的）
+- **遊戲引擎**: Phaser 4，`next.config.ts` 用 `turbopack.resolveAlias` 換成只含 arcade 物理的建置（不含 Matter.js）
+- **狀態與存檔**: zustand（persist 存 localStorage）
+- **劇本驗證**: zod（`src/game/story/schema.ts`）
 - **動畫**: motion（從 `motion/react` 匯入，不要再使用 `framer-motion`）
 - **Lint**: ESLint 9.x + eslint-config-next 平面設定（暫不升級到 10，原因見「版本限制」）
 - **套件管理器**: pnpm
@@ -96,7 +96,6 @@ src/
 │   ├── play/page.tsx      # 遊戲頁面，只渲染 PlayScreen
 │   └── globals.css        # 全域樣式 (Tailwind v4 的 @theme、--game-* 配色、font-terminal/font-title)
 ├── components/
-│   ├── ui/                # shadcn/ui 元件
 │   ├── terminal/          # Terminal 元件群：外框、輸出區、NOVA 對話、輸入列、鍵盤 hook
 │   ├── title/             # TitleFlow (標題→選角→boot log→插圖卡→/play)、SettingsMenu、選單導覽 hook
 │   └── game/              # PlayScreen (地圖、終端機彈窗、HUD、NOVA、暫停、章節結束)、PhaserGame(Dynamic)、CRT 等
@@ -167,19 +166,17 @@ docs/
 npx shadcn@latest add [component-name]
 ```
 
-元件會自動安裝到 `src/components/ui/` 目錄。
+元件會自動安裝到 `src/components/ui/` 目錄。M12-3 移除了沒用到的 `tw-animate-css` 與 `lucide-react`，若新元件用到 `animate-in`、`fade-in` 這類動畫 class，要先 `pnpm add -D tw-animate-css` 並在 `globals.css` 加回 `@import "tw-animate-css";`；用到圖示時 CLI 會依 `components.json` 的 `iconLibrary` 裝回 lucide-react。
 
 ## 開發注意事項
 
 1. **App Router 優先**: 此專案使用 Next.js 16 的 App Router，所有頁面和佈局應放在 `src/app/` 目錄
 2. **React Server Components**: 預設所有元件都是伺服器元件，需要客戶端互動時使用 `"use client"` 指令
 3. **樣式工具**: 使用 `cn()` 函式 (來自 `@/lib/utils`) 合併 Tailwind CSS 類別名稱
-4. **表單驗證**: 使用 react-hook-form + zod 進行型別安全的表單驗證
-5. **Tailwind CSS v4**: 沒有 `tailwind.config.js`；設定寫在 `src/app/globals.css` 的 `@import "tailwindcss"` 與 `@theme inline` 區塊，PostCSS 只掛 `@tailwindcss/postcss`
-6. **動畫**: 使用 `motion` 套件，匯入路徑為 `motion/react`（例如 `import { motion } from "motion/react"`），動畫元件需搭配 `"use client"`
-7. **圖示**: lucide-react 1.x 已移除所有品牌圖示（如 GitHub、Twitter），圖示預設帶有 `aria-hidden`
-8. **除錯鉤子**: 開發模式下 `/play` 掛 `window.__kepler9.emit(事件名, payload)`，可在瀏覽器 console 直接發 EventBus 事件（例如 `puzzle:solved`）觸發演出，正式 build 不掛
-9. **Phaser**: Phaser 4 在 import 當下就讀 `window`，所以只有 `src/game/phaser/main.ts` 與 `scenes/`、`objects/` 可以 import `phaser`，React 端只能 import `@/game/phaser/EventBus`、`events`、`constants`（都零相依）。遊戲透過 `PhaserGameDynamic`（`next/dynamic` + `ssr: false`）載入，`PhaserGame` 延後一幀 `startGame` 防 StrictMode 疊兩層 canvas。場景裡訂閱 EventBus 或建 sound 的清理要同時掛 `SHUTDOWN` 與 `DESTROY`（`game.destroy()` 只發後者）。官方 `phaserjs/template-nextjs` 是 Pages Router，不能照抄。更多坑見 `docs/progress.md` 第 5 節
+4. **Tailwind CSS v4**: 沒有 `tailwind.config.js`；設定寫在 `src/app/globals.css` 的 `@import "tailwindcss"` 與 `@theme inline` 區塊，PostCSS 只掛 `@tailwindcss/postcss`
+5. **動畫**: 使用 `motion` 套件，匯入路徑為 `motion/react`（例如 `import { motion } from "motion/react"`），動畫元件需搭配 `"use client"`
+6. **除錯鉤子**: 開發模式下 `/play` 掛 `window.__kepler9.emit(事件名, payload)`，可在瀏覽器 console 直接發 EventBus 事件（例如 `puzzle:solved`）觸發演出，正式 build 不掛
+7. **Phaser**: Phaser 4 在 import 當下就讀 `window`，所以只有 `src/game/phaser/main.ts` 與 `scenes/`、`objects/` 可以 import `phaser`，React 端只能 import `@/game/phaser/EventBus`、`events`、`constants`（都零相依）。遊戲透過 `PhaserGameDynamic`（`next/dynamic` + `ssr: false`）載入，`PhaserGame` 延後一幀 `startGame` 防 StrictMode 疊兩層 canvas。場景裡訂閱 EventBus 或建 sound 的清理要同時掛 `SHUTDOWN` 與 `DESTROY`（`game.destroy()` 只發後者）。官方 `phaserjs/template-nextjs` 是 Pages Router，不能照抄。更多坑見 `docs/progress.md` 第 5 節
 
 ## 協作慣例
 
