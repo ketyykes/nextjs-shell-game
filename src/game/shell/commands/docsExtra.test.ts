@@ -4,7 +4,7 @@ import { ALL_COMMANDS } from ".";
 import { EXTRA_COMMAND_DOCS, EXTRA_COMMAND_ORDER } from "./docsExtra";
 
 /** M13-3 開放使用但沒編進劇本的指令。 */
-const EXTRA_COMMANDS = ["tree", "cut"];
+const EXTRA_COMMANDS = ["tree", "cut", "diff"];
 
 describe("EXTRA_COMMAND_ORDER", () => {
 	it("順序照 M13-3 的清單", () => {
@@ -55,5 +55,15 @@ describe("EXTRA_COMMAND_DOCS", () => {
 		}
 		expect(text).toContain("2-4");
 		expect(text).toContain("3-");
+	});
+
+	it("diff 說明怎麼讀 normal 格式、-u、-q，以及有差異不算錯", () => {
+		const doc = EXTRA_COMMAND_DOCS.diff;
+		const text = doc.description.join("\n");
+		for (const token of ["3c3", "<", ">", "---", "-u", "-q"]) {
+			expect(text).toContain(token);
+		}
+		expect(doc.usage).toContain("-u");
+		expect(doc.examples.some((example) => example.command.includes("-u"))).toBe(true);
 	});
 });

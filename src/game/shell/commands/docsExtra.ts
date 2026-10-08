@@ -42,7 +42,26 @@ export const EXTRA_COMMAND_DOCS: Record<string, CommandDoc> = {
 			{ command: "cut -c 1-5 door_events.log", explanation: "只看每行開頭的時間（前五個字）" },
 		],
 	},
+	diff: {
+		name: "diff",
+		summary: "逐行比較兩個檔案哪裡不同",
+		usage: "diff [-u] [-q] 檔案1 檔案2",
+		description: [
+			"diff 會逐行比較兩個檔案，只印出不一樣的地方；兩個檔案完全一樣時什麼都不印。",
+			"每段差異先有一行標頭：3c3 是第 3 行被改了，4d3 是刪掉第 4 行，5a6,7 是在第 5 行後面加了第 6 到 7 行（逗號前是第一個檔案的行號，後面是第二個的）。",
+			"< 開頭的行來自第一個檔案，> 開頭的行來自第二個檔案，改動的前後用 --- 隔開。",
+			"-u 改用另一種常見的格式：- 開頭是刪掉的行、+ 開頭是加入的行，前後各附三行沒變的內容幫你對位置；-q 只說兩個檔案有沒有不同。",
+			"其中一個寫目錄時，會去比目錄裡同名的檔案，例如 diff core.cfg backup/ 比的是 backup/core.cfg。",
+			"有差異是正常的結果，不算打錯指令；- 代表 | 左邊指令的輸出，例如 sort a.txt | diff - b.txt。",
+		],
+		examples: [
+			{ command: "diff core.cfg backup/core.cfg", explanation: "比對現在的設定檔跟備份差在哪幾行" },
+			{ command: "diff core.cfg backup/", explanation: "跟上一個一樣，目錄裡同名的檔案會自動對上" },
+			{ command: "diff -u core.cfg backup/core.cfg", explanation: "用 - 與 + 標出刪掉和加入的行" },
+			{ command: "diff -q core.cfg backup/core.cfg", explanation: "只想知道兩個檔案一不一樣" },
+		],
+	},
 };
 
 /** 這組指令在側邊面板的顯示順序，排在六章指令之後。 */
-export const EXTRA_COMMAND_ORDER: string[] = ["tree", "cut"];
+export const EXTRA_COMMAND_ORDER: string[] = ["tree", "cut", "diff"];

@@ -430,3 +430,11 @@ export function cutInvalidList(list: string, reason: "zero" | "decreasing" | "in
 	}
 	return [`\`${list}\` 不是 cut 看得懂的位置清單：${detail}。`];
 }
+
+/** `diff` 的兩個參數都是目錄（GNU diff 會比整個目錄，這個遊戲的 diff 只比檔案）。 */
+export function diffDirectories(first: string, second: string): string[] {
+	return [
+		`\`${first}\` 和 \`${second}\` 都是目錄，這台站的 diff 只能比較兩個檔案。`,
+		`先用 ls 看看兩邊有哪些檔案，再一個一個比，例如 diff ${first}/檔名 ${second}/檔名。`,
+	];
+}
