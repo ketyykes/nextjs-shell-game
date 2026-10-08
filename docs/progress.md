@@ -186,11 +186,7 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 
 不屬於任何里程碑，但會影響接手的人，做完就勾掉。
 
-- ⬜ **移除暫存的原圖追蹤**：Danny 在 2026-09-22 說「下次再將圖片移除」。等另一台電腦已經 clone 並確認拿到原圖後，執行下面指令並 commit，檔案會留在硬碟上，`.gitignore` 規則已經在：
-  ```bash
-  git rm --cached docs/assets-draft/*-original.png
-  ```
-  目前被追蹤的六張：`nova-core`、`nova-eye`、`technician-sheet`、`technician-c`、`technician-d`、`technician-e` 的 `-original.png`，合計約 8.7 MB。
+- ✅ **移除暫存的原圖追蹤**：2026-10-08 Danny 親自執行 `git rm --cached docs/assets-draft/*-original.png`，六張原圖（`nova-core`、`nova-eye`、`technician-sheet`、`technician-c`、`technician-d`、`technician-e`，約 8.7 MB）不再追蹤，檔案仍留在這台 Mac 的硬碟上，`.gitignore` 規則原本就在。
 - ✅ **設計文件過時段落**：2026-10-01 已把 6.2 標題改成「自產與補充的素材」、6.3 與第 8 節的張數改成實際的 8 張場景圖。
 - ⬜ **真人試玩**：完成定義「沒碰過終端機的人能靠 hint 通關」還沒驗證。找一位新手玩第一章，記錄卡在哪、hint 哪一段救了他。
 - ⬜ **試聽五個音效**：agent 看檔名挑的，沒人聽過，見 M6-3。
