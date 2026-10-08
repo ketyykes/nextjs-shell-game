@@ -11,6 +11,8 @@ import {
 	type Direction,
 } from "../constants";
 import { AUDIO_KEYS, AUDIO_PATHS } from "../audio";
+import { emitGameEvent } from "../EventBus";
+import { summarizeAssetFailure } from "./assetCheck";
 import { REGISTRY_KEYS, SCENE_KEYS } from "./keys";
 import { parseChapter } from "./mapObjects";
 
@@ -39,22 +41,32 @@ function toPublicUrl(path: string): string {
  * 載入目前章節的甲板地圖與共用資源、建立全域動畫，完成後進 Station。
  *
  * 動畫放這裡建立而不是 Station，Station 重啟時才不會重複建立。
+ * 素材載不到時（M12-6）經 EventBus 發 `assets:error` 讓 React 顯示提示；關鍵素材缺了就停在這裡不進 Station。
  */
 export class Preloader extends Phaser.Scene {
+	/** 這次載入發過 `loaderror` 的檔案網址。 */
+	private loadErrors: { url: string }[] = [];
+	/** 這次載入的地圖與角色 sprite 網址，載完檢查 cache 時列進提示用。 */
+	private mapUrl = "";
+	private playerSpriteUrl = "";
+
 	constructor() {
 		super({ key: SCENE_KEYS.preloader });
 	}
 
 	preload(): void {
 		this.createProgressBar();
+		this.trackLoadErrors();
 
 		const character = this.readCharacter();
 		// 六個甲板共用 `ASSET_KEYS.map` 這個 key；換章時 React 會銷毀重建整個遊戲，cache 不會殘留上一章的圖
 		const chapter = parseChapter(this.registry.get(REGISTRY_KEYS.chapter));
+		this.mapUrl = toPublicUrl(ASSET_PATHS.map(chapter));
+		this.playerSpriteUrl = toPublicUrl(ASSET_PATHS.playerSprite(character));
 
 		this.load.image(ASSET_KEYS.tileset, toPublicUrl(ASSET_PATHS.tileset));
-		this.load.tilemapTiledJSON(ASSET_KEYS.map, toPublicUrl(ASSET_PATHS.map(chapter)));
-		this.load.spritesheet(ASSET_KEYS.player, toPublicUrl(ASSET_PATHS.playerSprite(character)), {
+		this.load.tilemapTiledJSON(ASSET_KEYS.map, this.mapUrl);
+		this.load.spritesheet(ASSET_KEYS.player, this.playerSpriteUrl, {
 			frameWidth: SPRITE_FRAME_WIDTH,
 			frameHeight: SPRITE_FRAME_HEIGHT,
 		});
@@ -62,8 +74,30 @@ export class Preloader extends Phaser.Scene {
 	}
 
 	create(): void {
+		const failure = summarizeAssetFailure(this.loadErrors, [
+			{ url: toPublicUrl(ASSET_PATHS.tileset), loaded: this.textures.exists(ASSET_KEYS.tileset) },
+			{ url: this.mapUrl, loaded: this.cache.tilemap.exists(ASSET_KEYS.map) },
+			{ url: this.playerSpriteUrl, loaded: this.textures.exists(ASSET_KEYS.player) },
+		]);
+		if (failure !== null) {
+			emitGameEvent("assets:error", failure);
+			// 少了地圖、tileset 或角色，Station.create 會在 Phaser 迴圈裡丟例外變黑畫面，乾脆停在這裡等玩家重新載入
+			if (failure.fatal) {
+				return;
+			}
+		}
 		this.createWalkAnimations();
 		this.scene.start(SCENE_KEYS.station);
+	}
+
+	/** 記下網路層載入失敗的檔案（404、離線）；監聽掛在這個場景自己的 loader 上，跟著場景一起銷毀。 */
+	private trackLoadErrors(): void {
+		this.loadErrors = [];
+		this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => {
+			const url = file.src !== "" ? file.src : String(file.url);
+			console.warn(`[Preloader] 素材 ${file.key} 載入失敗：${url}`);
+			this.loadErrors.push({ url });
+		});
 	}
 
 	/** 載入五種音效，同時給 ogg 與 mp3，Phaser 會挑瀏覽器支援的格式。 */

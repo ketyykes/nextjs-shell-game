@@ -35,6 +35,12 @@ export interface GameEventMap {
 	"game:resume": { reason: "menu" };
 	/** Phaser 發：角色走動後停下（只在某個艙區內才發），React 存進存檔，重開時從這裡出生。 */
 	"player:stopped": { x: number; y: number; roomId: RoomId };
+	/**
+	 * Phaser 發：Preloader 有素材載不到（地圖、tileset、角色 sprite、音效）。React 顯示繁中提示與「重新載入」。
+	 * `fatal` 為 true 時 Station 不會啟動（少了地圖或 sprite 會在 Phaser 迴圈裡丟例外，error boundary 接不到）；
+	 * false 只是部分音效沒有聲音，遊戲照常。`files` 是載不到的檔案網址。
+	 */
+	"assets:error": { files: string[]; fatal: boolean };
 }
 
 export type GameEventName = keyof GameEventMap;

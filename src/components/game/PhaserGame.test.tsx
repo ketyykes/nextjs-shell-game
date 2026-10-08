@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { emitGameEvent } from "@/game/phaser/EventBus";
 import type { SolvedEffect } from "@/game/phaser/events";
 import { startGame } from "@/game/phaser/main";
 import { PhaserGame } from "./PhaserGame";
@@ -171,6 +172,18 @@ describe("PhaserGame", () => {
 
 		expect(startGameMock).toHaveBeenCalledTimes(1);
 		expect(getDestroyMock(0)).not.toHaveBeenCalled();
+	});
+
+	it("Phaser 回報素材載不到時，在遊戲上方顯示提示與重新載入", async () => {
+		render(<PhaserGame character="a" chapter={1} />);
+		await waitForGames(1);
+
+		act(() => {
+			emitGameEvent("assets:error", { files: ["/maps/deck1.json"], fatal: true });
+		});
+
+		expect(screen.getByRole("alertdialog", { name: "素材載入失敗" })).toBeDefined();
+		expect(screen.getByRole("button", { name: "重新載入" })).toBeDefined();
 	});
 
 	it("StrictMode 下只會建立一個遊戲", async () => {

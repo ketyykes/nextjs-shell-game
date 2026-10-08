@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useRef } from "react";
 import type Phaser from "phaser";
+import { AssetLoadErrorNotice } from "@/components/game/AssetLoadErrorNotice";
 import type { SolvedEffect } from "@/game/phaser/events";
 import { startGame } from "@/game/phaser/main";
 import type { CharacterId } from "@/game/store/types";
@@ -110,5 +111,11 @@ export function PhaserGame({
 		};
 	}, [character, chapter]);
 
-	return <div ref={containerRef} className={cn("relative", className)} data-testid="phaser-container" />;
+	// 提示放在容器外面當兄弟節點：容器的子節點歸 Phaser 管（它會把 canvas 塞進去），不跟 React 混用
+	return (
+		<>
+			<div ref={containerRef} className={cn("relative", className)} data-testid="phaser-container" />
+			<AssetLoadErrorNotice />
+		</>
+	);
 }
