@@ -84,7 +84,7 @@ test("有存檔時進練習模式亂改一通再回標題，存檔一個字都�
 	await expect(page.getByRole("button", { name: "繼續" })).toBeVisible();
 	await expect(page.getByTestId("title-subtitle")).toContainText("第三章");
 	// 讀檔時舊版存檔會被 migrate 寫回一次，等它寫完再拍快照
-	await expect.poll(async () => JSON.parse((await readSave(page)) ?? "{}").version).toBe(2);
+	await expect.poll(async () => JSON.parse((await readSave(page)) ?? "{}").version).toBe(3);
 	const before = await readSave(page);
 
 	await page.getByRole("button", { name: "練習模式" }).click();
