@@ -5,6 +5,7 @@
  * 標題 → 新遊戲：選角 → 開場 boot log → /play；繼續：直接 /play；設定：覆蓋在標題上。
  * 選章：重玩到過的某一章，第一章重走 boot log（NOVA 第一句在那裡說），其他章直接 /play。
  * 讀檔完成前只顯示載入字樣，確保「繼續」的出現與否是可信的。
+ * 觸控為主的裝置先疊一層「需要實體鍵盤」的提示，可以略過（設計文件 4.6）。
  */
 
 import { useRouter } from "next/navigation";
@@ -15,6 +16,8 @@ import { CharacterSelect } from "@/components/title/CharacterSelect";
 import { SettingsMenu } from "@/components/title/SettingsMenu";
 import type { ChapterOption } from "@/components/title/ChapterSelectPanel";
 import { TitleScreen } from "@/components/title/TitleScreen";
+import { TouchWarningPanel } from "@/components/title/TouchWarningPanel";
+import { useTouchWarning } from "@/components/title/useTouchWarning";
 import { getChapterMeta, NOVA_FIRST_LINE } from "@/game/chapters/meta";
 import { INTRO_SCENE_IMAGE } from "@/game/story/scenes";
 import { selectHasSave, selectProgress, selectSettings, useGameStore, useStoreHydration } from "@/game/store";
@@ -77,6 +80,7 @@ function TitleFlowReady() {
 
 	const [stage, setStage] = useState<TitleStage>("title");
 	const [settingsOpen, setSettingsOpen] = useState(false);
+	const touchWarning = useTouchWarning();
 
 	const handleNewGame = useCallback(() => {
 		// 覆蓋確認已在 TitleScreen 內做過，這裡直接清進度（設定保留）
@@ -146,7 +150,7 @@ function TitleFlowReady() {
 				onOpenSettings={() => setSettingsOpen(true)}
 				chapters={chapterOptions(progress.furthestChapter)}
 				onSelectChapter={handleSelectChapter}
-				keyboardEnabled={!settingsOpen}
+				keyboardEnabled={!settingsOpen && !touchWarning.visible}
 				crt={{
 					scanlines: settings.scanlinesEnabled,
 					vignette: settings.vignetteEnabled,
@@ -156,6 +160,7 @@ function TitleFlowReady() {
 			{settingsOpen && (
 				<SettingsMenu settings={settings} onChange={updateSettings} onClose={() => setSettingsOpen(false)} />
 			)}
+			{touchWarning.visible && <TouchWarningPanel onDismiss={touchWarning.dismiss} />}
 		</>
 	);
 }

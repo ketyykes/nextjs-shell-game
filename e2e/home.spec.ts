@@ -51,4 +51,44 @@ test.describe("標題畫面", () => {
 		await page.keyboard.press("Escape");
 		await expect(page.getByRole("dialog")).toHaveCount(0);
 	});
+
+	test("桌機不顯示觸控裝置提示", async ({ page }) => {
+		await expect(page.getByRole("button", { name: "新遊戲" })).toBeVisible();
+		await expect(page.getByTestId("touch-warning")).toHaveCount(0);
+	});
+});
+
+/** A34：觸控為主的裝置（Chromium 開 hasTouch 時 pointer: coarse 且 hover: none）先提示需要實體鍵盤，可以略過。 */
+test.describe("觸控裝置提示", () => {
+	test.use({ hasTouch: true });
+
+	test("標題先提示需要實體鍵盤，Enter 只略過提示，之後照常操作且同分頁不再提示", async ({ page }) => {
+		await page.goto("/");
+		await page.evaluate(() => window.localStorage.clear());
+		await page.reload();
+
+		const warning = page.getByRole("alertdialog", { name: "本遊戲需要實體鍵盤" });
+		await expect(warning).toBeVisible();
+
+		// 接實體鍵盤的平板：Enter 只關掉提示，不會同一下就觸發標題選單的「新遊戲」
+		await page.keyboard.press("Enter");
+		await expect(warning).toHaveCount(0);
+		await expect(page.getByText("選擇外觀")).toHaveCount(0);
+
+		await page.reload();
+		await expect(page.getByRole("button", { name: "新遊戲" })).toBeVisible();
+		await expect(warning).toHaveCount(0);
+
+		await page.getByRole("button", { name: "新遊戲" }).tap();
+		await expect(page.getByText("選擇外觀")).toBeVisible();
+	});
+
+	test("點「仍要繼續」略過提示", async ({ page }) => {
+		await page.goto("/");
+		const warning = page.getByRole("alertdialog", { name: "本遊戲需要實體鍵盤" });
+		await expect(warning).toBeVisible();
+		await page.getByRole("button", { name: "仍要繼續" }).tap();
+		await expect(warning).toHaveCount(0);
+		await expect(page.getByRole("button", { name: "新遊戲" })).toBeVisible();
+	});
 });
