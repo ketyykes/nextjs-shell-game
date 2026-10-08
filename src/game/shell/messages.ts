@@ -431,6 +431,27 @@ export function cutInvalidList(list: string, reason: "zero" | "decreasing" | "in
 	return [`\`${list}\` 不是 cut 看得懂的位置清單：${detail}。`];
 }
 
+/**
+ * `which` 在 PATH 的目錄裡找不到 `name`。`path` 是這次找過的 PATH 字串；
+ * `installed` 為 true 代表這台站其實有這個指令、只是不在 PATH 列的目錄裡（例如玩家改過 PATH）。
+ */
+export function whichNotFound(name: string, path: string, installed: boolean): string[] {
+	let pathText = path;
+	if (path === "") {
+		pathText = "PATH 是空的";
+	}
+	const first = `在 PATH 列出的目錄（${pathText}）裡找不到 \`${name}\`。`;
+	if (installed) {
+		return [first, `\`${name}\` 裝在別的目錄，用 echo $PATH 看看 PATH 是不是被改掉了。`];
+	}
+	return [first, "這台站沒有這個指令；輸入 help 看看目前會的指令。"];
+}
+
+/** `which` 查的是 shell 內建指令（`cd`、`export` 等），它們沒有獨立的程式檔。 */
+export function whichBuiltin(name: string): string[] {
+	return [`\`${name}\` 是 shell 的內建指令，由 shell 自己執行，沒有獨立的程式檔，所以 which 找不到；直接打 ${name} 照樣能用。`];
+}
+
 /** `diff` 的兩個參數都是目錄（GNU diff 會比整個目錄，這個遊戲的 diff 只比檔案）。 */
 export function diffDirectories(first: string, second: string): string[] {
 	return [

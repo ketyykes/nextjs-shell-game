@@ -61,7 +61,25 @@ export const EXTRA_COMMAND_DOCS: Record<string, CommandDoc> = {
 			{ command: "diff -q core.cfg backup/core.cfg", explanation: "只想知道兩個檔案一不一樣" },
 		],
 	},
+	which: {
+		name: "which",
+		summary: "查指令的程式檔放在哪裡",
+		usage: "which [-a] 指令...",
+		description: [
+			"你打的指令大多是一支放在某個目錄裡的程式，shell 會照環境變數 PATH 列的目錄，用冒號隔開，一個一個去找。",
+			"which 印出它找到的那一支，例如 which ls 印出 /usr/bin/ls；-a 印出 PATH 裡每一個找得到的位置。",
+			"這台站的一般指令都在 /usr/bin（/bin 跟它是同一個目錄），站上加裝的 hint 在 /usr/local/bin。",
+			"cd、export、help、history 是 shell 的內建指令，沒有獨立的程式檔，which 找不到它們，但照樣能用。",
+			"沒有設定 PATH 時照預設的 /usr/local/bin:/usr/bin:/bin 找。找不到時會說明原因，不算打錯指令。",
+		],
+		examples: [
+			{ command: "which ls", explanation: "印出 /usr/bin/ls" },
+			{ command: "which hint grep", explanation: "一次查兩個，hint 在 /usr/local/bin" },
+			{ command: "which -a ls", explanation: "列出 PATH 裡每一個找得到 ls 的位置" },
+			{ command: "which cd", explanation: "cd 是內建指令，沒有程式檔" },
+		],
+	},
 };
 
 /** 這組指令在側邊面板的顯示順序，排在六章指令之後。 */
-export const EXTRA_COMMAND_ORDER: string[] = ["tree", "cut", "diff"];
+export const EXTRA_COMMAND_ORDER: string[] = ["tree", "cut", "diff", "which"];

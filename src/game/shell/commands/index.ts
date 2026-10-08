@@ -37,6 +37,7 @@ import { touchCommand } from "./touch";
 import { treeCommand } from "./tree";
 import { uniqCommand } from "./uniq";
 import { wcCommand } from "./wc";
+import { whichCommand } from "./which";
 import type { CommandDefinition } from "../types";
 
 /** 全部指令：六章依章節排列，最後是 M13-3 只開放使用的指令。順序不影響行為，只是方便閱讀。 */
@@ -79,6 +80,7 @@ export const ALL_COMMANDS: CommandDefinition[] = [
 	treeCommand,
 	cutCommand,
 	diffCommand,
+	whichCommand,
 ];
 
 export { catCommand, cdCommand, clearCommand, helpCommand, hintCommand, historyCommand, lsCommand, manCommand, pwdCommand };
