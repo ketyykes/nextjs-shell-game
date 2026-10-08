@@ -5,6 +5,7 @@
  * 否則每次比較都不相等，會造成無限重新 render。需要組合多個欄位時請搭配 `zustand/react/shallow` 的 `useShallow`。
  */
 
+import { LAST_CHAPTER } from "@/game/chapters/meta";
 import type { GameStore, ProgressState, SettingsState, StoryFlags, TerminalSessionRecord } from "./types";
 
 /** 氧氣低於這個百分比時 HUD 進入警示狀態。 */
@@ -55,4 +56,17 @@ export function selectIsTerminalSolved(terminalId: string): (state: GameStore) =
 
 export function selectHasFlag(flag: string): (state: GameStore) => boolean {
 	return (state) => state.storyFlags[flag] === true;
+}
+
+/**
+ * 已逃離而且停在片尾之後（v3）：通關過、目前在最後一章、最後一章的片尾也播完了。
+ * 標題畫面用它把「繼續」換成「通關紀錄」、副標換成「已逃離 Kepler-9」；
+ * 通關後選章重玩（章節變了、或最後一章的旗標被清掉）就不算，「繼續」回來。
+ */
+export function selectIsGameFinished(state: GameStore): boolean {
+	return (
+		state.progress.clearedAt !== null &&
+		state.progress.chapter === LAST_CHAPTER &&
+		state.storyFlags[`ch${LAST_CHAPTER}.outroShown`] === true
+	);
 }

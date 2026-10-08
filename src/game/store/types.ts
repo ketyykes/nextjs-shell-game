@@ -79,6 +79,11 @@ export interface ProgressState {
 	oxygen: number;
 	/** 存檔時間，ISO 8601；沒存過是 null，標題畫面用它決定「繼續」要不要出現。 */
 	savedAt: string | null;
+	/**
+	 * 第一次看完片尾（逃離 Kepler-9）的時間，ISO 8601；還沒通關是 null（v3 起）。
+	 * 之後選章重玩不會清掉，只有新遊戲會清。
+	 */
+	clearedAt: string | null;
 }
 
 export const OXYGEN_MAX = 100;
@@ -93,7 +98,28 @@ export const DEFAULT_PROGRESS: ProgressState = {
 	learnedCommands: [],
 	oxygen: OXYGEN_MAX,
 	savedAt: null,
+	clearedAt: null,
 };
+
+// ---------------------------------------------------------------------------
+// 遊玩統計（v3 起）
+// ---------------------------------------------------------------------------
+
+/**
+ * 一章的遊玩統計，章節結束畫面與標題的「通關紀錄」用。過關不歸零（跟環境反應階梯的 `errorCount` 分開），
+ * 只有重玩該章（`resetChapter`、`selectChapter`）與新遊戲會清。
+ */
+export interface ChapterStats {
+	/** /play 在前景可見、這章還沒全解、沒開暫停或設定選單時累計的毫秒數。 */
+	playTimeMs: number;
+	/** 執行失敗的指令數（跟扣氧氣同一個定義），含過關後在同台打錯的。 */
+	errors: number;
+	/** 執行到 `hint` 的指令數。 */
+	hints: number;
+}
+
+/** key 是章節號的字串，例如 `"1"`；沒玩過的章節沒有 key。 */
+export type PlayStats = Record<string, ChapterStats>;
 
 // ---------------------------------------------------------------------------
 // 終端機 session 與輸出紀錄
@@ -142,6 +168,12 @@ export interface TerminalSessionRecord {
 	 * 選填：舊存檔沒有這個欄位就當 0。`saveTerminalSession` 傳入的紀錄沒帶這個欄位時會保留原值。
 	 */
 	errorCount?: number;
+	/**
+	 * 建立這筆 session 時的劇本內容雜湊（v3 起，見 `@/game/story/scriptHash`）。開啟時跟最新劇本比對，
+	 * 不同而且這台還沒過關就用新版劇本重建。選填：v2 以前的紀錄沒有，視為「不知道是哪一版」。
+	 * `saveTerminalSession` 傳入的紀錄沒帶這個欄位時會保留原值。
+	 */
+	scriptHash?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -157,11 +189,13 @@ export interface SaveData {
 	/** key 是終端機 id。 */
 	terminals: Record<string, TerminalSessionRecord>;
 	storyFlags: StoryFlags;
+	/** 每章的遊玩統計（v3 起）。 */
+	stats: PlayStats;
 }
 
-/** localStorage 的 key 與格式版本。格式有破壞性變更時版本加一並寫 migrate。 */
+/** localStorage 的 key 與格式版本。格式有破壞性變更時版本加一並寫 migrate（`./migrate.ts`）。 */
 export const SAVE_STORAGE_KEY = "kepler9-save";
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 // ---------------------------------------------------------------------------
 // store 動作
@@ -212,6 +246,14 @@ export interface GameActions {
 	selectChapter: (chapter: number) => boolean;
 	/** 角色停下時存位置，座標四捨五入成整數。 */
 	savePlayerPosition: (position: PlayerPosition) => void;
+
+	// 通關與統計（v3）
+	/** 片尾播完時呼叫：第一次才蓋上 `clearedAt`，之後再通關保留第一次的時間。 */
+	markGameCleared: () => void;
+	/** 每道指令執行後呼叫：錯誤加 `errors`、跑到 hint 加 `hints`，兩者都不是就不寫檔。 */
+	recordCommandStats: (chapter: number, execution: { isError: boolean; hintUsed: boolean }) => void;
+	/** 累加某章的遊玩時間（毫秒，取整數）；0、負數與非有限數略過。 */
+	addPlayTime: (chapter: number, ms: number) => void;
 }
 
 export type GameStore = SaveData & GameActions;

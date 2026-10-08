@@ -5,7 +5,7 @@ import { Shell } from "@/game/shell/shell";
 import type { FsSnapshot } from "@/game/shell/types";
 import { createInitialSaveData, useGameStore } from "./gameStore";
 import { getSaveIssue, setSaveIssue } from "./saveStatus";
-import { selectHasSave, selectIsOxygenLow, selectTerminal } from "./selectors";
+import { selectHasSave, selectIsGameFinished, selectIsOxygenLow, selectTerminal } from "./selectors";
 import {
 	DEFAULT_PROGRESS,
 	DEFAULT_SETTINGS,
@@ -253,6 +253,17 @@ describe("終端機 session", () => {
 		expect(useGameStore.getState().terminals["ch1-t1"].errorCount).toBe(1);
 	});
 
+	it("saveTerminalSession 沒帶 scriptHash 時保留原本的劇本雜湊，有帶就覆蓋", () => {
+		const { saveTerminalSession } = useGameStore.getState();
+		saveTerminalSession("ch1-t1", { ...createRecord(), scriptHash: "aaaa" });
+
+		saveTerminalSession("ch1-t1", createRecord([createSystemEntry(2)]));
+		expect(useGameStore.getState().terminals["ch1-t1"].scriptHash).toBe("aaaa");
+
+		saveTerminalSession("ch1-t1", { ...createRecord(), scriptHash: "bbbb" });
+		expect(useGameStore.getState().terminals["ch1-t1"].scriptHash).toBe("bbbb");
+	});
+
 	it("errorCount 會存進 localStorage", () => {
 		useGameStore.getState().saveTerminalSession("ch1-t1", createRecord());
 		useGameStore.getState().setTerminalErrorCount("ch1-t1", 7);
@@ -301,12 +312,17 @@ describe("resetSave", () => {
 		state.saveTerminalSession("ch1-t1", createRecord());
 		state.setFlag("ch1.sawShadow");
 
+		state.recordCommandStats(1, { isError: true, hintUsed: false });
+		state.markGameCleared();
+
 		useGameStore.getState().resetSave();
 
 		const after = useGameStore.getState();
 		expect(after.progress).toEqual(DEFAULT_PROGRESS);
+		expect(after.progress.clearedAt).toBeNull();
 		expect(after.terminals).toEqual({});
 		expect(after.storyFlags).toEqual({});
+		expect(after.stats).toEqual({});
 		expect(after.settings).toEqual({ ...DEFAULT_SETTINGS, flickerEnabled: false, volume: 0.3 });
 	});
 });
@@ -409,11 +425,96 @@ describe("章節", () => {
 		expect(after.storyFlags).toEqual({ "ch3.outroShown": true });
 	});
 
+	it("resetChapter 與 selectChapter 清掉該章的統計，其他章與通關時間保留", () => {
+		const state = useGameStore.getState();
+		state.addPlayTime(1, 5000);
+		state.addPlayTime(2, 7000);
+		state.addPlayTime(3, 9000);
+		state.markGameCleared();
+		const clearedAt = useGameStore.getState().progress.clearedAt;
+		useGameStore.setState({ progress: { ...useGameStore.getState().progress, chapter: 3, furthestChapter: 3 } });
+
+		useGameStore.getState().resetChapter(2);
+		expect(Object.keys(useGameStore.getState().stats).sort()).toEqual(["1", "3"]);
+
+		useGameStore.getState().selectChapter(1);
+		expect(Object.keys(useGameStore.getState().stats)).toEqual(["3"]);
+		expect(useGameStore.getState().progress.clearedAt).toBe(clearedAt);
+	});
+
 	it("selectChapter 不能跳到還沒到過的章節", () => {
 		useGameStore.setState({ progress: { ...DEFAULT_PROGRESS, chapter: 2, furthestChapter: 2 } });
 		const moved = useGameStore.getState().selectChapter(3);
 		expect(moved).toBe(false);
 		expect(useGameStore.getState().progress.chapter).toBe(2);
+	});
+});
+
+describe("通關與遊玩統計", () => {
+	it("recordCommandStats：錯誤加 errors、跑到 hint 加 hints，分章累計", () => {
+		const { recordCommandStats } = useGameStore.getState();
+		recordCommandStats(1, { isError: true, hintUsed: false });
+		recordCommandStats(1, { isError: true, hintUsed: false });
+		recordCommandStats(1, { isError: false, hintUsed: true });
+		recordCommandStats(2, { isError: true, hintUsed: true });
+
+		expect(useGameStore.getState().stats).toEqual({
+			"1": { playTimeMs: 0, errors: 2, hints: 1 },
+			"2": { playTimeMs: 0, errors: 1, hints: 1 },
+		});
+	});
+
+	it("recordCommandStats：一般成功的指令不改狀態也不寫檔", () => {
+		const before = useGameStore.getState().stats;
+		const setItem = vi.spyOn(Storage.prototype, "setItem");
+
+		useGameStore.getState().recordCommandStats(1, { isError: false, hintUsed: false });
+
+		expect(useGameStore.getState().stats).toBe(before);
+		expect(setItem).not.toHaveBeenCalled();
+		setItem.mockRestore();
+	});
+
+	it("過關不會把統計歸零", () => {
+		const state = useGameStore.getState();
+		state.recordCommandStats(1, { isError: true, hintUsed: false });
+		state.markTerminalSolved("ch1-t1");
+		state.restoreOxygen();
+		state.advanceChapter();
+
+		expect(useGameStore.getState().stats["1"].errors).toBe(1);
+	});
+
+	it("addPlayTime 累加整數毫秒，0、負數與非有限數略過", () => {
+		const { addPlayTime } = useGameStore.getState();
+		addPlayTime(1, 1500.6);
+		addPlayTime(1, 2000);
+		addPlayTime(1, 0);
+		addPlayTime(1, -50);
+		addPlayTime(1, Number.NaN);
+		addPlayTime(1, Number.POSITIVE_INFINITY);
+
+		expect(useGameStore.getState().stats["1"]).toEqual({ playTimeMs: 3501, errors: 0, hints: 0 });
+	});
+
+	it("markGameCleared 第一次蓋上通關時間，之後再呼叫保留第一次的", () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date("2031-03-12T08:15:00.000Z"));
+		useGameStore.getState().markGameCleared();
+		vi.setSystemTime(new Date("2031-04-01T00:00:00.000Z"));
+		useGameStore.getState().markGameCleared();
+		vi.useRealTimers();
+
+		expect(useGameStore.getState().progress.clearedAt).toBe("2031-03-12T08:15:00.000Z");
+	});
+
+	it("統計與通關時間會存進 localStorage", () => {
+		useGameStore.getState().addPlayTime(2, 1000);
+		useGameStore.getState().markGameCleared();
+
+		const stored = readStoredSave().state as { stats: unknown; progress: { clearedAt: unknown } };
+		expect(stored.stats).toEqual({ "2": { playTimeMs: 1000, errors: 0, hints: 0 } });
+		expect(typeof stored.progress.clearedAt).toBe("string");
 	});
 });
 
@@ -447,6 +548,18 @@ describe("selectors", () => {
 		expect(selectHasSave(useGameStore.getState())).toBe(true);
 	});
 
+	it("selectIsGameFinished：通關過、停在最後一章而且片尾播完才算（選章重玩就不算）", () => {
+		const finished = {
+			...useGameStore.getState(),
+			progress: { ...DEFAULT_PROGRESS, chapter: 6, clearedAt: "2031-03-12T08:15:00.000Z" },
+			storyFlags: { "ch6.outroShown": true as const },
+		};
+		expect(selectIsGameFinished(finished)).toBe(true);
+		expect(selectIsGameFinished({ ...finished, progress: { ...finished.progress, clearedAt: null } })).toBe(false);
+		expect(selectIsGameFinished({ ...finished, progress: { ...finished.progress, chapter: 3 } })).toBe(false);
+		expect(selectIsGameFinished({ ...finished, storyFlags: {} })).toBe(false);
+	});
+
 	it("selectIsOxygenLow 在低於 30 時為 true", () => {
 		const { loseOxygen } = useGameStore.getState();
 		for (let index = 0; index < 70; index += 1) {
@@ -466,9 +579,9 @@ describe("persist", () => {
 
 		const stored = readStoredSave();
 		expect(stored.version).toBe(SAVE_VERSION);
-		expect(stored.version).toBe(2);
+		expect(stored.version).toBe(3);
 		expect(stored.state.progress).toEqual({ ...DEFAULT_PROGRESS, learnedCommands: ["pwd"] });
-		expect(Object.keys(stored.state).sort()).toEqual(["progress", "settings", "storyFlags", "terminals"]);
+		expect(Object.keys(stored.state).sort()).toEqual(["progress", "settings", "stats", "storyFlags", "terminals"]);
 		expect(stored.state).not.toHaveProperty("learnCommand");
 		expect(stored.state).not.toHaveProperty("resetSave");
 	});
@@ -484,8 +597,9 @@ describe("persist", () => {
 				savedAt: "2031-03-12T08:15:00.000Z",
 			},
 			settings: { ...DEFAULT_SETTINGS, scanlinesEnabled: false },
-			terminals: { "ch1-t1": createRecord([createSystemEntry(1)]) },
+			terminals: { "ch1-t1": { ...createRecord([createSystemEntry(1)]), scriptHash: "0123456789abcdef" } },
 			storyFlags: { "ch1.sawShadow": true },
+			stats: { "1": { playTimeMs: 61000, errors: 3, hints: 1 } },
 		};
 		localStorage.setItem(SAVE_STORAGE_KEY, JSON.stringify({ state: save, version: SAVE_VERSION }));
 
@@ -496,6 +610,7 @@ describe("persist", () => {
 		expect(state.settings).toEqual(save.settings);
 		expect(state.terminals).toEqual(save.terminals);
 		expect(state.storyFlags).toEqual(save.storyFlags);
+		expect(state.stats).toEqual(save.stats);
 		expect(typeof state.learnCommand).toBe("function");
 		expect(useGameStore.persist.hasHydrated()).toBe(true);
 	});
@@ -515,7 +630,7 @@ describe("persist", () => {
 		expect(useGameStore.getState().settings).toEqual({ ...DEFAULT_SETTINGS, textSpeed: "slow" });
 	});
 
-	it("v1 存檔升級成 v2：最遠章節等於目前章節、沒有位置，其他資料原樣保留", async () => {
+	it("v1 存檔一路升級到 v3：最遠章節等於目前章節、沒有位置、沒通關、統計是空的，其他資料原樣保留", async () => {
 		const v1Progress = {
 			chapter: 3,
 			character: "d",
@@ -535,8 +650,51 @@ describe("persist", () => {
 		await useGameStore.persist.rehydrate();
 
 		const state = useGameStore.getState();
-		expect(state.progress).toEqual({ ...v1Progress, furthestChapter: 3, position: null });
+		expect(state.progress).toEqual({ ...v1Progress, furthestChapter: 3, position: null, clearedAt: null });
 		expect(state.storyFlags).toEqual({ "ch2.outroShown": true });
+		expect(state.stats).toEqual({});
+		expect(readStoredSave().version).toBe(3);
+	});
+
+	it("v2 存檔升級到 v3：看完片尾的算已通關，終端機紀錄原樣保留", async () => {
+		const record = createRecord([createSystemEntry(1)]);
+		localStorage.setItem(
+			SAVE_STORAGE_KEY,
+			JSON.stringify({
+				state: {
+					progress: {
+						...DEFAULT_PROGRESS,
+						chapter: 6,
+						furthestChapter: 6,
+						savedAt: "2031-03-12T08:15:00.000Z",
+						clearedAt: undefined,
+					},
+					settings: DEFAULT_SETTINGS,
+					terminals: { "ch6-t6": record },
+					storyFlags: { "ch6.outroShown": true },
+				},
+				version: 2,
+			}),
+		);
+
+		await useGameStore.persist.rehydrate();
+
+		const state = useGameStore.getState();
+		expect(state.progress.clearedAt).toBe("2031-03-12T08:15:00.000Z");
+		expect(state.terminals).toEqual({ "ch6-t6": record });
+		expect(state.stats).toEqual({});
+		expect(localStorage.getItem("kepler9-save.backup.v2")).not.toBeNull();
+	});
+
+	it("存檔的 stats 不是物件時用空的統計", async () => {
+		localStorage.setItem(
+			SAVE_STORAGE_KEY,
+			JSON.stringify({ state: { ...createInitialSaveData(), stats: "壞掉" }, version: SAVE_VERSION }),
+		);
+
+		await useGameStore.persist.rehydrate();
+
+		expect(useGameStore.getState().stats).toEqual({});
 	});
 
 	it("最遠章節比目前章節小的壞存檔會被拉回至少等於目前章節", async () => {

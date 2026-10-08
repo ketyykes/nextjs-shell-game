@@ -22,6 +22,9 @@ export const CHAPTER_METAS: readonly ChapterMeta[] = [
 	{ chapter: 6, deckName: "NOVA 核心" },
 ];
 
+/** 最後一章的章節號（等於 `CHAPTERS` 的 `FINAL_CHAPTER`），存檔的通關判斷用。 */
+export const LAST_CHAPTER = CHAPTER_METAS[CHAPTER_METAS.length - 1].chapter;
+
 /** 開場 boot log 最後接的 NOVA 第一句，等於第一章 `intro[0]`。 */
 export const NOVA_FIRST_LINE = "……連線建立。站務系統 NOVA，低功率模式。";
 

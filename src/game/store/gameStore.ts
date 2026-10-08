@@ -14,6 +14,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import type { StateStorage } from "zustand/middleware";
+import { migrateSaveData } from "./migrate";
 import { getSaveIssue, setSaveIssue } from "./saveStatus";
 import {
 	DEFAULT_PROGRESS,
@@ -24,7 +25,15 @@ import {
 	SAVE_VERSION,
 	TRANSCRIPT_LIMIT,
 } from "./types";
-import type { GameStore, ProgressState, SaveData, StoryFlags, TerminalSessionRecord } from "./types";
+import type {
+	ChapterStats,
+	GameStore,
+	PlayStats,
+	ProgressState,
+	SaveData,
+	StoryFlags,
+	TerminalSessionRecord,
+} from "./types";
 
 // ---------------------------------------------------------------------------
 // 初始值
@@ -41,7 +50,20 @@ export function createInitialSaveData(): SaveData {
 		settings: { ...DEFAULT_SETTINGS },
 		terminals: {},
 		storyFlags: {},
+		stats: {},
 	};
+}
+
+/** 一章還沒有任何紀錄時的統計。 */
+function emptyChapterStats(): ChapterStats {
+	return { playTimeMs: 0, errors: 0, hints: 0 };
+}
+
+/** 回傳加上某章差異後的新統計，不改原物件。 */
+function withChapterStats(stats: PlayStats, chapter: number, patch: (current: ChapterStats) => ChapterStats): PlayStats {
+	const key = String(chapter);
+	const current = stats[key] ?? emptyChapterStats();
+	return { ...stats, [key]: patch(current) };
 }
 
 // ---------------------------------------------------------------------------
@@ -164,43 +186,26 @@ function mergeSaveData(persistedState: unknown, currentState: GameStore): GameSt
 		merged.storyFlags = persisted.storyFlags;
 	}
 
+	if (isRecord(persisted.stats)) {
+		merged.stats = persisted.stats;
+	}
+
 	return merged;
 }
 
 /**
- * 存檔版本不同時才會被呼叫（版本相同 persist 不會呼叫 migrate）。依 `version` 逐版轉換到 `SAVE_VERSION`。
- *
- * - v1 → v2：`progress` 多 `furthestChapter`（舊存檔沒有選章，等於目前章節）與 `position`（舊存檔不存位置，null）。
- *
- * 只會收到比 `SAVE_VERSION` 舊的版本：比程式新的存檔在 `safeLocalStorage.getItem` 就擋掉了，不會走到這裡。
- * 欄位缺漏或型別不對的壞存檔交給 `mergeSaveData` 用預設值補。
- */
-function migrateSaveData(persistedState: unknown, version: number): SaveData {
-	if (!isRecord(persistedState)) {
-		return persistedState as SaveData;
-	}
-
-	let state: Record<string, unknown> = persistedState;
-
-	if (version < 2 && isRecord(state.progress)) {
-		const progress = state.progress;
-		state = {
-			...state,
-			progress: { ...progress, furthestChapter: progress.chapter, position: null },
-		};
-	}
-
-	return state as unknown as SaveData;
-}
-
-/**
- * 清掉某一章的進度：`ch<n>-` 開頭的終端機 session 與過關紀錄、`ch<n>.` 開頭的旗標、該章的角色位置，氧氣回滿。
+ * 清掉某一章的進度：`ch<n>-` 開頭的終端機 session 與過關紀錄、`ch<n>.` 開頭的旗標、該章的角色位置與統計，氧氣回滿。
  * 前綴帶分隔符號，ch1 才不會誤殺 ch10。
  */
 function clearChapter(
 	state: SaveData,
 	chapter: number,
-): { progress: ProgressState; terminals: Record<string, TerminalSessionRecord>; storyFlags: StoryFlags } {
+): {
+	progress: ProgressState;
+	terminals: Record<string, TerminalSessionRecord>;
+	storyFlags: StoryFlags;
+	stats: PlayStats;
+} {
 	const terminalPrefix = `ch${chapter}-`;
 	const flagPrefix = `ch${chapter}.`;
 
@@ -223,6 +228,9 @@ function clearChapter(
 		position = null;
 	}
 
+	const stats: PlayStats = { ...state.stats };
+	delete stats[String(chapter)];
+
 	return {
 		progress: {
 			...state.progress,
@@ -232,6 +240,7 @@ function clearChapter(
 		},
 		terminals,
 		storyFlags,
+		stats,
 	};
 }
 
@@ -301,9 +310,12 @@ export const useGameStore = create<GameStore>()(
 				const current = get().terminals[terminalId];
 				let nextRecord = record;
 
-				// 呼叫端存 shell 狀態時通常只帶 shell 與 transcript，這裡保留原本的階梯計數，避免被洗成 0
+				// 呼叫端存 shell 狀態時通常只帶 shell 與 transcript，這裡保留原本的階梯計數與劇本雜湊，避免被洗掉
 				if (record.errorCount === undefined && current?.errorCount !== undefined) {
-					nextRecord = { ...record, errorCount: current.errorCount };
+					nextRecord = { ...nextRecord, errorCount: current.errorCount };
+				}
+				if (record.scriptHash === undefined && current?.scriptHash !== undefined) {
+					nextRecord = { ...nextRecord, scriptHash: current.scriptHash };
 				}
 
 				set((state) => ({ terminals: { ...state.terminals, [terminalId]: nextRecord } }));
@@ -383,6 +395,7 @@ export const useGameStore = create<GameStore>()(
 					progress: initial.progress,
 					terminals: initial.terminals,
 					storyFlags: initial.storyFlags,
+					stats: initial.stats,
 				});
 			},
 
@@ -433,6 +446,41 @@ export const useGameStore = create<GameStore>()(
 					},
 				}));
 			},
+
+			// 通關與統計 -------------------------------------------------------
+
+			markGameCleared: () => {
+				if (get().progress.clearedAt !== null) {
+					return;
+				}
+				set((state) => ({ progress: { ...state.progress, clearedAt: new Date().toISOString() } }));
+			},
+
+			recordCommandStats: (chapter, execution) => {
+				if (!execution.isError && !execution.hintUsed) {
+					return;
+				}
+				set((state) => ({
+					stats: withChapterStats(state.stats, chapter, (current) => ({
+						...current,
+						errors: current.errors + (execution.isError ? 1 : 0),
+						hints: current.hints + (execution.hintUsed ? 1 : 0),
+					})),
+				}));
+			},
+
+			addPlayTime: (chapter, ms) => {
+				const rounded = Math.round(ms);
+				if (!Number.isFinite(rounded) || rounded <= 0) {
+					return;
+				}
+				set((state) => ({
+					stats: withChapterStats(state.stats, chapter, (current) => ({
+						...current,
+						playTimeMs: current.playTimeMs + rounded,
+					})),
+				}));
+			},
 		}),
 		{
 			name: SAVE_STORAGE_KEY,
@@ -444,6 +492,7 @@ export const useGameStore = create<GameStore>()(
 				settings: state.settings,
 				terminals: state.terminals,
 				storyFlags: state.storyFlags,
+				stats: state.stats,
 			}),
 			migrate: migrateSaveData,
 			merge: mergeSaveData,

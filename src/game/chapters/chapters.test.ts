@@ -10,7 +10,7 @@ import { deckTerminals } from "@/game/story/decks";
 import { createObjectiveContext, evaluateObjective } from "@/game/story/objectives";
 import { CHAPTERS, chapterTeaches, FINAL_CHAPTER, findTerminal, getChapter, getNextChapter, isChapterComplete } from "./index";
 import { chapterOneLifeSupport } from "./index";
-import { CHAPTER_METAS, NOVA_FIRST_LINE } from "./meta";
+import { CHAPTER_METAS, LAST_CHAPTER, NOVA_FIRST_LINE } from "./meta";
 import { readFile } from "node:fs/promises";
 
 interface MarkerProperty {
@@ -143,6 +143,10 @@ describe("章節 metadata（meta.ts 與劇本同步）", () => {
 		expect(CHAPTER_METAS.map((meta) => ({ chapter: meta.chapter, deckName: meta.deckName }))).toEqual(
 			CHAPTERS.map((chapter) => ({ chapter: chapter.chapter, deckName: chapter.deckName })),
 		);
+	});
+
+	it("LAST_CHAPTER 等於 FINAL_CHAPTER", () => {
+		expect(LAST_CHAPTER).toBe(FINAL_CHAPTER);
 	});
 
 	it("NOVA_FIRST_LINE 等於第一章 intro 的第一句", () => {

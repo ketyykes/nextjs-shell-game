@@ -10,6 +10,7 @@ export {
 	OXYGEN_LOW_THRESHOLD,
 	selectHasFlag,
 	selectHasSave,
+	selectIsGameFinished,
 	selectIsOxygenLow,
 	selectIsTerminalSolved,
 	selectLearnedCommands,
