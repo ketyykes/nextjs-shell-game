@@ -636,7 +636,7 @@ export interface SeedOptions {
 /**
  * 直接寫一份「已經玩到第 N 章開頭」的存檔進 localStorage，略過前面幾章。
  * 格式跟 `src/game/store/gameStore.ts` 的 persist 一致（`{ state, version }`）。刻意寫 v1（沒有 `furthestChapter`、`position`），
- * 讀檔時走 migrate 升成 v2，順便在真瀏覽器裡驗證舊存檔讀得進來。
+ * 讀檔時走 migrate 一路升到目前版本（v3），順便在真瀏覽器裡驗證舊存檔讀得進來。
  */
 export async function seedSave(page: Page, options: SeedOptions): Promise<void> {
 	const solvedTerminals = options.solvedTerminals ?? [];
