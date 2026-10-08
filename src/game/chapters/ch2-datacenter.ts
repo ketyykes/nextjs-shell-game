@@ -14,10 +14,11 @@
  */
 
 import { EXIT_DOOR_ID } from "@/game/phaser/events";
-import { deckTerminal, type TerminalIndex } from "@/game/story/decks";
+import { deckTerminalIdentity } from "@/game/story/decks";
 import { all, any, anyCommandIs, catFile, commandTouches, outputContains } from "@/game/story/objectives";
 import { validateChapter } from "@/game/story/schema";
 import type { ObjectiveCheck } from "@/game/story/types";
+import { lines } from "./helpers";
 import type { ChapterDefinition, TerminalDefinition } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -39,23 +40,9 @@ const KEY_ISSUED_MTIME = "2031-03-10T03:05:00Z";
 /** 玩家走進資料中心的時間。 */
 const ARRIVAL_MTIME = "2031-03-12T09:12:00Z";
 
-/** 把多行文字接成檔案內容，結尾補換行，跟真的文字檔一樣。 */
-function lines(...content: string[]): string {
-	return `${content.join("\n")}\n`;
-}
-
 /** 數字補零到指定位數。 */
 function pad(value: number, width: number): string {
 	return String(value).padStart(width, "0");
-}
-
-/**
- * 第二章第 `index` 台的身分（id、標題、艙區）。
- * `deckTerminal` 另外帶了 `slot`，劇本 schema 是 strictObject，不能整個展開進去。
- */
-function placement(index: TerminalIndex): Pick<TerminalDefinition, "id" | "title" | "roomId"> {
-	const { id, title, roomId } = deckTerminal(2, index);
-	return { id, title, roomId };
 }
 
 /** 用 cat、head 或 tail 讀了指定檔案（都算「讀到了」）。 */
@@ -108,7 +95,7 @@ const ACCESS_LOG = lines(
 );
 
 const entryTerminal: TerminalDefinition = {
-	...placement(1),
+	...deckTerminalIdentity(2, 1),
 	teaches: ["head", "tail"],
 	initialCwd: "/deck2/entry",
 	banner: ["KEPLER-9 資料中心入口登錄台 v4.1", "門禁紀錄：已累積三年。"],
@@ -247,7 +234,7 @@ function evacSegments(): Record<string, { $type: "file"; mtime: string; content:
 }
 
 const archiveTerminal: TerminalDefinition = {
-	...placement(2),
+	...deckTerminalIdentity(2, 2),
 	teaches: ["wc", "*"],
 	initialCwd: "/deck2/archive",
 	banner: ["KEPLER-9 日誌封存終端機 v2.7", "撤離當晚日誌：30 段。完整性檢查：未執行。"],
@@ -347,7 +334,7 @@ const DOOR_EVENTS_LOG = lines(
 );
 
 const racksTerminal: TerminalDefinition = {
-	...placement(3),
+	...deckTerminalIdentity(2, 3),
 	teaches: ["grep"],
 	initialCwd: "/deck2/logs",
 	banner: ["KEPLER-9 機櫃管理台 R07", "已掛載：/deck2/logs（艙門事件、NOVA 核心、撤離日誌）"],
@@ -452,7 +439,7 @@ function coolingYear(year: number, quarters: number[]): Record<string, { $type: 
 }
 
 const coolingTerminal: TerminalDefinition = {
-	...placement(4),
+	...deckTerminalIdentity(2, 4),
 	teaches: ["grep -r"],
 	initialCwd: "/deck2/cooling",
 	banner: ["KEPLER-9 冷卻監控台 v3.3", "人員熱負載異常：持續中。"],
@@ -525,7 +512,7 @@ function snapshotImage(date: string, by: string): string {
 }
 
 const backupTerminal: TerminalDefinition = {
-	...placement(5),
+	...deckTerminalIdentity(2, 5),
 	teaches: ["find"],
 	initialCwd: "/deck2/backup",
 	banner: ["KEPLER-9 備援主控台 v1.9", "快照目錄：/deck2/backup"],
@@ -657,7 +644,7 @@ function revokedKey(serial: string, revokedAt: string): string {
 }
 
 const exitTerminal: TerminalDefinition = {
-	...placement(6),
+	...deckTerminalIdentity(2, 6),
 	teaches: [],
 	initialCwd: "/deck2/exit",
 	banner: ["KEPLER-9 資料中心艙門控制台 v2.0", "鎖定中。需要有效的出口鑰匙。"],

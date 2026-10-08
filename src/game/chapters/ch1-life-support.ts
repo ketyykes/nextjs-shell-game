@@ -13,8 +13,10 @@
  */
 
 import { EXIT_DOOR_ID } from "@/game/phaser/events";
+import { deckTerminalIdentity } from "@/game/story/decks";
 import { all, catFile, commandIs } from "@/game/story/objectives";
 import { validateChapter } from "@/game/story/schema";
+import { lines } from "./helpers";
 import type { ChapterDefinition, TerminalDefinition } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -34,19 +36,12 @@ const SCHEDULE_CHANGED_MTIME = "2031-03-10T03:07:00Z";
 /** 玩家醒來的時間，pod_06 剛被打開。 */
 const WAKE_MTIME = "2031-03-12T08:15:00Z";
 
-/** 把多行文字接成檔案內容，結尾補換行，跟真的文字檔一樣。 */
-function lines(...content: string[]): string {
-	return `${content.join("\n")}\n`;
-}
-
 // ---------------------------------------------------------------------------
 // T1 冷凍艙控制台：pwd、ls、cat
 // ---------------------------------------------------------------------------
 
 const cryoTerminal: TerminalDefinition = {
-	id: "ch1-t1",
-	title: "冷凍艙控制台",
-	roomId: "cryo",
+	...deckTerminalIdentity(1, 1),
 	teaches: ["pwd", "ls", "cat"],
 	initialCwd: "/home/tech",
 	banner: ["KEPLER-9 冷凍艙控制台 v2.3", "低功率模式。卡關就輸入 hint，我會提示你。"],
@@ -141,9 +136,7 @@ const cryoTerminal: TerminalDefinition = {
 // ---------------------------------------------------------------------------
 
 const lifeSupportTerminal: TerminalDefinition = {
-	id: "ch1-t2",
-	title: "維生系統監控台",
-	roomId: "lifesupport",
+	...deckTerminalIdentity(1, 2),
 	teaches: ["cd", ".."],
 	initialCwd: "/deck1/systems",
 	banner: ["KEPLER-9 維生系統監控台 v1.8", "警告：主艙門供電中斷。"],
@@ -226,9 +219,7 @@ const lifeSupportTerminal: TerminalDefinition = {
 // ---------------------------------------------------------------------------
 
 const quartersTerminal: TerminalDefinition = {
-	id: "ch1-t3",
-	title: "宿舍終端機",
-	roomId: "quarters",
+	...deckTerminalIdentity(1, 3),
 	teaches: ["ls -l", "~"],
 	initialCwd: "/deck1/quarters",
 	banner: ["KEPLER-9 宿舍終端機 v1.2", "共用終端機。個人檔案請至各自的家目錄。"],
@@ -325,9 +316,7 @@ function breakerStatus(name: string, load: string): string {
 }
 
 const powerTerminal: TerminalDefinition = {
-	id: "ch1-t4",
-	title: "配電箱",
-	roomId: "power",
+	...deckTerminalIdentity(1, 4),
 	teaches: ["ls -a"],
 	initialCwd: "/home/tech",
 	banner: ["KEPLER-9 配電箱 B 區", "斷路器 B3：跳脫。需要重置碼。"],
@@ -429,9 +418,7 @@ function crewIntakeRecord(patientId: string, pod: string, role: string, remark: 
 const POD_06_RECORD_ID = "PT-2028-0601-QN0606";
 
 const medbayTerminal: TerminalDefinition = {
-	id: "ch1-t5",
-	title: "醫療艙終端機",
-	roomId: "medbay",
+	...deckTerminalIdentity(1, 5),
 	teaches: ["Tab", "history", "clear"],
 	initialCwd: "/deck1/medbay",
 	banner: ["KEPLER-9 醫療艙終端機 v3.0", "病歷系統：唯讀模式。"],
@@ -525,9 +512,7 @@ const medbayTerminal: TerminalDefinition = {
 // ---------------------------------------------------------------------------
 
 const airlockTerminal: TerminalDefinition = {
-	id: "ch1-t6",
-	title: "艙門控制台",
-	roomId: "airlock",
+	...deckTerminalIdentity(1, 6),
 	teaches: [],
 	initialCwd: "/deck1/airlock",
 	banner: ["KEPLER-9 主艙門控制台 v2.0", "供電：已恢復。鎖定中。"],

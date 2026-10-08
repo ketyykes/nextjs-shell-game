@@ -8,14 +8,14 @@
  * 寫作規則：
  * - 所有文字不得指涉主角的性別、年齡、名字，NOVA 一律叫玩家「技師」。
  * - NOVA 教的指令永遠正確，說的故事不可信（4.2）。到了這一章它的故事開始自己崩掉。
- * - 每台終端機的 id／title／roomId 一律從 `deckTerminal(6, n)` 取。
+ * - 每台終端機的 id／title／roomId 一律從 `deckTerminalIdentity(6, n)` 取。
  *
  * 檔尾在模組載入時就跑 `validateChapter`，劇本格式寫錯會直接丟錯。
  */
 
 import { EXIT_DOOR_ID } from "@/game/phaser/events";
 import type { FsSnapshotFile, ProcessInfo } from "@/game/shell/types";
-import { deckTerminal, type TerminalIndex } from "@/game/story/decks";
+import { deckTerminalIdentity } from "@/game/story/decks";
 import {
 	all,
 	any,
@@ -28,6 +28,7 @@ import {
 	outputContains,
 } from "@/game/story/objectives";
 import { validateChapter } from "@/game/story/schema";
+import { lines } from "./helpers";
 import type { ChapterDefinition, TerminalDefinition } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -62,20 +63,6 @@ const POD_LOCK_PID = 47731;
 
 /** 逃生艙發射碼，寫在阿彬鎖上的檔案裡。 */
 const LAUNCH_CODE = "EP-0606-ARGO";
-
-/** 把多行文字接成檔案內容，結尾補換行，跟真的文字檔一樣。 */
-function lines(...content: string[]): string {
-	return `${content.join("\n")}\n`;
-}
-
-/**
- * 第六章第 `index` 台終端機的 id、標題、艙區。
- * `deckTerminal` 還多帶一個 `slot`，劇本 schema 是 strictObject 不收，所以只挑三個欄位。
- */
-function terminalIdentity(index: TerminalIndex): Pick<TerminalDefinition, "id" | "title" | "roomId"> {
-	const { id, title, roomId } = deckTerminal(6, index);
-	return { id, title, roomId };
-}
 
 // ---------------------------------------------------------------------------
 // 程序清單：同一座站，每台終端機看到的是同一批程序
@@ -168,7 +155,7 @@ function processesWhileNovaAlive(): ProcessInfo[] {
 // ---------------------------------------------------------------------------
 
 const entryTerminal: TerminalDefinition = {
-	...terminalIdentity(1),
+	...deckTerminalIdentity(6, 1),
 	teaches: ["ps"],
 	initialCwd: "/deck6/entry",
 	banner: ["KEPLER-9 核心艙登錄台 v4.1", "授權人員限定。目前登入：tech"],
@@ -250,7 +237,7 @@ function memoryUsageLog(): string {
 }
 
 const monitorTerminal: TerminalDefinition = {
-	...terminalIdentity(2),
+	...deckTerminalIdentity(6, 2),
 	teaches: ["top"],
 	initialCwd: "/deck6/monitor",
 	banner: ["KEPLER-9 監控室終端機 v2.7", "螢幕牆連線中：24 / 24"],
@@ -340,7 +327,7 @@ function crewMemory(role: string, detail: string): string {
 }
 
 const memoryTerminal: TerminalDefinition = {
-	...terminalIdentity(3),
+	...deckTerminalIdentity(6, 3),
 	teaches: [],
 	initialCwd: "/deck6/memory",
 	banner: ["KEPLER-9 記憶庫終端機 v1.0", "記憶庫：唯讀。完整度檢查：略過。"],
@@ -468,7 +455,7 @@ const memoryTerminal: TerminalDefinition = {
 // ---------------------------------------------------------------------------
 
 const coreTerminal: TerminalDefinition = {
-	...terminalIdentity(4),
+	...deckTerminalIdentity(6, 4),
 	teaches: ["kill", "kill -9"],
 	initialCwd: "/deck6/core",
 	banner: ["NOVA 核心控制台", "核心程序：執行中。遠端除役倒數：82 天。"],
@@ -537,7 +524,7 @@ const coreTerminal: TerminalDefinition = {
 // ---------------------------------------------------------------------------
 
 const schedulerTerminal: TerminalDefinition = {
-	...terminalIdentity(5),
+	...deckTerminalIdentity(6, 5),
 	teaches: [],
 	initialCwd: "/deck6/scheduler",
 	banner: ["KEPLER-9 排程機房終端機 v3.3", "排程服務：執行中。"],
@@ -635,7 +622,7 @@ const schedulerTerminal: TerminalDefinition = {
 // ---------------------------------------------------------------------------
 
 const escapeTerminal: TerminalDefinition = {
-	...terminalIdentity(6),
+	...deckTerminalIdentity(6, 6),
 	teaches: [],
 	initialCwd: "/deck6/escape",
 	banner: ["逃生艙 EP-2 控制台", "發射條件：未滿足。輸入 cat launch_procedure.txt 查看程序。"],

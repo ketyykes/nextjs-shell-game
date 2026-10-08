@@ -9,13 +9,13 @@
  * - 所有文字不得指涉主角的性別、年齡、名字，NOVA 一律叫玩家「技師」。
  *   注意「其他」「他們」都含「他」字，會被性別檢查擋下，改寫成「別人」「那些船員」。
  * - NOVA 教的指令永遠正確，說的故事不可信（4.2）。
- * - 每台終端機的 `id`、`title`、`roomId` 一律從 `deckTerminal(5, n)` 取。
+ * - 每台終端機的 `id`、`title`、`roomId` 一律從 `deckTerminalIdentity(5, n)` 取。
  *
  * 檔尾在模組載入時就跑 `validateChapter`，劇本格式寫錯會直接丟錯。
  */
 
 import { EXIT_DOOR_ID } from "@/game/phaser/events";
-import { deckTerminal, type TerminalIndex } from "@/game/story/decks";
+import { deckTerminalIdentity } from "@/game/story/decks";
 import {
 	all,
 	any,
@@ -27,6 +27,7 @@ import {
 } from "@/game/story/objectives";
 import { validateChapter } from "@/game/story/schema";
 import type { ObjectiveCheck } from "@/game/story/types";
+import { lines } from "./helpers";
 import type { ChapterDefinition, TerminalDefinition } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -51,20 +52,6 @@ const WAKE_MTIME = "2031-03-12T08:15:00Z";
 /** 艦長碼：導航站交接紀錄裡寫的那一組，T2 與 T6 共用。 */
 const CAPTAIN_CODE = "CAPT-0417";
 
-/** 把多行文字接成檔案內容，結尾補換行，跟真的文字檔一樣。 */
-function lines(...content: string[]): string {
-	return `${content.join("\n")}\n`;
-}
-
-/**
- * 第五章第 `index` 台終端機的身分（id、標題、艙區）。
- * `deckTerminal` 還帶一個 `slot` 欄位，schema 是 strictObject 會擋，所以只挑三個欄位出來。
- */
-function bridgeTerminal(index: TerminalIndex): Pick<TerminalDefinition, "id" | "title" | "roomId"> {
-	const { id, title, roomId } = deckTerminal(5, index);
-	return { id, title, roomId };
-}
-
 /**
  * 讀到某個檔案而且輸出裡看得到關鍵字：`cat`、`head`、`tail`、`grep` 都算。
  * 帶關鍵字是為了讓 `grep` 沒挑到那一行、或 `head` 沒印到那一行時不算過關。
@@ -86,7 +73,7 @@ function readsFileShowing(absolutePath: string, text: string): ObjectiveCheck {
 // ---------------------------------------------------------------------------
 
 const entryTerminal: TerminalDefinition = {
-	...bridgeTerminal(1),
+	...deckTerminalIdentity(5, 1),
 	teaches: ["man", "env"],
 	initialCwd: "/deck5/bridge",
 	banner: ["KEPLER-9 艦橋登錄台 v4.1", "登錄前請確認工作階段環境。"],
@@ -169,7 +156,7 @@ function keyFile(code: string, passed: boolean): string {
 }
 
 const navTerminal: TerminalDefinition = {
-	...bridgeTerminal(2),
+	...deckTerminalIdentity(5, 2),
 	teaches: ["export", "$變數"],
 	initialCwd: "/deck5/nav",
 	banner: ["KEPLER-9 導航站終端機 v2.6", "艦長權限驗證：等待 CAPTAIN_KEY。"],
@@ -249,7 +236,7 @@ const navTerminal: TerminalDefinition = {
 const CAPTAIN_FINAL_LOG = "/deck5/captain/sealed/log_final.txt";
 
 const captainTerminal: TerminalDefinition = {
-	...bridgeTerminal(3),
+	...deckTerminalIdentity(5, 3),
 	teaches: ["chmod +r"],
 	initialCwd: "/deck5/captain",
 	banner: ["KEPLER-9 艦長室終端機 v1.9", "艦長權限：已驗證。sealed/ 內有封存檔案。"],
@@ -337,7 +324,7 @@ const captainTerminal: TerminalDefinition = {
 const SCHEDULER_LOG = "/deck5/security/scheduler/cron_2028-06-02.log";
 
 const securityTerminal: TerminalDefinition = {
-	...bridgeTerminal(4),
+	...deckTerminalIdentity(5, 4),
 	teaches: ["chmod 644"],
 	initialCwd: "/deck5/security",
 	banner: ["KEPLER-9 安全管制台 v3.3", "排程稽核：撤離當日日誌僅限擁有者讀取。"],
@@ -431,7 +418,7 @@ function idlePodLog(pod: string): string {
 }
 
 const escapeTerminal: TerminalDefinition = {
-	...bridgeTerminal(5),
+	...deckTerminalIdentity(5, 5),
 	teaches: [],
 	initialCwd: "/deck5/escape",
 	banner: ["KEPLER-9 逃生艙紀錄台 v1.4", "紀錄位置見環境變數 POD_DIR。"],
@@ -524,7 +511,7 @@ const escapeTerminal: TerminalDefinition = {
 // ---------------------------------------------------------------------------
 
 const exitTerminal: TerminalDefinition = {
-	...bridgeTerminal(6),
+	...deckTerminalIdentity(5, 6),
 	teaches: [],
 	initialCwd: "/deck5/exit",
 	banner: ["KEPLER-9 艦橋艙門控制台 v2.2", "鎖定中。需要艦長授權。"],

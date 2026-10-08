@@ -16,9 +16,10 @@
 
 import { EXIT_DOOR_ID } from "@/game/phaser/events";
 import type { FsSnapshotDir } from "@/game/shell/types";
-import { deckTerminal, type TerminalIndex } from "@/game/story/decks";
+import { deckTerminalIdentity } from "@/game/story/decks";
 import { all, commandIs, fileAbsent, fileContains, fileExists } from "@/game/story/objectives";
 import { validateChapter } from "@/game/story/schema";
+import { lines } from "./helpers";
 import type { ChapterDefinition, TerminalDefinition } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -47,20 +48,6 @@ const WORK_ORDER_MTIME = "2031-03-12T09:40:00Z";
 const POWER_RESTORED_MTIME = "2031-03-12T10:05:00Z";
 /** 玩家整理好的東西被搬走的時間，T5 之後、T6 之前。 */
 const MOVED_MTIME = "2031-03-12T10:12:00Z";
-
-/** 把多行文字接成檔案內容，結尾補換行，跟真的文字檔一樣。 */
-function lines(...content: string[]): string {
-	return `${content.join("\n")}\n`;
-}
-
-/**
- * 第 `index` 台終端機的 id、標題、艙區，一律從 `decks.ts` 取。
- * `deckTerminal` 還帶 `slot`，但終端機 schema 是 strictObject，多一個欄位會報錯，所以只挑這三個。
- */
-function terminalIdentity(index: TerminalIndex): Pick<TerminalDefinition, "id" | "title" | "roomId"> {
-	const { id, title, roomId } = deckTerminal(3, index);
-	return { id, title, roomId };
-}
 
 // ---------------------------------------------------------------------------
 // 共用檔案
@@ -102,7 +89,7 @@ function preparedRepairDir(): FsSnapshotDir {
 // ---------------------------------------------------------------------------
 
 const entryTerminal: TerminalDefinition = {
-	...terminalIdentity(1),
+	...deckTerminalIdentity(3, 1),
 	teaches: ["mkdir"],
 	initialCwd: "/home/tech",
 	banner: ["KEPLER-9 工程艙登錄台 v4.1", "主電力：離線。緊急照明運作中。"],
@@ -177,7 +164,7 @@ function backupConfig(title: string, id: string): string {
 }
 
 const workshopTerminal: TerminalDefinition = {
-	...terminalIdentity(2),
+	...deckTerminalIdentity(3, 2),
 	teaches: ["touch", "cp"],
 	initialCwd: "/deck3/workshop",
 	banner: ["KEPLER-9 工作間終端機 v2.6", "設定備份：唯讀。修改前請先複製。"],
@@ -249,7 +236,7 @@ function partsList(category: string, ...items: string[]): string {
 }
 
 const storageTerminal: TerminalDefinition = {
-	...terminalIdentity(3),
+	...deckTerminalIdentity(3, 3),
 	teaches: ["mv"],
 	initialCwd: "/deck3/storage",
 	banner: ["KEPLER-9 零件倉管理台 v1.4", "共用帳號 eng 登入中。"],
@@ -352,7 +339,7 @@ const storageTerminal: TerminalDefinition = {
 // ---------------------------------------------------------------------------
 
 const reactorTerminal: TerminalDefinition = {
-	...terminalIdentity(4),
+	...deckTerminalIdentity(3, 4),
 	teaches: ["rm", "rm -r"],
 	initialCwd: "/deck3/reactor",
 	banner: ["KEPLER-9 反應爐控制台 v5.0", "設定目錄 config/：遺失。主電力無法啟動。"],
@@ -433,7 +420,7 @@ const reactorTerminal: TerminalDefinition = {
 // ---------------------------------------------------------------------------
 
 const configRoomTerminal: TerminalDefinition = {
-	...terminalIdentity(5),
+	...deckTerminalIdentity(3, 5),
 	teaches: ["cp -r"],
 	initialCwd: "/deck3/config_room",
 	banner: ["KEPLER-9 設定機房終端機 v3.2", "提醒：設定變更後須立即備份。"],
@@ -517,7 +504,7 @@ const configRoomTerminal: TerminalDefinition = {
 // ---------------------------------------------------------------------------
 
 const exitTerminal: TerminalDefinition = {
-	...terminalIdentity(6),
+	...deckTerminalIdentity(3, 6),
 	teaches: ["mkdir -p"],
 	initialCwd: "/deck3/exit",
 	banner: ["KEPLER-9 工程艙艙門控制台 v2.0", "供電：已恢復。鎖定中。"],

@@ -22,7 +22,7 @@
 
 import { EXIT_DOOR_ID } from "@/game/phaser/events";
 import { FsError } from "@/game/shell/types";
-import { deckTerminal, type TerminalIndex } from "@/game/story/decks";
+import { deckTerminalIdentity } from "@/game/story/decks";
 import {
 	all,
 	any,
@@ -34,6 +34,7 @@ import {
 	redirectsTo,
 } from "@/game/story/objectives";
 import { validateChapter } from "@/game/story/schema";
+import { lines } from "./helpers";
 import type { ChapterDefinition, ObjectiveCheck, TerminalDefinition } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -53,20 +54,6 @@ const COMMS_NOW_MTIME = "2031-03-12T14:02:00Z";
 
 /** 站台呼號，T1 寫進 callsign.txt，T6 要放在清單第一行。 */
 const CALLSIGN = "KEPLER-9";
-
-/** 把多行文字接成檔案內容，結尾補換行，跟真的文字檔一樣。 */
-function lines(...content: string[]): string {
-	return `${content.join("\n")}\n`;
-}
-
-/**
- * 從 `decks.ts` 取這台終端機的 id、標題、艙區。
- * 只挑這三個欄位：`DeckTerminal` 還帶 `slot`，直接展開會被 schema 的 strictObject 擋掉。
- */
-function terminalIdentity(index: TerminalIndex): Pick<TerminalDefinition, "id" | "title" | "roomId"> {
-	const { id, title, roomId } = deckTerminal(4, index);
-	return { id, title, roomId };
-}
 
 /** 讀檔案內容，不存在、是目錄或沒權限回 null。 */
 function readFileOrNull(context: Parameters<ObjectiveCheck>[0], absolutePath: string): string | null {
@@ -155,7 +142,7 @@ function signalAssembled(absolutePath: string): ObjectiveCheck {
 const CALLSIGN_PATH = "/deck4/comms/callsign.txt";
 
 const entryTerminal: TerminalDefinition = {
-	...terminalIdentity(1),
+	...deckTerminalIdentity(4, 1),
 	teaches: ["echo", ">"],
 	initialCwd: "/deck4/comms",
 	banner: ["KEPLER-9 通訊艙登錄台 v4.1", "未登錄。對外通訊停用中。"],
@@ -285,7 +272,7 @@ function buildStationConfigs(): Record<string, string> {
 }
 
 const relayTerminal: TerminalDefinition = {
-	...terminalIdentity(2),
+	...deckTerminalIdentity(4, 2),
 	teaches: ["|"],
 	initialCwd: "/deck4/relay",
 	banner: ["KEPLER-9 中繼機房終端機 v2.7", "中繼網路：狀態不明。"],
@@ -358,7 +345,7 @@ const POINTING_LOG_LINES = [
 ];
 
 const antennaTerminal: TerminalDefinition = {
-	...terminalIdentity(3),
+	...deckTerminalIdentity(4, 3),
 	teaches: ["sort"],
 	initialCwd: "/deck4/antenna",
 	banner: ["KEPLER-9 主天線控制台 v1.9", "警告：指向紀錄緩衝區曾經損毀，紀錄順序不可靠。"],
@@ -439,7 +426,7 @@ function buildFragments(): Record<string, { $type: "file"; mtime: string; conten
 }
 
 const signalTerminal: TerminalDefinition = {
-	...terminalIdentity(4),
+	...deckTerminalIdentity(4, 4),
 	teaches: ["uniq"],
 	initialCwd: "/deck4/comms",
 	banner: ["KEPLER-9 訊號處理台 v3.2", "求救訊號範本：損毀，殘存 6 段碎片。"],
@@ -513,7 +500,7 @@ function readsTransmissionRecord(): ObjectiveCheck {
 }
 
 const archiveTerminal: TerminalDefinition = {
-	...terminalIdentity(5),
+	...deckTerminalIdentity(4, 5),
 	teaches: [">>"],
 	initialCwd: "/deck4/comms",
 	banner: ["KEPLER-9 通訊紀錄終端機 v2.0", "發送佇列：outbox.txt。佇列只能追加，不能覆寫。"],
@@ -617,7 +604,7 @@ const archiveTerminal: TerminalDefinition = {
 const MANIFEST_PATH = "/deck4/exit/manifest.txt";
 
 const exitTerminal: TerminalDefinition = {
-	...terminalIdentity(6),
+	...deckTerminalIdentity(4, 6),
 	teaches: [],
 	initialCwd: "/deck4/exit",
 	banner: ["KEPLER-9 通訊艙艙門控制台 v2.0", "鎖定中。放行需要發送清單。"],
