@@ -56,6 +56,20 @@ describe("help 指令", () => {
 		expect(names).toEqual(["ls", "zeta", "alpha"]);
 	});
 
+	it("teaches 裡的概念（Tab、*、..、~、>、|、$變數）學了也不會被當成指令列出", () => {
+		const context = createContext({ learnedCommands: ["ls", "Tab", "*", "..", "~", ">", ">>", "|", "$變數"] });
+		const listLines = helpCommand.run([], context).lines.slice(1, -1);
+
+		expect(listLines).toEqual([`ls  ${COMMAND_DOCS.ls.summary}`]);
+	});
+
+	it("只學過概念、還沒學過指令時，跟什麼都沒學一樣提示用 hint", () => {
+		const result = helpCommand.run([], createContext({ learnedCommands: ["Tab", ".."] }));
+
+		expect(result.lines).toHaveLength(1);
+		expect(result.lines[0]).toContain("hint");
+	});
+
 	it("重複學到的指令只列一次", () => {
 		const context = createContext({ learnedCommands: ["ls", "ls"] });
 		const listLines = helpCommand.run([], context).lines.slice(1, -1);

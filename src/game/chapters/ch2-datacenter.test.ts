@@ -158,7 +158,13 @@ describe("第二章劇本結構", () => {
 
 	it("每台教的指令照課程表", () => {
 		const teaches = chapterTwoDataCenter.terminals.map((terminal) => terminal.teaches);
-		expect(teaches).toEqual([["head", "tail"], ["wc"], ["grep"], ["grep -r"], ["find"], []]);
+		expect(teaches).toEqual([["head", "tail"], ["wc", "*"], ["grep"], ["grep -r"], ["find"], []]);
+	});
+
+	it("T2 一開啟 NOVA 就提到 * 萬用字元，第三段提示的 evac_*.log 才不是突然冒出來", () => {
+		const onOpen = terminalById("ch2-t2").nova?.onOpen?.join("\n") ?? "";
+		expect(onOpen).toContain("*");
+		expect(onOpen).toContain("evac_*.log");
 	});
 
 	it("T6 過關打開出口門，其餘終端機不改燈", () => {

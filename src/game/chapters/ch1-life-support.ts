@@ -144,7 +144,7 @@ const lifeSupportTerminal: TerminalDefinition = {
 	id: "ch1-t2",
 	title: "維生系統監控台",
 	roomId: "lifesupport",
-	teaches: ["cd"],
+	teaches: ["cd", ".."],
 	initialCwd: "/deck1/systems",
 	banner: ["KEPLER-9 維生系統監控台 v1.8", "警告：主艙門供電中斷。"],
 	hints: [
@@ -229,7 +229,7 @@ const quartersTerminal: TerminalDefinition = {
 	id: "ch1-t3",
 	title: "宿舍終端機",
 	roomId: "quarters",
-	teaches: ["ls -l", "cd ~"],
+	teaches: ["ls -l", "~"],
 	initialCwd: "/deck1/quarters",
 	banner: ["KEPLER-9 宿舍終端機 v1.2", "共用終端機。個人檔案請至各自的家目錄。"],
 	hints: [
@@ -430,7 +430,7 @@ const medbayTerminal: TerminalDefinition = {
 	id: "ch1-t5",
 	title: "醫療艙終端機",
 	roomId: "medbay",
-	teaches: ["history", "clear"],
+	teaches: ["Tab", "history", "clear"],
 	initialCwd: "/deck1/medbay",
 	banner: ["KEPLER-9 醫療艙終端機 v3.0", "病歷系統：唯讀模式。"],
 	hints: [

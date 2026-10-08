@@ -110,7 +110,19 @@ describe("章節註冊表", () => {
 	});
 
 	it("chapterTeaches 依序去重", () => {
-		expect(chapterTeaches(CHAPTERS[0])).toEqual(["pwd", "ls", "cat", "cd", "ls -l", "cd ~", "ls -a", "history", "clear"]);
+		expect(chapterTeaches(CHAPTERS[0])).toEqual([
+			"pwd",
+			"ls",
+			"cat",
+			"cd",
+			"..",
+			"ls -l",
+			"~",
+			"ls -a",
+			"Tab",
+			"history",
+			"clear",
+		]);
 	});
 
 	it("每章 teaches 的每個項目都查得到說明，回顧卡才不會有空白說明", () => {

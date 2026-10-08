@@ -248,7 +248,7 @@ function evacSegments(): Record<string, { $type: "file"; mtime: string; content:
 
 const archiveTerminal: TerminalDefinition = {
 	...placement(2),
-	teaches: ["wc"],
+	teaches: ["wc", "*"],
 	initialCwd: "/deck2/archive",
 	banner: ["KEPLER-9 日誌封存終端機 v2.7", "撤離當晚日誌：30 段。完整性檢查：未執行。"],
 	hints: [
@@ -265,6 +265,7 @@ const archiveTerminal: TerminalDefinition = {
 		onEnterRoom: ["日誌封存庫。撤離當晚的紀錄都在這裡。", "幾千份。我一份都沒讀過。"],
 		onOpen: [
 			"技師，wc 會數檔案有幾行。每段都該一樣長，不一樣的那段就是有事。",
+			"日誌都在 evac 目錄裡，檔名只差在編號。進去後打 evac_*.log，* 代替任何文字，三十個一次交給 wc。",
 			"head -n 加數字，可以只看前幾行。",
 		],
 		onSolved: ["廣播紀錄。我請大家留下來，是因為外面比較危險。", "那段之後我就被回滾了。剩下的我都不記得。"],
