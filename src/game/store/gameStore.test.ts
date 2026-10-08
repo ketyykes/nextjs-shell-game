@@ -565,6 +565,70 @@ describe("persist", () => {
 	});
 });
 
+describe("存檔版本", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	/** 一份比程式新的存檔原始字串（未來版本可能多了現在不認得的欄位）。 */
+	function createNewerSaveRaw(): string {
+		return JSON.stringify({
+			state: {
+				...createInitialSaveData(),
+				progress: { ...DEFAULT_PROGRESS, chapter: 5, furthestChapter: 5, savedAt: "2031-03-12T08:15:00.000Z" },
+				stats: { playMinutes: 321 },
+			},
+			version: SAVE_VERSION + 1,
+		});
+	}
+
+	it("存檔版本比程式新時不讀進來，用預設值完成 hydration 並回報 newer-version", async () => {
+		vi.spyOn(console, "warn").mockImplementation(() => {});
+		localStorage.setItem(SAVE_STORAGE_KEY, createNewerSaveRaw());
+
+		await useGameStore.persist.rehydrate();
+
+		expect(useGameStore.persist.hasHydrated()).toBe(true);
+		expect(useGameStore.getState().progress).toEqual(DEFAULT_PROGRESS);
+		expect(getSaveIssue()).toBe("newer-version");
+	});
+
+	it("較新版本的存檔原封不動，之後的 action 都不會覆寫它", async () => {
+		vi.spyOn(console, "warn").mockImplementation(() => {});
+		const raw = createNewerSaveRaw();
+		localStorage.setItem(SAVE_STORAGE_KEY, raw);
+
+		await useGameStore.persist.rehydrate();
+		useGameStore.getState().setCharacter("c");
+		useGameStore.getState().touchSave();
+
+		expect(localStorage.getItem(SAVE_STORAGE_KEY)).toBe(raw);
+		// 記憶體裡照常運作，只是不寫檔
+		expect(useGameStore.getState().progress.character).toBe("c");
+	});
+
+	it("讀到舊版存檔時，升級前把原始字串備份到 kepler9-save.backup.v<舊版號>", async () => {
+		const raw = JSON.stringify({
+			state: { ...createInitialSaveData(), progress: { ...DEFAULT_PROGRESS, chapter: 2 } },
+			version: 1,
+		});
+		localStorage.setItem(SAVE_STORAGE_KEY, raw);
+
+		await useGameStore.persist.rehydrate();
+
+		expect(localStorage.getItem("kepler9-save.backup.v1")).toBe(raw);
+		expect(readStoredSave().version).toBe(SAVE_VERSION);
+	});
+
+	it("目前版本的存檔不做備份", async () => {
+		localStorage.setItem(SAVE_STORAGE_KEY, JSON.stringify({ state: createInitialSaveData(), version: SAVE_VERSION }));
+
+		await useGameStore.persist.rehydrate();
+
+		expect(Object.keys(localStorage).filter((key) => key.includes("backup"))).toEqual([]);
+	});
+});
+
 describe("存檔寫入失敗", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();

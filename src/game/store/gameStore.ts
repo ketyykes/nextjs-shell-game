@@ -52,32 +52,69 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** 舊版存檔升級前的備份 key，例如 `kepler9-save.backup.v1`。 */
+function backupKeyFor(name: string, version: number): string {
+	return `${name}.backup.v${version}`;
+}
+
+/** 升級前把原始字串留一份，升級寫壞了還能手動還原。備份寫不進去不擋升級，只警告。 */
+function backupBeforeMigrate(name: string, version: number, raw: string): void {
+	try {
+		localStorage.setItem(backupKeyFor(name, version), raw);
+	} catch (error) {
+		console.warn(`[gameStore] 存檔 ${name} 升級前的備份寫入失敗，照樣升級。`, error);
+	}
+}
+
 /**
  * 包一層 localStorage：
  *
  * - 讀到壞掉的 JSON 時當成沒有存檔。persist 遇到 `JSON.parse` 丟錯時不會把 `hasHydrated()` 設成 true，
  *   畫面會一直卡在「讀檔中」；這裡先擋掉，讓壞檔等同空檔，下一次存檔時自然被覆蓋。
+ * - 版本比程式新（例如部署回滾）：不讀進來也不寫回去，原始存檔原封不動，回報 `newer-version` 讓畫面提示。
+ *   以前會照目前格式硬轉型讀進來，下一次寫檔就把新版的資料蓋掉。
+ * - 版本比程式舊：交給 persist 呼叫 migrate 升級之前，先把原始字串備份到 `<key>.backup.v<舊版號>`。
  * - 寫入失敗（配額滿的 `QuotaExceededError`、瀏覽器封鎖儲存的 `SecurityError`）不往外丟：
  *   persist 每次 `set` 都同步寫檔，例外會從 action 一路冒到按鍵 handler，記憶體狀態已改、存檔沒寫、玩家看不到提示。
  *   改成 console.warn 並回報 `write-failed` 讓畫面提示，記憶體裡的進度照常，下次寫入成功就清掉提示。
  */
 const safeLocalStorage: StateStorage = {
 	getItem: (name) => {
+		// 每次讀檔重新判斷版本，上一次讀到的新版存檔可能已經被清掉
+		if (getSaveIssue() === "newer-version") {
+			setSaveIssue(null);
+		}
+
 		const raw = localStorage.getItem(name);
 
 		if (raw === null) {
 			return null;
 		}
 
+		let parsed: unknown;
 		try {
-			JSON.parse(raw);
-			return raw;
+			parsed = JSON.parse(raw);
 		} catch {
 			console.warn(`[gameStore] 存檔 ${name} 不是合法的 JSON，視為沒有存檔。`);
 			return null;
 		}
+
+		const version = isRecord(parsed) ? parsed.version : undefined;
+		if (typeof version === "number" && version > SAVE_VERSION) {
+			console.warn(`[gameStore] 存檔版本 ${version} 比目前版本 ${SAVE_VERSION} 新，這次不讀取也不寫入，保留原始存檔。`);
+			setSaveIssue("newer-version");
+			return null;
+		}
+		if (typeof version === "number" && version < SAVE_VERSION) {
+			backupBeforeMigrate(name, version, raw);
+		}
+		return raw;
 	},
 	setItem: (name, value) => {
+		// 讀到比程式新的存檔：這個分頁期間一律不寫，避免舊程式把新版資料蓋掉
+		if (getSaveIssue() === "newer-version") {
+			return;
+		}
 		try {
 			localStorage.setItem(name, value);
 		} catch (error) {
@@ -135,6 +172,7 @@ function mergeSaveData(persistedState: unknown, currentState: GameStore): GameSt
  *
  * - v1 → v2：`progress` 多 `furthestChapter`（舊存檔沒有選章，等於目前章節）與 `position`（舊存檔不存位置，null）。
  *
+ * 只會收到比 `SAVE_VERSION` 舊的版本：比程式新的存檔在 `safeLocalStorage.getItem` 就擋掉了，不會走到這裡。
  * 欄位缺漏或型別不對的壞存檔交給 `mergeSaveData` 用預設值補。
  */
 function migrateSaveData(persistedState: unknown, version: number): SaveData {
@@ -150,10 +188,6 @@ function migrateSaveData(persistedState: unknown, version: number): SaveData {
 			...state,
 			progress: { ...progress, furthestChapter: progress.chapter, position: null },
 		};
-	}
-
-	if (version > SAVE_VERSION) {
-		console.warn(`[gameStore] 存檔版本 ${version} 比目前版本 ${SAVE_VERSION} 新，盡量照目前格式讀取。`);
 	}
 
 	return state as unknown as SaveData;

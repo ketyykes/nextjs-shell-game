@@ -212,3 +212,21 @@ test("localStorage 寫不進去時畫面頂端提示存檔失敗，遊戲照常�
 	await expect(page.getByTestId("hud-room")).toHaveText("冷凍艙");
 	expect(errors).toEqual([]);
 });
+
+test("存檔版本比程式新時不讀也不覆寫：標題提示、沒有「繼續」，原始存檔原封不動", async ({ page }) => {
+	await page.goto("/");
+	const raw = JSON.stringify({
+		state: { progress: { chapter: 5, savedAt: "2031-03-12T08:15:00.000Z" }, futureField: true },
+		version: 99,
+	});
+	await page.evaluate((json) => {
+		window.localStorage.clear();
+		window.localStorage.setItem("kepler9-save", json);
+	}, raw);
+	await page.reload();
+
+	await expect(page.getByTestId("save-status-notice")).toContainText("較新版本");
+	await expect(page.getByRole("button", { name: "新遊戲" })).toBeVisible();
+	await expect(page.getByRole("button", { name: "繼續" })).toHaveCount(0);
+	expect(await page.evaluate(() => window.localStorage.getItem("kepler9-save"))).toBe(raw);
+});
