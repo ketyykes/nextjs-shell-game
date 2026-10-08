@@ -51,7 +51,7 @@ function parsePositiveInteger(value: string): number | null {
 export function parseLineCountArgs(command: string, args: string[]): LineCountParseResult {
 	let count = DEFAULT_LINE_COUNT;
 	// `-n 5` 的 5 由切分函式緊接著 `-n` 放進 options
-	const { options, operands } = splitOptionsAndOperands(args, { valueOptions: ["-n"] });
+	const { options, operands } = splitOptionsAndOperands(args, { takesValue: (option) => option === "-n" });
 	let index = 0;
 
 	while (index < options.length) {

@@ -17,7 +17,7 @@
 import type { CommandContext, CommandDefinition, CommandResult, FsNode } from "../types";
 import { FsError, PLAYER_USER } from "../types";
 import { missingOperand, whichBuiltin, whichNotFound } from "../messages";
-import { parseFlagArgs } from "./fileArgs";
+import { parseFlagArgs } from "./options";
 
 /** 環境變數沒有 `PATH` 時用的預設值。 */
 export const DEFAULT_PATH = "/usr/local/bin:/usr/bin:/bin";

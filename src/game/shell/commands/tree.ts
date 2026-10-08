@@ -18,6 +18,7 @@
 import type { CommandContext, CommandDefinition, CommandResult, FsNode } from "../types";
 import { canRead, FsError } from "../types";
 import { fsError, invalidTreeLevel, missingOperand, treeUnreadableMark, unknownOption } from "../messages";
+import { splitOptionsAndOperands } from "./options";
 
 /** `tree` 的選項。 */
 interface TreeOptions {
@@ -54,22 +55,16 @@ function parseLevel(value: string): number | null {
 /** 解析 `tree` 的參數。 */
 function parseTreeArgs(args: string[]): TreeParseResult {
 	const options: TreeOptions = { all: false, dirsOnly: false, maxDepth: null };
-	const paths: string[] = [];
-	let optionsEnded = false;
+	// 合併旗標以 L 結尾（`-L`、`-dL`）時，下一個參數是層數
+	const { options: flagArgs, operands: paths } = splitOptionsAndOperands(args, {
+		takesValue: (option) => /^-[ad]*L$/.test(option),
+	});
 	let index = 0;
 
-	while (index < args.length) {
-		const arg = args[index];
+	while (index < flagArgs.length) {
+		const arg = flagArgs[index];
 		index += 1;
 
-		if (optionsEnded || !arg.startsWith("-") || arg === "-") {
-			paths.push(arg);
-			continue;
-		}
-		if (arg === "--") {
-			optionsEnded = true;
-			continue;
-		}
 		if (arg.startsWith("--")) {
 			return { ok: false, lines: unknownOption("tree", arg) };
 		}
@@ -92,10 +87,10 @@ function parseTreeArgs(args: string[]): TreeParseResult {
 			// `-L` 的值：黏在後面（`-L2`）或是下一個參數（`-L 2`）
 			let value = letters.slice(position + 1);
 			if (value === "") {
-				if (index >= args.length) {
+				if (index >= flagArgs.length) {
 					return { ok: false, lines: missingOperand("tree", "在 -L 後面接要往下畫幾層，例如 tree -L 2") };
 				}
-				value = args[index];
+				value = flagArgs[index];
 				index += 1;
 			}
 			const level = parseLevel(value);

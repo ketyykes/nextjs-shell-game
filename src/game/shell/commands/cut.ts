@@ -27,6 +27,7 @@ import {
 	unknownOption,
 } from "../messages";
 import { splitContentLines } from "./cat";
+import { splitOptionsAndOperands } from "./options";
 
 /** 一段位置範圍，`end` 是 `Infinity` 代表到最後。位置從 1 開始。 */
 interface PositionRange {
@@ -100,22 +101,16 @@ function parseCutArgs(args: string[]): CutParseResult {
 	let ranges: PositionRange[] = [];
 	let delimiter: string | null = null;
 	let onlyDelimited = false;
-	const paths: string[] = [];
-	let optionsEnded = false;
+	// 合併旗標以 d、f、c 結尾（`-d`、`-sf`）時，下一個參數是它的值
+	const { options, operands: paths } = splitOptionsAndOperands(args, {
+		takesValue: (option) => /^-s*[dfc]$/.test(option),
+	});
 	let index = 0;
 
-	while (index < args.length) {
-		const arg = args[index];
+	while (index < options.length) {
+		const arg = options[index];
 		index += 1;
 
-		if (optionsEnded || !arg.startsWith("-") || arg === "-") {
-			paths.push(arg);
-			continue;
-		}
-		if (arg === "--") {
-			optionsEnded = true;
-			continue;
-		}
 		if (arg.startsWith("--")) {
 			return { ok: false, lines: unknownOption("cut", arg) };
 		}
@@ -134,10 +129,10 @@ function parseCutArgs(args: string[]): CutParseResult {
 			// 值黏在後面（`-d,`）或是下一個參數（`-d ,`）；下一個參數可以是空字串（`-d ""`）
 			let value = letters.slice(position + 1);
 			if (value === "") {
-				if (index >= args.length) {
+				if (index >= options.length) {
 					return { ok: false, lines: missingOperand("cut", MISSING_VALUE_HINTS[letter]) };
 				}
-				value = args[index];
+				value = options[index];
 				index += 1;
 			}
 

@@ -9,9 +9,6 @@ import type { CommandContext } from "../types";
 import { FsError } from "../types";
 import { missingOperand } from "../messages";
 
-/** 相容用：並行開發中的指令可能還從這裡 import，之後全部改從 `./options` 拿就可以刪。 */
-export { parseFlagArgs, type FlagParseResult } from "./options";
-
 /**
  * 執行一個檔案系統操作：成功回傳 null，丟 `FsError` 時回傳那個錯誤，其他錯誤照樣往外丟。
  * 讓指令可以逐一處理多個參數，某個失敗不中斷。

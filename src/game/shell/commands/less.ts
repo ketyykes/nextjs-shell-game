@@ -14,7 +14,7 @@ import type { CommandDefinition, CommandResult, PagerFile } from "../types";
 import { FsError } from "../types";
 import { fsError, noInput } from "../messages";
 import { splitContentLines } from "./cat";
-import { parseFlagArgs } from "./fileArgs";
+import { parseFlagArgs } from "./options";
 
 export const lessCommand: CommandDefinition = {
 	name: "less",

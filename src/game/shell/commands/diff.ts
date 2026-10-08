@@ -16,7 +16,7 @@
 import type { CommandContext, CommandDefinition, CommandResult } from "../types";
 import { FsError } from "../types";
 import { diffDirectories, extraOperand, fsError, missingOperand } from "../messages";
-import { parseFlagArgs } from "./fileArgs";
+import { parseFlagArgs } from "./options";
 
 /** 一行內容；`noNewline` 是檔案最後一行而且後面沒有換行。 */
 interface DiffLine {

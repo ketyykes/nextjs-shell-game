@@ -19,10 +19,10 @@ export interface SplitArgsConfig {
 	/** 單獨的 `-` 是否當操作數。預設 true；設 false 時它留在 `options` 裡。 */
 	loneDashIsOperand?: boolean;
 	/**
-	 * 會吃掉下一個參數當值的選項（例如 `head` 的 `-n`、`find` 的 `-name`）。
+	 * 這個選項會不會吃掉下一個參數當值（例如 `head` 的 `-n`、`find` 的 `-name`、`tree -dL` 結尾的 `L`）。
 	 * 值不管長什麼樣子都緊接著選項放進 `options`（`["-n", "5"]`）；選項是最後一個參數時後面就沒有值。
 	 */
-	valueOptions?: readonly string[];
+	takesValue?: (option: string) => boolean;
 }
 
 /** 切分結果：選項（保持原順序）與操作數。 */
@@ -35,7 +35,7 @@ export interface SplitArgs {
 export function splitOptionsAndOperands(args: readonly string[], config: SplitArgsConfig = {}): SplitArgs {
 	const endOfOptions = config.endOfOptions ?? true;
 	const loneDashIsOperand = config.loneDashIsOperand ?? true;
-	const valueOptions = config.valueOptions ?? [];
+	const takesValue = config.takesValue ?? (() => false);
 	const options: string[] = [];
 	const operands: string[] = [];
 	let optionsEnded = false;
@@ -57,7 +57,7 @@ export function splitOptionsAndOperands(args: readonly string[], config: SplitAr
 
 		options.push(arg);
 
-		if (valueOptions.includes(arg) && index < args.length) {
+		if (takesValue(arg) && index < args.length) {
 			options.push(args[index]);
 			index += 1;
 		}
@@ -72,7 +72,7 @@ export type FlagParseResult =
 	| { ok: false; lines: string[] };
 
 /**
- * 解析只有單字母旗標的指令參數（ls、wc、sort、uniq、grep 與檔案操作類指令）。
+ * 解析只有單字母旗標的指令參數（ls、wc、sort、uniq、grep、less、diff、which 與檔案操作類指令）。
  * - `-r`、`-f`、`-rf` 這種單一字母選項可以合併，也可以放在操作數後面
  * - `--` 之後全部當成操作數；單獨的 `-` 也是操作數
  * - 不支援的字母與 `--xxx` 長選項回傳 `unknownOption`

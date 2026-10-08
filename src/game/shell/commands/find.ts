@@ -79,7 +79,7 @@ export function parseFindArgs(args: string[]): FindParseResult {
 	// find 沒有 `--` 的語意，`--` 會留在 options 被當成不認得的選項
 	const { options, operands: paths } = splitOptionsAndOperands(args, {
 		endOfOptions: false,
-		valueOptions: Object.keys(MISSING_VALUE_HINTS),
+		takesValue: (option) => Object.hasOwn(MISSING_VALUE_HINTS, option),
 	});
 	let index = 0;
 

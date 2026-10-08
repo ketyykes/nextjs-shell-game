@@ -68,6 +68,11 @@ describe("parseFlagArgs 的 onFlag", () => {
 	});
 });
 
+/** 測試用：像 head 一樣只有 `-n` 吃下一個參數。 */
+function isLineCountOption(option: string): boolean {
+	return option === "-n";
+}
+
 describe("splitOptionsAndOperands", () => {
 	it("預設：- 開頭是選項、單獨的 - 是操作數、-- 之後全部是操作數", () => {
 		expect(splitOptionsAndOperands(["-la", "a", "-", "--", "-r", "--"])).toEqual({
@@ -94,29 +99,29 @@ describe("splitOptionsAndOperands", () => {
 		});
 	});
 
-	it("valueOptions 吃掉下一個參數當值，即使它以 - 開頭或是 --", () => {
-		expect(splitOptionsAndOperands(["-n", "5", "a", "-n", "--", "b"], { valueOptions: ["-n"] })).toEqual({
+	it("takesValue 的選項吃掉下一個參數當值，即使它以 - 開頭或是 --", () => {
+		expect(splitOptionsAndOperands(["-n", "5", "a", "-n", "--", "b"], { takesValue: isLineCountOption })).toEqual({
 			options: ["-n", "5", "-n", "--"],
 			operands: ["a", "b"],
 		});
 	});
 
-	it("valueOptions 是最後一個參數時後面沒有值", () => {
-		expect(splitOptionsAndOperands(["a", "-n"], { valueOptions: ["-n"] })).toEqual({
+	it("takesValue 的選項是最後一個參數時後面沒有值", () => {
+		expect(splitOptionsAndOperands(["a", "-n"], { takesValue: isLineCountOption })).toEqual({
 			options: ["-n"],
 			operands: ["a"],
 		});
 	});
 
-	it("黏在一起的值（-n5）不算 valueOption，整個是一個選項", () => {
-		expect(splitOptionsAndOperands(["-n5", "a"], { valueOptions: ["-n"] })).toEqual({
+	it("黏在一起的值（-n5）不吃下一個參數，整個是一個選項", () => {
+		expect(splitOptionsAndOperands(["-n5", "a"], { takesValue: isLineCountOption })).toEqual({
 			options: ["-n5"],
 			operands: ["a"],
 		});
 	});
 
-	it("-- 之後的 valueOption 也是操作數", () => {
-		expect(splitOptionsAndOperands(["--", "-n", "5"], { valueOptions: ["-n"] })).toEqual({
+	it("-- 之後吃值的選項也是操作數", () => {
+		expect(splitOptionsAndOperands(["--", "-n", "5"], { takesValue: isLineCountOption })).toEqual({
 			options: [],
 			operands: ["-n", "5"],
 		});
