@@ -197,7 +197,7 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 - ⬜ **劇情文字潤稿**：六台終端機的檔案內容、NOVA 台詞、boot log、章節結尾都是 agent 初稿，`src/game/chapters/ch1-life-support.ts` 與 `src/components/title/BootLog.tsx`，改完跑 `pnpm test --run src/game/chapters` 會檢查格式與性別指涉。
 - ✅ **補產 12 張插圖**：2026-10-01 codex 額度用完時缺的第五章後三間、`ch5_outro`、第六章六間 `nv_*`、`ch6_outro`、`ending`，2026-10-06 第十場補齊，`AVAILABLE_SCENES` 已列滿 44 張（含第一章 8 張）。
 - ⬜ **第二到六章劇情潤稿與試玩**：五章劇本（`src/game/chapters/ch2-*.ts` 到 `ch6-*.ts`）全是 agent 初稿，Danny 還沒玩過。剩下的留白點：第二章冷卻日誌「三年來兩人份熱負載」的第二個人是誰沒交代（阿彬留言只說「裡面有一個是我」）；第六章 T6 NOVA 最後一句「祝旅途平安，技師」暗示它沒死透。（`day_312` 差一與其他十處時間線矛盾已在第十二場修掉，見第 8 節 #49 到 #51。）
-- ⬜ **刪模板殘留檔**：第十二場的審計發現 `src/app/favicon.ico`（Next 預設圖，已被 `icon.png` 取代）與 `public/{file,globe,next,vercel,window}.svg`（create-next-app 殘留，無引用）。自動模式不給 agent 刪檔，Danny 執行：`git rm src/app/favicon.ico public/{file,globe,next,vercel,window}.svg` 後 commit。
+- ✅ **刪模板殘留檔**：2026-10-08 Danny 授權後已刪 `src/app/favicon.ico` 與五個 create-next-app 的 SVG，build 後 `/icon.png` 照常生成、1861 測試全綠。
 - ⬜ **淘汰的原圖只在 Danny 的 Mac 上**：`nova-portrait`、`nova-v2`、`nova-v3`、`nova-id`、`nova-mannequin`、`nova-lowres`、`technician-b` 的 `-original.png` 沒進版控也不需要，另一台電腦看不到是正常的。
 
 ## 5. 已知陷阱與環境備註
