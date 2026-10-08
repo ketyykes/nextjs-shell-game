@@ -625,3 +625,23 @@ describe("PlayScreen 章節結束", () => {
 		expect(screen.queryByTestId("chapter-end-screen")).toBeNull();
 	});
 });
+
+describe("PlayScreen 訂閱穩定性（A4）", () => {
+	it("Phaser 事件只在掛載時訂閱一次，之後的 render 不會拆掉重掛", () => {
+		seedSave({ storyFlags: {} });
+		render(<PlayScreen />);
+		// 掛載時 intro 排進佇列已經造成一次重新 render
+		expect(vi.mocked(onGameEvent)).toHaveBeenCalledTimes(5);
+
+		emit("room:enter", { roomId: "cryo" });
+		emit("terminal:nearby", { terminalId: "ch1-t1" });
+		emit("player:stopped", { x: 1, y: 2, roomId: "cryo" });
+		openTerminal("ch1-t1");
+		runCommand("nosuchcommand");
+		runCommand("cat wake_up.txt");
+		closeTerminalWithEscape();
+		fireEvent.click(screen.getAllByText("NOVA 下一則")[0]);
+
+		expect(vi.mocked(onGameEvent)).toHaveBeenCalledTimes(5);
+	});
+});

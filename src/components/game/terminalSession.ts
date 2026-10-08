@@ -1,5 +1,5 @@
 /**
- * 開終端機時建立或還原 Shell（從 PlayScreen 抽出來，方便單元測試）。
+ * 開終端機時建立或還原 Shell（從 PlayScreen 抽出來，方便單元測試），以及終端機輸出區用的小工具。純函式，不碰 store。
  *
  * - 存檔沒有這台：用劇本的初始快照建 Shell，回傳第一筆 session（帶 banner）給呼叫端寫進 store。
  * - 存檔有這台而且完好：從存檔還原（含修改過的檔案系統），不用另存。
@@ -18,6 +18,16 @@ export interface ResolvedTerminalSession {
 	shell: Shell;
 	/** 不是 null 時呼叫端要把它寫進 store：第一次開這台，或存檔壞掉被丟掉重建。 */
 	freshRecord: TerminalSessionRecord | null;
+}
+
+/** `teaches` 可能是 `ls -a` 這種帶參數的字串，shell 的已學清單只認指令名。 */
+export function toCommandName(teach: string): string {
+	return teach.split(/\s+/)[0] ?? teach;
+}
+
+/** 把 NOVA 的一串台詞變成終端機內嵌的對話區塊。id 前綴跟 Terminal 自己產的 `entry-` 區隔。 */
+export function createDialogueEntries(prefix: string, lines: string[]): OutputEntry[] {
+	return lines.map((text, index) => ({ kind: "dialogue", id: `${prefix}-${index}`, speaker: "NOVA", text }));
 }
 
 /** 開啟終端機時的歡迎行，來自劇本的 `banner`。 */

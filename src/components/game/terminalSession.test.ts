@@ -4,7 +4,7 @@ import { VirtualFileSystem } from "@/game/shell/fs";
 import { Shell } from "@/game/shell/shell";
 import type { TerminalDefinition } from "@/game/story";
 import type { TerminalSessionRecord } from "@/game/store/types";
-import { createTerminalSession } from "./terminalSession";
+import { createDialogueEntries, createTerminalSession, toCommandName } from "./terminalSession";
 
 const DEFINITION: TerminalDefinition = {
 	id: "ch1-t1",
@@ -105,5 +105,22 @@ describe("createTerminalSession", () => {
 		const { freshRecord } = createTerminalSession(DEFINITION, ["pwd"], broken);
 
 		expect(Array.isArray(freshRecord?.transcript)).toBe(true);
+	});
+});
+
+describe("toCommandName", () => {
+	it("帶參數的已學指令只取指令名", () => {
+		expect(toCommandName("ls -a")).toBe("ls");
+		expect(toCommandName("cd ~")).toBe("cd");
+		expect(toCommandName("pwd")).toBe("pwd");
+	});
+});
+
+describe("createDialogueEntries", () => {
+	it("每句一個 NOVA 對話區塊，id 是前綴加序號", () => {
+		expect(createDialogueEntries("nova-open-ch1-t1", ["甲", "乙"])).toEqual([
+			{ kind: "dialogue", id: "nova-open-ch1-t1-0", speaker: "NOVA", text: "甲" },
+			{ kind: "dialogue", id: "nova-open-ch1-t1-1", speaker: "NOVA", text: "乙" },
+		]);
 	});
 });
