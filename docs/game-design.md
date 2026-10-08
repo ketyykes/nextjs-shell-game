@@ -199,7 +199,7 @@ NOVA 從未被回滾，「失憶」是演的。公司規定無人站點滿三年
               └──────────── 暫停選單（繼續／回標題／重玩本章）
 ```
 
-- **標題畫面**：黑底、Kepler-9 像素標題、CRT 掃描線。選單「繼續」「新遊戲」「設定」。「繼續」只在有存檔時出現，「新遊戲」若有存檔要先確認覆蓋。
+- **標題畫面**：黑底、Kepler-9 像素標題、CRT 掃描線。選單「繼續」「新遊戲」「設定」。「繼續」只在有存檔時出現，「新遊戲」若有存檔要先確認覆蓋。選單最後一項是「練習模式」，有沒有存檔都會出現、按下直接進沙盒（見 4.11），不必確認也不動存檔。
 - **選角**：按「新遊戲」後先選四個外觀之一，畫面只有四個站立的 sprite 放大顯示與方向鍵切換，不做背景故事介紹。
 - **開場**：不做過場動畫，直接用終端機打字動畫跑喚醒程序的 boot log，名單查詢卡在「查無此人」，NOVA 的第一句話出現在這裡，然後淡入地圖。玩家在拿到操控權之前就已經看過終端機、知道它會說話。
 - **暫停選單**：在地圖上按 Esc 開啟，項目為繼續、回標題、重玩本章。
@@ -275,6 +275,18 @@ NOVA 從未被回滾，「失憶」是演的。公司規定無人站點滿三年
 - **來源**：Kenney「Sci-fi Sounds」（CC0，70 個）與「Interface Sounds」（CC0，100 個）。
 - **實作**：Phaser 的 SoundManager 當唯一出口，React 端透過 EventBus 發 `sfx:play` 請 Phaser 播，避免兩套 AudioContext 打架。瀏覽器規定要有使用者互動才能出聲，標題畫面點「新遊戲」或「繼續」就是那次互動。
 - **設定選單**因此加上「音量」與「靜音」兩項。
+
+### 4.11 沙盒練習模式
+
+學完指令後除了重玩章節沒有地方自由練習，所以標題選單有「練習模式」，進 `/sandbox`：
+
+- **只有一台全螢幕終端機**：不載 Phaser、沒有地圖、沒有 NOVA、沒有目標與卡關偵測，錯了不扣氧氣、不觸發環境反應。CRT 三項效果與文字速度照設定。
+- **不存檔**：shell 與輸出區只放在畫面的 state，不寫 localStorage，離開或重新整理就還原。沒有存檔也能進，「繼續」與存檔都不受影響。
+- **練習用檔案系統**（`src/game/sandbox/practice.ts`）：設定成站上的「技師訓練模擬環境」，時間在站點正常運作的 2027 年，不碰主線（不提 NOVA、阿彬、回滾、名單、冷凍艙、撤離），文字跟劇本一樣不指涉性別。內容讓每個指令都有東西練：多層目錄（`archive/2027/q3/week_31/`）、隱藏檔、三份日誌（感測器 INFO／WARN／ERROR、重複行多的艙門紀錄、電力）、排序與比對用的小檔、權限 `---------` 的鎖住檔、一堆 `.tmp` 暫存檔、練習用環境變數（`LOG_DIR`、`PRACTICE_DIR`、`GREETING` 等），以及程序清單（一般 kill 就結束的、要 `kill -9` 的、殺不掉的 init）。
+- **所有指令開放**：已學清單就是全部已註冊的指令，`help` 全部列出；之後新增的指令自動包含。
+- **`hint` 換成練習建議**：沒有劇本提示，`hint` 依序給十則「可以試試什麼」的建議，用完繞回第一則，不會說「提示已經全部給過了」。
+- **重置**：Alt+R（Mac 是 ⌥R）或點畫面上方的「重置」，檔案系統、工作目錄、歷史、環境變數、程序清單與輸出區全部回到剛進來的樣子，輸出區多一行「練習環境已重置」。Alt 組合跟終端機輸入不撞鍵，理由同 4.8 的面板快捷鍵。
+- **離開**：Esc 或點終端機的「[Esc] 關閉」先跳確認「離開練習模式，回到標題畫面？」，預設選「取消」，確認後回標題。
 
 ## 5. 畫面配置
 
@@ -356,7 +368,8 @@ cd public/scenes && codex exec --skip-git-repo-check -s workspace-write \
 ```
 src/
 ├── app/
-│   └── play/page.tsx          # 遊戲頁面，dynamic import PhaserGame
+│   ├── play/page.tsx          # 遊戲頁面，dynamic import PhaserGame
+│   └── sandbox/page.tsx       # 練習模式（4.11），只有終端機
 ├── components/
 │   ├── terminal/              # Terminal、OutputBlock、DialogueBlock、PromptInput
 │   ├── game/                  # PhaserGame、ObjectivePanel、NovaDialogue、CommandCheatSheet
@@ -378,6 +391,7 @@ src/
 │   │   └── objectives.ts      # 目標判定
 │   ├── chapters/
 │   │   └── ch1-life-support.ts
+│   ├── sandbox/               # 練習模式的檔案系統與 shell session
 │   └── store/                 # zustand store 與 persist
 public/
 ├── tiles/                     # tileset
