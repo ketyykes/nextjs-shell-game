@@ -59,11 +59,16 @@ const CTRL_KEYS = new Set(["f", "b", "d", "u"]);
 
 const ROW_CLASS = "h-7 overflow-hidden whitespace-pre leading-7";
 
-/** 量文字區的寬高與字寬，量不到（寬或字寬是 0）時回傳 null。 */
-function measure(container: HTMLElement, narrowProbe: HTMLElement, wideProbe: HTMLElement): PagerMetrics | null {
+/**
+ * 量文字區的寬高與字寬，量不到（寬或字寬是 0）時回傳 null。
+ *
+ * 列高用 `offsetHeight`（版面尺寸）：終端機開場有 scaleY 從 0.01 放大的動畫，`getBoundingClientRect` 會量到縮小中的高度，
+ * 一頁就被算成好幾十列；動畫結束時 transform 改變也不會觸發 ResizeObserver 重量。字寬只受 scaleX 影響，維持用小數精度較高的 rect。
+ */
+export function measurePagerMetrics(container: HTMLElement, narrowProbe: HTMLElement, wideProbe: HTMLElement): PagerMetrics | null {
 	const narrow = narrowProbe.getBoundingClientRect().width / PROBE_LENGTH;
 	const wide = wideProbe.getBoundingClientRect().width / PROBE_LENGTH;
-	const rowHeight = narrowProbe.getBoundingClientRect().height;
+	const rowHeight = narrowProbe.offsetHeight;
 	if (container.clientWidth <= 0 || narrow <= 0 || rowHeight <= 0) {
 		return null;
 	}
@@ -132,7 +137,7 @@ export function Pager({ request, onQuit, ref }: PagerProps) {
 			return;
 		}
 		const update = () => {
-			setMetrics(measure(body, narrowProbe, wideProbe));
+			setMetrics(measurePagerMetrics(body, narrowProbe, wideProbe));
 		};
 		update();
 		if (typeof ResizeObserver === "undefined") {

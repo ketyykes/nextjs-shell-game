@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PagerRequest } from "@/game/shell/types";
-import { Pager } from "./Pager";
+import { measurePagerMetrics, Pager } from "./Pager";
 
 // vitest 未啟用 globals，需手動在每個測試後卸載畫面
 afterEach(cleanup);
@@ -236,5 +236,31 @@ describe("Pager", () => {
 		getPager().dispatchEvent(event);
 
 		expect(event.defaultPrevented).toBe(false);
+	});
+});
+
+describe("measurePagerMetrics", () => {
+	/** 假元素：版面尺寸（offset／client）是正常大小，getBoundingClientRect 回傳縮放動畫中的尺寸。 */
+	function fakeElement(layout: { width: number; height: number }, scale: number): HTMLElement {
+		return {
+			clientWidth: layout.width,
+			clientHeight: layout.height,
+			offsetWidth: layout.width,
+			offsetHeight: layout.height,
+			getBoundingClientRect: () => ({ width: layout.width, height: layout.height * scale }),
+		} as unknown as HTMLElement;
+	}
+
+	it("終端機開場的 scaleY 動畫還沒播完時，量到的列高仍是版面上的列高，不會把一頁算得太大", () => {
+		const scale = 0.01;
+		const body = fakeElement({ width: 800, height: 336 }, scale);
+		const narrowProbe = fakeElement({ width: 100, height: 28 }, scale);
+		const wideProbe = fakeElement({ width: 200, height: 28 }, scale);
+
+		const metrics = measurePagerMetrics(body, narrowProbe, wideProbe);
+
+		expect(metrics).not.toBeNull();
+		expect(metrics?.rowHeight).toBe(28);
+		expect(metrics?.height).toBe(336);
 	});
 });
