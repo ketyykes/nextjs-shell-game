@@ -8,6 +8,7 @@ import {
 	handlePagerKey,
 	highlightSegments,
 	PAGER_MESSAGES,
+	setSearchInput,
 	visibleLineRange,
 	wrapLines,
 } from "./pagerModel";
@@ -215,6 +216,19 @@ describe("handlePagerKey 搜尋", () => {
 	it("空白的 / 直接 Enter 沿用上一次的樣式", () => {
 		const first = press(view, ["/", "d", "o", "o", "r", "Enter"]);
 		expect(press(view, ["/", "Enter"], first.state).state.targetLine).toBe(1);
+	});
+
+	it("setSearchInput 整段換掉輸入中的樣式（輸入法送出的中文、貼上），Enter 照樣搜尋", () => {
+		const chineseView = createView(["開機", "門禁 正常", "門禁 鎖定", ...numberedLines(10)], 3);
+		const typing = press(chineseView, ["/"]);
+		const composed = setSearchInput(typing.state, "鎖定");
+		expect(composed).toMatchObject({ mode: "search", input: "鎖定" });
+		expect(press(chineseView, ["Enter"], composed).state).toMatchObject({ mode: "normal", pattern: "鎖定", targetLine: 2 });
+	});
+
+	it("setSearchInput 不在輸入模式時不動", () => {
+		const state = createPagerState();
+		expect(setSearchInput(state, "鎖定")).toBe(state);
 	});
 });
 

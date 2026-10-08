@@ -295,6 +295,17 @@ function handleSearchKey(state: PagerState, input: PagerKeyInput, view: PagerVie
 	return null;
 }
 
+/**
+ * 搜尋輸入框的內容變了（`Pager` 進搜尋模式時在狀態列放真的 `<input>`）。
+ * 輸入法送出的中文、貼上的文字都是一次換掉整段，不是一個一個按鍵；不在搜尋模式時不動。
+ */
+export function setSearchInput(state: PagerState, text: string): PagerState {
+	if (state.mode !== "search") {
+		return state;
+	}
+	return { ...state, input: text, message: null };
+}
+
 /** 按了 `:` 之後的下一個鍵；F5 這類不是字的鍵不認得（回傳 null），仍在等下一個鍵。 */
 function handleColonKey(state: PagerState, input: PagerKeyInput, view: PagerView): KeyOutcome {
 	const normal: PagerState = { ...state, mode: "normal" };

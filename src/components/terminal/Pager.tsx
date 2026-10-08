@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { KeyboardEvent, Ref } from "react";
+import type { ChangeEvent, KeyboardEvent, Ref } from "react";
 import type { PagerRequest } from "@/game/shell/types";
 import {
 	charDisplayWidth,
@@ -9,6 +9,7 @@ import {
 	describePagerStatus,
 	handlePagerKey,
 	highlightSegments,
+	setSearchInput,
 	wrapLines,
 } from "./pagerModel";
 import type { PagerRow, PagerView } from "./pagerModel";
@@ -97,15 +98,27 @@ function lineNumberPrefix(row: PagerRow): string {
 	return `${String(row.lineIndex + 1).padStart(LINE_NUMBER_COLUMNS - 1)} `;
 }
 
+/** 搜尋輸入框要交給 `pagerModel` 處理的鍵：送出、取消，以及空白輸入框的 Backspace（回到一般模式）。 */
+function isSearchControlKey(event: KeyboardEvent<HTMLInputElement>): boolean {
+	if (event.key === "Enter" || event.key === "Escape") {
+		return true;
+	}
+	return event.key === "Backspace" && event.currentTarget.value === "";
+}
+
 /**
  * 全螢幕分頁器（`less`，M13-3）：蓋在終端機輸出區的位置，鍵盤只由它接收，翻完按 q 回到提示列。
  * 按鍵、搜尋與狀態列的規則在 `pagerModel.ts`；這裡負責量尺寸、折行、畫面與焦點。
  * 認得的鍵才 `preventDefault` 與 `stopPropagation`（F5、F12、Tab 這類交給瀏覽器）。
  * q、Esc 一定認得：Esc 只離開分頁、不關終端機，不能冒泡到暫停選單（usePauseMenu）的 window 監聽。
+ *
+ * `/`、`?` 搜尋時狀態列換成真的 `<input>` 並取得焦點：焦點留在 tabIndex 的 div 上輸入法不會啟動，
+ * 中文與貼上只能靠真的輸入框。輸入框自己處理一般字元，Enter 送出、Esc 只取消搜尋，之後焦點回分頁器。
  */
 export function Pager({ request, onQuit, ref }: PagerProps) {
 	const rootRef = useRef<HTMLDivElement>(null);
 	const bodyRef = useRef<HTMLDivElement>(null);
+	const searchInputRef = useRef<HTMLInputElement>(null);
 	const narrowProbeRef = useRef<HTMLSpanElement>(null);
 	const wideProbeRef = useRef<HTMLSpanElement>(null);
 	const [metrics, setMetrics] = useState<PagerMetrics | null>(null);
@@ -136,6 +149,13 @@ export function Pager({ request, onQuit, ref }: PagerProps) {
 		rootRef.current?.focus();
 	}, []);
 	useImperativeHandle(ref, () => ({ focus: () => rootRef.current?.focus() }), []);
+
+	const isSearching = state.mode === "search";
+	useEffect(() => {
+		if (isSearching) {
+			searchInputRef.current?.focus();
+		}
+	}, [isSearching]);
 
 	const file = request.files[state.fileIndex] ?? request.files[0];
 	const view = useMemo(
@@ -168,6 +188,59 @@ export function Pager({ request, onQuit, ref }: PagerProps) {
 		setState(result.state);
 	};
 
+	/** 點分頁器時把焦點放回該接鍵盤的地方：搜尋中是輸入框，否則是分頁器本身。 */
+	const focusActiveTarget = () => {
+		if (isSearching) {
+			searchInputRef.current?.focus();
+			return;
+		}
+		rootRef.current?.focus();
+	};
+
+	const handleSearchChange = (event: ChangeEvent<HTMLInputElement>) => {
+		setState(setSearchInput(state, event.target.value));
+	};
+
+	const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+		// 輸入框裡的鍵都不往外傳：不讓分頁器把字當成翻頁鍵，也不讓 window 的 Esc 打開暫停選單
+		event.stopPropagation();
+		// 輸入法組字中的 Enter 是選字、Esc 是取消組字，交給輸入法（Safari 組字結束那一下 keyCode 是 229）
+		if (event.nativeEvent.isComposing || event.keyCode === 229) {
+			return;
+		}
+		if (!isSearchControlKey(event)) {
+			return;
+		}
+		event.preventDefault();
+		// 送出或取消後輸入框會卸載，焦點先交回分頁器，後面的 n、N、q 才接得到
+		rootRef.current?.focus();
+		setState(handlePagerKey(state, { key: event.key, ctrlKey: false }, view).state);
+	};
+
+	let statusBar = (
+		<span role="status" className="truncate bg-game-text px-1 text-game-bg">
+			{status}
+		</span>
+	);
+	if (isSearching) {
+		statusBar = (
+			<span className="flex min-w-0 flex-1 items-center bg-game-text px-1 text-game-bg">
+				<span aria-hidden>{state.searchDirection === "forward" ? "/" : "?"}</span>
+				<input
+					ref={searchInputRef}
+					type="text"
+					aria-label="搜尋內容"
+					value={state.input}
+					onChange={handleSearchChange}
+					onKeyDown={handleSearchKeyDown}
+					autoComplete="off"
+					spellCheck={false}
+					className="min-w-0 flex-1 bg-transparent text-game-bg caret-game-bg outline-none"
+				/>
+			</span>
+		);
+	}
+
 	return (
 		<div
 			ref={rootRef}
@@ -175,7 +248,7 @@ export function Pager({ request, onQuit, ref }: PagerProps) {
 			aria-label="less 分頁器"
 			tabIndex={0}
 			onKeyDown={handleKeyDown}
-			onClick={() => rootRef.current?.focus()}
+			onClick={focusActiveTarget}
 			className="flex min-h-0 flex-1 flex-col outline-none"
 		>
 			<div className="flex min-h-0 flex-1 flex-col px-3 pt-2">
@@ -206,9 +279,7 @@ export function Pager({ request, onQuit, ref }: PagerProps) {
 				</div>
 			</div>
 			<div className="flex shrink-0 items-center justify-between gap-4 px-3 py-1">
-				<span role="status" className="truncate bg-game-text px-1 text-game-bg">
-					{status}
-				</span>
+				{statusBar}
 				<span className="shrink-0 text-game-dim">{KEY_HINT}</span>
 			</div>
 		</div>
