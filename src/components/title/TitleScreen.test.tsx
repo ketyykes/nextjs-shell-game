@@ -156,6 +156,41 @@ describe("TitleScreen", () => {
 		});
 	});
 
+	describe("練習模式", () => {
+		it("沒給 onPractice 時不顯示", () => {
+			renderTitle({ hasSave: true });
+			expect(screen.queryByRole("button", { name: "練習模式" })).toBeNull();
+		});
+
+		it("沒有存檔也有「練習模式」，排在最後；鍵盤選到後 Enter 呼叫 onPractice", () => {
+			const onPractice = vi.fn();
+			const props = renderTitle({ hasSave: false, onPractice });
+			const names = screen.getAllByRole("button").map((button) => button.textContent?.trim());
+			expect(names).toEqual(["新遊戲", "設定", "練習模式"].map((name) => expect.stringContaining(name)));
+
+			press("ArrowUp");
+			press("Enter");
+			expect(onPractice).toHaveBeenCalledTimes(1);
+			expect(props.onNewGame).not.toHaveBeenCalled();
+		});
+
+		it("有存檔時不必確認，也不影響「繼續」與新遊戲的覆蓋確認", () => {
+			const onPractice = vi.fn();
+			const props = renderTitle({ hasSave: true, onPractice });
+			// 「繼續」仍是預設選取的第一項
+			press("Enter");
+			expect(props.onContinue).toHaveBeenCalledTimes(1);
+
+			fireEvent.click(screen.getByRole("button", { name: "練習模式" }));
+			expect(onPractice).toHaveBeenCalledTimes(1);
+			expect(screen.queryByTestId("confirm-panel")).toBeNull();
+
+			// 新遊戲仍要確認覆蓋
+			fireEvent.click(screen.getByRole("button", { name: "新遊戲" }));
+			expect(screen.getByText("已有存檔，開始新遊戲會覆蓋它。")).toBeDefined();
+		});
+	});
+
 	it("CRT 效果預設全開，可由 props 關閉", () => {
 		renderTitle();
 		expect(screen.getByTestId("crt-scanlines")).toBeDefined();

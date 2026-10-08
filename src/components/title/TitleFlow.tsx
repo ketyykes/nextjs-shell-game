@@ -6,6 +6,7 @@
  * 選章：重玩到過的某一章，第一章重走 boot log（NOVA 第一句在那裡說），其他章直接 /play。
  * 讀檔完成前只顯示載入字樣，確保「繼續」的出現與否是可信的。
  * 觸控為主的裝置先疊一層「需要實體鍵盤」的提示，可以略過（設計文件 4.6）。
+ * 練習模式：不看存檔，直接進 /sandbox（設計文件 4.11）。
  */
 
 import { useRouter } from "next/navigation";
@@ -105,6 +106,10 @@ function TitleFlowReady() {
 		router.push("/play");
 	}, [router]);
 
+	const goToSandbox = useCallback(() => {
+		router.push("/sandbox");
+	}, [router]);
+
 	const handleSelectChapter = useCallback(
 		(chapter: number) => {
 			if (!selectChapter(chapter)) {
@@ -153,6 +158,7 @@ function TitleFlowReady() {
 				onOpenSettings={() => setSettingsOpen(true)}
 				chapters={chapterOptions(progress.furthestChapter)}
 				onSelectChapter={handleSelectChapter}
+				onPractice={goToSandbox}
 				keyboardEnabled={!settingsOpen && !touchWarning.visible}
 				crt={{
 					scanlines: settings.scanlinesEnabled,

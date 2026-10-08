@@ -34,9 +34,11 @@ export interface TitleScreenProps {
 	chapters?: readonly ChapterOption[];
 	/** 玩家在選章清單選定並確認重玩後呼叫，參數是章節號。 */
 	onSelectChapter?: (chapter: number) => void;
+	/** 有給才顯示「練習模式」（排在最後），不需要存檔、不必確認，直接呼叫。 */
+	onPractice?: () => void;
 }
 
-type TitleAction = "continue" | "selectChapter" | "newGame" | "settings";
+type TitleAction = "continue" | "selectChapter" | "newGame" | "settings" | "practice";
 
 /** 選單下方顯示的內容：主選單、新遊戲覆蓋確認、選章清單、重玩某章的確認。 */
 type TitlePanel =
@@ -52,8 +54,8 @@ interface TitleItem {
 
 const DEFAULT_CRT: TitleScreenCrtSettings = { scanlines: true, vignette: true, flicker: true };
 
-/** 依有沒有存檔、到過幾章決定選單項目。 */
-function buildItems(hasSave: boolean, canSelectChapter: boolean): TitleItem[] {
+/** 依有沒有存檔、到過幾章、有沒有練習模式決定選單項目。 */
+function buildItems(hasSave: boolean, canSelectChapter: boolean, canPractice: boolean): TitleItem[] {
 	const items: TitleItem[] = [];
 	if (hasSave) {
 		items.push({ action: "continue", label: "繼續" });
@@ -63,11 +65,14 @@ function buildItems(hasSave: boolean, canSelectChapter: boolean): TitleItem[] {
 	}
 	items.push({ action: "newGame", label: "新遊戲" });
 	items.push({ action: "settings", label: "設定" });
+	if (canPractice) {
+		items.push({ action: "practice", label: "練習模式" });
+	}
 	return items;
 }
 
 /**
- * 標題畫面（設計文件 4.7）：黑底、KEPLER-9 像素標題、CRT 掃描線，選單「繼續／新遊戲／設定」。
+ * 標題畫面（設計文件 4.7）：黑底、KEPLER-9 像素標題、CRT 掃描線，選單「繼續／新遊戲／設定」，加上練習模式入口。
  *
  * 鍵盤：↑↓ 選擇、Enter 確認。有存檔時按「新遊戲」先跳內嵌確認面板（預設選「取消」）。
  */
@@ -81,9 +86,10 @@ export function TitleScreen({
 	keyboardEnabled = true,
 	chapters = [],
 	onSelectChapter,
+	onPractice,
 }: TitleScreenProps) {
 	const canSelectChapter = chapters.length >= 2 && onSelectChapter !== undefined;
-	const items = buildItems(hasSave, canSelectChapter);
+	const items = buildItems(hasSave, canSelectChapter, onPractice !== undefined);
 	const [panel, setPanel] = useState<TitlePanel>({ kind: "menu" });
 
 	function activate(index: number) {
@@ -97,6 +103,10 @@ export function TitleScreen({
 		}
 		if (item.action === "settings") {
 			onOpenSettings();
+			return;
+		}
+		if (item.action === "practice") {
+			onPractice?.();
 			return;
 		}
 		if (item.action === "selectChapter") {
