@@ -42,7 +42,7 @@
 | M8 | 第二到六章：shell 擴充、六張地圖、多章節流程、五章劇本、插圖 | ✅ | 3.3、4.2、4.3、4.8 |
 | M9 | 第一版之後的小尾巴：shell 邊界、存檔 v2（角色位置）、選章、關閉閃爍管到 Phaser、按 E 像素字型、第六章 NOVA 立繪、小視窗排版 | ✅ | 4.1、4.7、4.8、4.9 |
 | M10 | 玩家體驗與引導：過關回饋、目標跟著終端機、操作提示、NOVA 對話紀錄、卡關偵測、萬用字元說明、扣氧回饋、/play 入口、觸控提示 | ✅ | 4.6、4.7、4.8、4.9 |
-| M11 | 地基：拆 PlayScreen 補測試、hook 穩定化、registry 型別化、整併重複、e2e flaky、hint 照抄常駐測試 | ⬜ | 3.1、3.2、3.4 |
+| M11 | 地基：拆 PlayScreen 補測試、hook 穩定化、registry 型別化、整併重複、e2e flaky、hint 照抄常駐測試 | ✅ | 3.1、3.2、3.4 |
 | M12 | 效能與存檔穩健：預取、插圖預載、瘦身相依、劇本改版偵測、存檔寫入失敗與損毀、素材載入失敗 | ✅ | 3.2、4.7 |
 | M13 | shell 擴充：不支援語法提示、`;` `&&` 與 `~` 展開、less／tree／cut／diff／which | ✅ | 3.3、4.8 |
 | M14 | 新功能：通關狀態與遊玩統計（存檔 v3）、存檔匯出匯入、沙盒練習模式 | ✅ | 4.7 |
@@ -187,7 +187,7 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 | M9-7 小視窗排版 | ✅ | 1280 以下「按 E 開啟」提示往上移、NOVA 對話框在 1024 以下疊到目標面板上方；e2e 檢查 1280、1024、768 三種寬度互不重疊 |
 | M9-8 反斜線與 grep -w／-o | ✅ | 第十一場：`tokenizer.ts` 引號外的 `\` 跳脫下一個字元（`cd my\ dir`、`\|`、`\$HOME`），雙引號內多認 `\$`；`grepPattern.ts` 的 `wholeWord` 用前後環視包樣式、`matches` 給 `-o`，`-F` 也改走 RegExp；`grep -w`、`-o` 與 man 說明。用 Docker 的 GNU grep 3.8（`C.UTF-8`）對照 |
 
-### M10 到 M14 優化路線 ⬜
+### M10 到 M14 優化路線 ✅
 
 2026-10-08 第十三場，七面向審計加逐項驗證後，Danny 用四輪 AskUserQuestion 勾選。每項的問題描述、證據行號與懷疑者的修正意見在 [`audit-2026-10-08.md`](./audit-2026-10-08.md)，表格「審計」欄是該檔的編號。「注意」欄是驗證時發現的限制，動工時照它做。順序：M10 是 Danny 指定的第一批；M11 到 M14 是我排的，M13 排在 M14 前面是為了讓沙盒用得到新指令。
 
@@ -214,8 +214,8 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 | M11-1 hint 照抄常駐測試，e2e 與單元測試共用同一份正解 | A24、A27 | ✅ | 抽取 regex 抓不到中文參數（ch4 T2）與沒有「輸入」字樣的（ch6 T6），allowlist 要逐台說明 |
 | M11-2 拆 PlayScreen 並補單元測試 | A18、A25 | ✅ | M10 會先往 PlayScreen 加東西，拆的時候一起帶走 |
 | M11-3 hook 與 selector 穩定化：`useNovaQueue`、`useTerminalPressure` 回傳值 useMemo，PlayScreen 改 `useShallow` | A4、A19 | ✅ | 目前沒有實際壞掉的情境，屬預防 |
-| M11-4 Phaser registry 型別化 | A20 | ⬜ | |
-| M11-5 整併重複：五章的終端機身分小幫手改用 `decks.ts` 的 `deckTerminalIdentity`、十個指令的選項切分抽共用 | A21、A22 | ⬜ | |
+| M11-4 Phaser registry 型別化 | A20 | ✅ | |
+| M11-5 整併重複：五章的終端機身分小幫手改用 `decks.ts` 的 `deckTerminalIdentity`、十個指令的選項切分抽共用 | A21、A22 | ✅ | |
 | M11-6 e2e flaky：走路改讀角色座標的閉環走法，Playwright 層 retry 標 flaky | A23 | ✅ | 審計對 Phaser `fixedStep` 的根因分析有誤，見驗證段；座標鉤子沿用 #7 只在開發模式掛 |
 
 **M12 效能與存檔穩健**
@@ -586,6 +586,8 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 | 88 | 通關後標題副標「已逃離 Kepler-9」、拿掉「繼續」、第一項換成「通關紀錄」（每章與總計）；用選章重玩會讓「繼續」回來。**推翻 #34 與第九場「通關後副標停在第六章屬預期」** | 通關後再按繼續重播片尾沒有意義 | `selectIsGameFinished`、`TitleScreen.buildItems`、`ClearRecordPanel` |
 | 89 | 遊玩時間只算 `/play` 在前景、本章還沒全解、沒開暫停或設定選單的時間，每 30 秒寫一次、兩次寫入間隔最多算 2 分鐘；錯誤數跟扣氧同一個定義（含過關後打錯）；重玩該章清掉該章統計，新遊戲全清；統計只列數字不評分 | 掛機與背景分頁不灌水；4.8 不懲罰探索 | `usePlayTime`、`recordCommandStats`、`ChapterEndScreen` |
 | 90 | 存檔匯出匯入只放標題的「存檔管理」：匯出下載 `kepler9-save-YYYYMMDD-HHmm.json`，匯入選檔後走 migrate 與完整 zod 驗證（任一台壞掉就整個拒絕），覆蓋前確認、預設取消，成功後重載；版本較新時匯出原始字串 | 匯入要整頁重載，暫停選單不適合；zod 用動態載入不進標題 bundle | `SaveManager.tsx`、`saveImport.ts` |
+| 91 | registry 維持一個 key 一個值，加型別化的 `writeRegistryValues`／`readRegistryValue`，九個 key 的執行期驗證集中在 `REGISTRY_PARSERS`（壞值比原本更嚴格地退回預設，character 不合法直接丟錯）；不採審計建議的單一 bootConfig 加 zod | spawnPoint 要地圖載完才能驗範圍，各欄位壞值的退回方式不同 | `src/game/phaser/registry.ts` |
+| 92 | 指令選項切分抽成 `commands/options.ts` 的 `splitOptionsAndOperands`（`endOfOptions`、`loneDashIsOperand`、`takesValue` 判斷函式三個參數保留各指令差異）與 `parseFlagArgs`；`story/objectives.ts` 也改用它；`export` 維持自己的迴圈；六章終端機身分全部改用 `deckTerminalIdentity`，`lines()` 抽到 `chapters/helpers.ts`，36 台的 id／標題／艙區由 `identities.test.ts` 寫死守門 | `export = -n` 的錯誤順序跟共用切分不同；沙盒的 `lines()` 不綁劇本所以沒共用 | `options.ts`、`export.ts`、`chapters/helpers.ts` |
 
 ## 9. 第一版之後的候選工作
 
