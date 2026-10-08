@@ -7,6 +7,7 @@
  * 讀檔完成前只顯示載入字樣，確保「繼續」的出現與否是可信的。
  * 觸控為主的裝置先疊一層「需要實體鍵盤」的提示，可以略過（設計文件 4.6）。
  * 練習模式：不看存檔，直接進 /sandbox（設計文件 4.11）。
+ * 通關（M14-1）：片尾播完回來時副標換成「已逃離 Kepler-9」、「繼續」換成「通關紀錄」；選章重玩後「繼續」回來。
  */
 
 import { useRouter } from "next/navigation";
@@ -16,13 +17,21 @@ import { BootLog } from "@/components/title/BootLog";
 import { CharacterSelect } from "@/components/title/CharacterSelect";
 import { SettingsMenu } from "@/components/title/SettingsMenu";
 import type { ChapterOption } from "@/components/title/ChapterSelectPanel";
+import type { ClearRecord } from "@/components/title/ClearRecordPanel";
 import { TitleScreen } from "@/components/title/TitleScreen";
 import { TouchWarningPanel } from "@/components/title/TouchWarningPanel";
 import { usePlayPrefetch } from "@/components/title/usePlayPrefetch";
 import { useTouchWarning } from "@/components/title/useTouchWarning";
-import { getChapterMeta, NOVA_FIRST_LINE } from "@/game/chapters/meta";
+import { getChapterMeta, LAST_CHAPTER, NOVA_FIRST_LINE } from "@/game/chapters/meta";
 import { INTRO_SCENE_IMAGE } from "@/game/story/scenes";
-import { selectHasSave, selectProgress, selectSettings, useGameStore, useStoreHydration } from "@/game/store";
+import {
+	selectHasSave,
+	selectIsGameFinished,
+	selectProgress,
+	selectSettings,
+	useGameStore,
+	useStoreHydration,
+} from "@/game/store";
 import type { CharacterId } from "@/game/store/types";
 
 type TitleStage = "title" | "character" | "boot" | "intro";
@@ -40,6 +49,9 @@ const CHINESE_NUMERALS = ["零", "一", "二", "三", "四", "五", "六", "七"
 function chapterNumeral(chapter: number): string {
 	return CHINESE_NUMERALS[chapter] ?? String(chapter);
 }
+
+/** 通關後停在片尾之後的標題副標（M14-1）。 */
+const ESCAPED_SUBTITLE = "已逃離 Kepler-9";
 
 /** 標題副標：有存檔顯示目前進度的章節，例如「資料中心 · 第二章」。 */
 function subtitleFor(chapter: number): string {
@@ -74,6 +86,8 @@ function TitleFlowReady() {
 	const hasSave = useGameStore(selectHasSave);
 	const settings = useGameStore(selectSettings);
 	const progress = useGameStore(selectProgress);
+	const finished = useGameStore(selectIsGameFinished);
+	const stats = useGameStore((state) => state.stats);
 	const resetSave = useGameStore((state) => state.resetSave);
 	const setCharacter = useGameStore((state) => state.setCharacter);
 	const updateSettings = useGameStore((state) => state.updateSettings);
@@ -148,11 +162,23 @@ function TitleFlowReady() {
 		);
 	}
 
+	// 通關過才有通關紀錄；列全部章節，沒玩過或統計上線前玩完的章節顯示破折號
+	let clearRecord: ClearRecord | undefined;
+	if (progress.clearedAt !== null) {
+		clearRecord = { chapters: chapterOptions(LAST_CHAPTER), stats };
+	}
+	let subtitle = subtitleFor(hasSave ? progress.chapter : 1);
+	if (finished) {
+		subtitle = ESCAPED_SUBTITLE;
+	}
+
 	return (
 		<>
 			<TitleScreen
 				hasSave={hasSave}
-				subtitle={subtitleFor(hasSave ? progress.chapter : 1)}
+				subtitle={subtitle}
+				finished={finished}
+				clearRecord={clearRecord}
 				onContinue={goToPlay}
 				onNewGame={handleNewGame}
 				onOpenSettings={() => setSettingsOpen(true)}

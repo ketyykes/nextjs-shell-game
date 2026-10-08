@@ -191,6 +191,70 @@ describe("TitleScreen", () => {
 		});
 	});
 
+	describe("通關（M14-1）", () => {
+		const CHAPTERS = [
+			{ number: 1, label: "第一章 冷凍艙" },
+			{ number: 2, label: "第二章 資料中心" },
+		];
+		const RECORD = {
+			chapters: CHAPTERS,
+			stats: { "1": { playTimeMs: 125_000, errors: 3, hints: 1 } },
+		};
+
+		it("停在片尾之後（finished）時沒有「繼續」，「通關紀錄」排第一個並預設選取", () => {
+			renderTitle({ hasSave: true, finished: true, clearRecord: RECORD });
+			expect(screen.queryByRole("button", { name: "繼續" })).toBeNull();
+			const names = screen.getAllByRole("button").map((button) => button.textContent?.trim());
+			expect(names[0]).toContain("通關紀錄");
+
+			press("Enter");
+			expect(screen.getByRole("region", { name: "通關紀錄" })).toBeDefined();
+		});
+
+		it("通關後選章重玩（沒 finished）時「繼續」回來，「通關紀錄」排在它後面", () => {
+			const props = renderTitle({ hasSave: true, clearRecord: RECORD });
+			const names = screen.getAllByRole("button").map((button) => button.textContent?.trim());
+			expect(names.slice(0, 2)).toEqual([expect.stringContaining("繼續"), expect.stringContaining("通關紀錄")]);
+			press("Enter");
+			expect(props.onContinue).toHaveBeenCalledTimes(1);
+		});
+
+		it("沒通關（沒給 clearRecord）時沒有「通關紀錄」", () => {
+			renderTitle({ hasSave: true });
+			expect(screen.queryByRole("button", { name: "通關紀錄" })).toBeNull();
+		});
+
+		it("通關紀錄列出每章與總計，沒紀錄的章節顯示破折號；Esc 回標題選單", () => {
+			renderTitle({ hasSave: true, finished: true, clearRecord: RECORD });
+			fireEvent.click(screen.getByRole("button", { name: "通關紀錄" }));
+
+			const panel = screen.getByRole("region", { name: "通關紀錄" });
+			const rows = Array.from(panel.querySelectorAll("tbody tr")).map((row) => row.textContent ?? "");
+			expect(rows[0]).toContain("第一章 冷凍艙");
+			expect(rows[0]).toContain("2 分 5 秒");
+			expect(rows[0]).toContain("3");
+			expect(rows[1]).toContain("第二章 資料中心");
+			expect(rows[1]).toContain("—");
+			expect(panel.querySelector("tfoot")?.textContent).toContain("總計");
+
+			press("Escape");
+			expect(screen.queryByRole("region", { name: "通關紀錄" })).toBeNull();
+			expect(screen.getByRole("button", { name: "新遊戲" })).toBeDefined();
+		});
+	});
+
+	describe("存檔管理（M14-2）", () => {
+		it("有給 onManageSave 時「存檔管理」排在設定後面、練習模式前面，沒有存檔也有", () => {
+			const onManageSave = vi.fn();
+			renderTitle({ hasSave: false, onManageSave, onPractice: vi.fn() });
+			const names = screen.getAllByRole("button").map((button) => button.textContent?.trim());
+			expect(names).toEqual(["新遊戲", "設定", "存檔管理", "練習模式"].map((name) => expect.stringContaining(name)));
+
+			fireEvent.click(screen.getByRole("button", { name: "存檔管理" }));
+			expect(onManageSave).toHaveBeenCalledTimes(1);
+		});
+	});
+
 	it("CRT 效果預設全開，可由 props 關閉", () => {
 		renderTitle();
 		expect(screen.getByTestId("crt-scanlines")).toBeDefined();

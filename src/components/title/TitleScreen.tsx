@@ -4,6 +4,7 @@ import { motion } from "motion/react";
 import { useState } from "react";
 import { CrtOverlay } from "@/components/game/CrtOverlay";
 import { ChapterSelectPanel, type ChapterOption } from "./ChapterSelectPanel";
+import { ClearRecordPanel, type ClearRecord } from "./ClearRecordPanel";
 import { ConfirmPanel } from "./ConfirmPanel";
 import { MenuOption } from "./MenuOption";
 import { useMenuNavigation } from "./useMenuNavigation";
@@ -36,16 +37,26 @@ export interface TitleScreenProps {
 	onSelectChapter?: (chapter: number) => void;
 	/** 有給才顯示「練習模式」（排在最後），不需要存檔、不必確認，直接呼叫。 */
 	onPractice?: () => void;
+	/**
+	 * 停在片尾之後（通關、目前在最後一章、片尾播完）：不顯示「繼續」，沒有可以接著玩的地方（M14-1）。
+	 * 選章重玩後就不是，「繼續」會回來。
+	 */
+	finished?: boolean;
+	/** 通關過才給：顯示「通關紀錄」（finished 時排第一，否則排在「繼續」後面）。 */
+	clearRecord?: ClearRecord;
+	/** 有給才顯示「存檔管理」（排在設定後面），匯出與匯入存檔（M14-2），沒有存檔也能進去匯入。 */
+	onManageSave?: () => void;
 }
 
-type TitleAction = "continue" | "selectChapter" | "newGame" | "settings" | "practice";
+type TitleAction = "continue" | "clearRecord" | "selectChapter" | "newGame" | "settings" | "manageSave" | "practice";
 
 /** 選單下方顯示的內容：主選單、新遊戲覆蓋確認、選章清單、重玩某章的確認。 */
 type TitlePanel =
 	| { kind: "menu" }
 	| { kind: "confirmNewGame" }
 	| { kind: "chapters"; index: number }
-	| { kind: "confirmChapter"; index: number };
+	| { kind: "confirmChapter"; index: number }
+	| { kind: "clearRecord" };
 
 interface TitleItem {
 	action: TitleAction;
@@ -54,25 +65,42 @@ interface TitleItem {
 
 const DEFAULT_CRT: TitleScreenCrtSettings = { scanlines: true, vignette: true, flicker: true };
 
-/** 依有沒有存檔、到過幾章、有沒有練習模式決定選單項目。 */
-function buildItems(hasSave: boolean, canSelectChapter: boolean, canPractice: boolean): TitleItem[] {
+/** 決定選單項目需要的條件。 */
+interface MenuConditions {
+	hasSave: boolean;
+	canSelectChapter: boolean;
+	canPractice: boolean;
+	finished: boolean;
+	hasClearRecord: boolean;
+	canManageSave: boolean;
+}
+
+/** 依有沒有存檔、通關與否、到過幾章、有哪些入口決定選單項目。 */
+function buildItems(conditions: MenuConditions): TitleItem[] {
 	const items: TitleItem[] = [];
-	if (hasSave) {
+	if (conditions.hasSave && !conditions.finished) {
 		items.push({ action: "continue", label: "繼續" });
 	}
-	if (hasSave && canSelectChapter) {
+	if (conditions.hasSave && conditions.hasClearRecord) {
+		items.push({ action: "clearRecord", label: "通關紀錄" });
+	}
+	if (conditions.hasSave && conditions.canSelectChapter) {
 		items.push({ action: "selectChapter", label: "選章" });
 	}
 	items.push({ action: "newGame", label: "新遊戲" });
 	items.push({ action: "settings", label: "設定" });
-	if (canPractice) {
+	if (conditions.canManageSave) {
+		items.push({ action: "manageSave", label: "存檔管理" });
+	}
+	if (conditions.canPractice) {
 		items.push({ action: "practice", label: "練習模式" });
 	}
 	return items;
 }
 
 /**
- * 標題畫面（設計文件 4.7）：黑底、KEPLER-9 像素標題、CRT 掃描線，選單「繼續／新遊戲／設定」，加上練習模式入口。
+ * 標題畫面（設計文件 4.7）：黑底、KEPLER-9 像素標題、CRT 掃描線，選單「繼續／新遊戲／設定」，
+ * 依存檔狀態再加「通關紀錄」「選章」，以及「存檔管理」與練習模式入口。
  *
  * 鍵盤：↑↓ 選擇、Enter 確認。有存檔時按「新遊戲」先跳內嵌確認面板（預設選「取消」）。
  */
@@ -87,9 +115,19 @@ export function TitleScreen({
 	chapters = [],
 	onSelectChapter,
 	onPractice,
+	finished = false,
+	clearRecord,
+	onManageSave,
 }: TitleScreenProps) {
 	const canSelectChapter = chapters.length >= 2 && onSelectChapter !== undefined;
-	const items = buildItems(hasSave, canSelectChapter, onPractice !== undefined);
+	const items = buildItems({
+		hasSave,
+		canSelectChapter,
+		canPractice: onPractice !== undefined,
+		finished,
+		hasClearRecord: clearRecord !== undefined,
+		canManageSave: onManageSave !== undefined,
+	});
 	const [panel, setPanel] = useState<TitlePanel>({ kind: "menu" });
 
 	function activate(index: number) {
@@ -107,6 +145,14 @@ export function TitleScreen({
 		}
 		if (item.action === "practice") {
 			onPractice?.();
+			return;
+		}
+		if (item.action === "manageSave") {
+			onManageSave?.();
+			return;
+		}
+		if (item.action === "clearRecord") {
+			setPanel({ kind: "clearRecord" });
 			return;
 		}
 		if (item.action === "selectChapter") {
@@ -181,6 +227,9 @@ export function TitleScreen({
 						}}
 						onCancel={() => setPanel({ kind: "chapters", index: panel.index })}
 					/>
+				)}
+				{panel.kind === "clearRecord" && clearRecord !== undefined && keyboardEnabled && (
+					<ClearRecordPanel record={clearRecord} onBack={() => setPanel({ kind: "menu" })} />
 				)}
 				{panel.kind === "menu" && (
 					<ul className="flex flex-col items-start gap-1">
