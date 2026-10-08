@@ -1,0 +1,51 @@
+/* 扣氧回饋（M10-9）：O2 數字輕微放大一下，旁邊的「-1」往上飄並淡出。只動這一小塊 HUD，不做全畫面效果，免得跟第 3 次錯誤的燈閃混在一起 */
+
+.pulse {
+	display: inline-block;
+	transform-origin: left center;
+	animation: oxygen-pulse 300ms ease-out;
+}
+
+.float {
+	position: absolute;
+	top: 0;
+	left: 100%;
+	margin-left: 0.5rem;
+	white-space: nowrap;
+	color: var(--game-amber);
+	animation: oxygen-float 900ms ease-out forwards;
+}
+
+@keyframes oxygen-pulse {
+	0% {
+		transform: scale(1);
+	}
+	40% {
+		transform: scale(1.15);
+	}
+	100% {
+		transform: scale(1);
+	}
+}
+
+@keyframes oxygen-float {
+	from {
+		opacity: 1;
+		transform: translateY(0);
+	}
+	to {
+		opacity: 0;
+		transform: translateY(-1rem);
+	}
+}
+
+/* 減少動態效果：不放大、不浮字，只剩數字變琥珀 */
+@media (prefers-reduced-motion: reduce) {
+	.pulse {
+		animation: none;
+	}
+
+	.float {
+		display: none;
+	}
+}

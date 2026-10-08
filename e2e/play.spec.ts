@@ -76,6 +76,24 @@ test.describe("/play 地圖與終端機", () => {
 		await input.press("Enter");
 		await expect(page.getByText("你是不是想打")).toBeVisible();
 		await expect(page.getByText("O2 99%")).toBeVisible();
+		// 扣氧當下數字閃琥珀並浮出 -1（M10-9）
+		await expect(page.getByTestId("hud-oxygen-loss")).toHaveText("-1");
+		await expect(page.getByTestId("hud-oxygen-value")).toHaveClass(/text-game-amber/);
+		// 閃完回到青綠，浮字消失
+		await expect(page.getByTestId("hud-oxygen-loss")).toHaveCount(0);
+		await expect(page.getByTestId("hud-oxygen-value")).toHaveClass(/text-game-success/);
+	});
+
+	test("減少動態效果時扣氧只變色，不浮出 -1", async ({ page }) => {
+		await page.emulateMedia({ reducedMotion: "reduce" });
+		await openCryoTerminal(page);
+		const input = page.getByLabel("指令輸入");
+		await input.fill("cat nope");
+		await input.press("Enter");
+		await expect(page.getByText("O2 99%")).toBeVisible();
+		await expect(page.getByTestId("hud-oxygen-value")).toHaveClass(/text-game-amber/);
+		await expect(page.getByTestId("hud-oxygen-loss")).toBeAttached();
+		await expect(page.getByTestId("hud-oxygen-loss")).toBeHidden();
 	});
 
 	test("Tab 補全與 ↑ 叫回歷史", async ({ page }) => {
