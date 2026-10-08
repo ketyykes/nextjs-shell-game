@@ -253,8 +253,8 @@ export function createObjectiveContext(
 	fs: VirtualFs,
 	home: string,
 ): ObjectiveContext {
-	// 用執行後的環境變數重新解析，`cat $NOVA_DIR/log` 這種寫法判定時才看得到真正的路徑
-	const parsed = parseCommandLine(execution.input, { env: execution.env });
+	// 用執行後的環境變數重新解析，`cat $NOVA_DIR/log` 這種寫法判定時才看得到真正的路徑；`~` 也跟 shell 一樣展開
+	const parsed = parseCommandLine(execution.input, { env: execution.env, home });
 	let command: ObjectiveContext["command"] = null;
 	let pipeline: ObjectiveContext["pipeline"] = null;
 	if (parsed.ok) {

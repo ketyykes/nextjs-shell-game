@@ -215,7 +215,7 @@ export class Shell {
 	 * 不管哪一種失敗，這一段都只算一次錯誤。
 	 */
 	private executePipeline(input: string, previousHistory: string[]): ShellExecution {
-		const parsed = parseCommandLineDetailed(input, { env: this.currentEnv });
+		const parsed = parseCommandLineDetailed(input, { env: this.currentEnv, home: this.home });
 		if (!parsed.ok) {
 			return this.finish(input, false, parseError(parsed.error), false);
 		}

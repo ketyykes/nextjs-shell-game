@@ -320,9 +320,13 @@ export interface ParsedPipeline {
  */
 export type ListConnector = ";" | "&&";
 
-/** 解析選項：`env` 給變數展開用（第五章），沒給就不展開、`$NAME` 原樣保留。 */
+/**
+ * 解析選項：`env` 給變數展開用（第五章），沒給就不展開、`$NAME` 原樣保留；
+ * `home` 給 `~` 展開用（M13-2），沒給就不展開、`~` 原樣保留。
+ */
 export interface ParseOptions {
 	env?: Record<string, string>;
+	home?: string;
 }
 
 /**

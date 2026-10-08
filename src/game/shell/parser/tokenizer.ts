@@ -20,6 +20,10 @@
  * 引號外展開後整個 word 是空字串（例如 `echo $NOPE`）時，這個 word 直接丟掉，跟 bash 一樣；
  * 有引號包住的空字串（例如 `"$NOPE"`）保留。
  *
+ * `~` 展開（M13-2）：有給 `options.home` 時，word 開頭沒被引號包住的 `~`（單獨一個，或後面接 `/`、空白、符號）
+ * 換成家目錄，展開出來的字元不算引號，所以 `~/*.txt` 照樣做萬用字元展開。`~abin` 這種 `~使用者` 寫法不支援、原樣保留
+ * （跟 bash 遇到不存在的帳號一樣）；不在 word 開頭的（`a~`、`NAME=~/x`）也不展開。沒給 `home` 時完全不展開。
+ *
  * 引號外的反斜線跳脫下一個字元，跟 bash 一樣：`a\ b` 是一個 token `a b`、`v3\.1` 是 `v3.1`、
  * `\|`、`\>`、`\'`、`\$` 都是字面字元。跳脫過的 word 標成 `quoted`，所以 `\*.log` 不做萬用字元展開
  * （跟引號一樣是整個 word 的簡化：bash 只讓被跳脫的那個字元失去萬用字元意義）。
@@ -48,6 +52,14 @@ const FD_NUMBER_PATTERN = /^[0-9]+$/;
 
 /** `>&` 後面接的檔案描述元或 `-`（`2>&1`、`>&-`）。 */
 const FD_TARGET_PATTERN = /[0-9-]/;
+
+/** 緊接在這些字元前面的 `~` 是完整的 `~` 或 `~/`，會展開；其他字元（`~abin`、`~"x"`）不展開。 */
+const TILDE_END_CHARS = new Set(["/", " ", "\t", ";", "&", "|", "<", ">"]);
+
+/** `~` 後面是行尾或 `TILDE_END_CHARS` 時才展開。 */
+function isTildeEnd(next: string | undefined): boolean {
+	return next === undefined || TILDE_END_CHARS.has(next);
+}
 
 /**
  * 從 `chars[index]`（一定是 `>`）開始讀出整個重導向符號，接在 `prefix` 後面當錯誤的 detail，
@@ -123,6 +135,7 @@ function expandVariable(chars: string[], index: number, env: Record<string, stri
  */
 export function tokenize(input: string, options: ParseOptions = {}): TokenizeResult {
 	const env = options.env;
+	const home = options.home;
 	const tokens: Token[] = [];
 	const chars = Array.from(input);
 
@@ -345,6 +358,15 @@ export function tokenize(input: string, options: ParseOptions = {}): TokenizeRes
 				pushOperator("redirect", ">");
 				index += 1;
 			}
+			continue;
+		}
+
+		// word 開頭沒有引號的 `~`、`~/` 換成家目錄，展開出來的字元不算引號，萬用字元照樣展開
+		if (char === "~" && !hasWord && home !== undefined && isTildeEnd(chars[index + 1])) {
+			buffer += home;
+			hasWord = true;
+			hasOtherPart = true;
+			index += 1;
 			continue;
 		}
 

@@ -339,6 +339,66 @@ describe("tokenize：不支援的語法回傳 UNSUPPORTED_SYNTAX（M13-1）", ()
 	});
 });
 
+describe("tokenize：開頭的 ~ 展開成家目錄（M13-2）", () => {
+	const home = "/home/tech";
+
+	it("單獨的 ~ 展開", () => {
+		expect(tokensOf("echo ~", { home })).toEqual([word("echo"), word("/home/tech")]);
+	});
+
+	it("~/ 開頭的路徑展開", () => {
+		expect(tokensOf("cd ~/pod_06", { home })).toEqual([word("cd"), word("/home/tech/pod_06")]);
+	});
+
+	it("展開後仍算沒有引號，萬用字元照樣會展開", () => {
+		expect(tokensOf("ls ~/*.txt", { home })).toEqual([word("ls"), word("/home/tech/*.txt")]);
+	});
+
+	it("緊接符號時也展開", () => {
+		expect(tokensOf("ls ~|cat;cd ~&&ls>~/out", { home })).toEqual([
+			word("ls"),
+			word("/home/tech"),
+			pipe,
+			word("cat"),
+			semicolon(8),
+			word("cd"),
+			word("/home/tech"),
+			and(13),
+			word("ls"),
+			redirect,
+			word("/home/tech/out"),
+		]);
+	});
+
+	it("不在 word 開頭的 ~ 不展開", () => {
+		expect(tokensOf("echo a~ a/~ NAME=~/x", { home })).toEqual([word("echo"), word("a~"), word("a/~"), word("NAME=~/x")]);
+	});
+
+	it("~user 寫法不支援，原樣保留", () => {
+		expect(tokensOf("ls ~abin ~abin/x ~~ ~+", { home })).toEqual([
+			word("ls"),
+			word("~abin"),
+			word("~abin/x"),
+			word("~~"),
+			word("~+"),
+		]);
+	});
+
+	it("引號包住或跳脫的 ~ 不展開", () => {
+		expect(tokensOf(`echo '~' "~/x" \\~ ~"/x"`, { home })).toEqual([
+			word("echo"),
+			word("~", true, true),
+			word("~/x", true),
+			word("~", true),
+			word("~/x", true),
+		]);
+	});
+
+	it("沒給 home 時不展開", () => {
+		expect(tokensOf("cd ~/pod_06")).toEqual([word("cd"), word("~/pod_06")]);
+	});
+});
+
 describe("tokenize：singleQuoted", () => {
 	it("整個 token 都在單引號內時 singleQuoted 為 true", () => {
 		expect(tokensOf("echo 'a b'")).toEqual([word("echo"), word("a b", true, true)]);

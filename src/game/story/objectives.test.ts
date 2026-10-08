@@ -279,6 +279,13 @@ describe("createObjectiveContext", () => {
 	it("管線的 command 是第一個指令", () => {
 		expect(contextOf("ls | cat").command).toEqual({ name: "ls", args: [] });
 	});
+
+	it("開頭的 ~ 跟 shell 一樣展開成家目錄，參數就是實際執行的樣子", () => {
+		expect(contextOf("cat ~/wake_up.txt ~abin").command).toEqual({
+			name: "cat",
+			args: ["/home/tech/wake_up.txt", "~abin"],
+		});
+	});
 });
 
 describe("管線與重導向", () => {

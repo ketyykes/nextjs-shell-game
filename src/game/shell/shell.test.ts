@@ -723,6 +723,46 @@ describe("Shell 萬用字元", () => {
 	});
 });
 
+describe("Shell ~ 展開（M13-2）", () => {
+	it("echo ~ 印出家目錄（審計 G2 的例子）", () => {
+		const shell = createShell();
+		expect(shell.execute("echo ~ ~/pod_06").lines).toEqual(["/home/tech /home/tech/pod_06"]);
+	});
+
+	it("用的是這個 session 的家目錄", () => {
+		const shell = createShell({ home: "/home/abin", cwd: "/" });
+		expect(shell.execute("echo ~").lines).toEqual(["/home/abin"]);
+	});
+
+	it("cd ~、cd ~/xxx 跟以前一樣走回家目錄", () => {
+		const shell = createShell({ cwd: "/deck1" });
+		expect(shell.execute("cd ~ ; pwd").lines).toEqual(["/home/tech"]);
+		shell.execute("cd /deck1");
+		expect(shell.execute("cd ~/pod_06 && pwd").lines).toEqual(["/home/tech/pod_06"]);
+	});
+
+	it("~/ 後面的萬用字元照樣展開", () => {
+		const shell = createShell({ cwd: "/deck1" });
+		expect(shell.execute("echo ~/*.txt").lines).toEqual(["/home/tech/wake_up.txt"]);
+	});
+
+	it("錯誤訊息裡是展開後的路徑（跟 bash 一樣）", () => {
+		const shell = createShell();
+		expect(shell.execute("cat ~/nope.txt").lines).toEqual(pathNotFound("/home/tech/nope.txt"));
+	});
+
+	it("~user 不支援，原樣當成名字，找不到時照常回報", () => {
+		const shell = createShell();
+		expect(shell.execute("echo ~abin").lines).toEqual(["~abin"]);
+		expect(shell.execute("cd ~abin").lines).toEqual(pathNotFound("~abin"));
+	});
+
+	it("引號包住的 ~ 不展開", () => {
+		const shell = createShell();
+		expect(shell.execute(`echo "~" '~/x'`).lines).toEqual(["~ ~/x"]);
+	});
+});
+
 describe("Shell 不支援的語法（M13-1）", () => {
 	it.each([
 		["echo hi || echo no", "||"],
