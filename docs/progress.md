@@ -283,7 +283,7 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 - **地圖契約**：圖層與物件命名在 `src/game/phaser/constants.ts`，腳本 `scripts/build-map.mjs` 與 `Station.ts` 兩邊都照它；`map.test.ts` 會檢查 `deck1.json` 跟 `buildMap(DEFAULT_LAYOUT)` 一致，所以用 Tiled 手改地圖後要同步更新腳本或改測試。Tiled 1.9 以後的 `class` 欄位 Phaser 不讀，物件要用 `type`。警示條邊框是「地板的邊緣」放 `floor` 層可走，真正的牆是深色片放 `walls` 層。
 - **store 的使用規則**：`@/game/store` 的 index 帶 React hook，只能在 client component import，純邏輯或 server component 用 `@/game/store/types`。**讀檔完成前不要呼叫任何 action**（每次 `set` 都會寫 localStorage，會把預設值蓋掉存檔），依賴存檔的畫面都要先等 `useStoreHydration()` 回 true。selector 不要回傳新組的物件，多欄位用 `useShallow`。
 - **Terminal 元件的整合規則**：`shell` 必須是同一個實例（`useState` 保住），每次 render 都 `new Shell` 會重置 cwd 與歷史。`entries` 由父層持有並整批替換，`clear` 會傳空陣列。掛載當下就在 `entries` 裡的 dialogue 不重播打字動畫，要播的 NOVA 台詞得在掛載後才 push。Esc 有 `preventDefault` 也有 `stopPropagation`（原因見下一條）。
-- **window 的 keydown 監聽會接到「讓它掛上去的那個事件」**：PlayScreen 的暫停選單 Esc 監聽掛在 window，而且在終端機關閉（state 變更）的同一個 keydown 事件裡由 effect 重新掛回去。React 對離散事件會同步 flush effect，而 DOM 規範只禁止「同一個 target 在派送中新增的監聽」被觸發，window 是上層的另一個 target，所以同一下 Esc 關了終端機又打開暫停選單。2026-10-01 第七場踩到，修法是終端機的 Escape handler 加 `stopPropagation`。同類結構（元件 A 處理某鍵後卸載、元件 B 在 window 聽同一個鍵）都會中招，先懷疑這個。之前 e2e 的回標題測試用重試迴圈「按到暫停選單開為止」，剛好把這個 bug 蓋掉了，e2e 裡的重試迴圈要小心。
+- **window 的 keydown 監聽會接到「讓它掛上去的那個事件」**：暫停選單的 Esc 監聽（M11-2 起在 `usePauseMenu`）掛在 window，而且在終端機關閉（state 變更）的同一個 keydown 事件裡由 effect 重新掛回去。React 對離散事件會同步 flush effect，而 DOM 規範只禁止「同一個 target 在派送中新增的監聽」被觸發，window 是上層的另一個 target，所以同一下 Esc 關了終端機又打開暫停選單。2026-10-01 第七場踩到，修法是終端機的 Escape handler 加 `stopPropagation`。同類結構（元件 A 處理某鍵後卸載、元件 B 在 window 聽同一個鍵）都會中招，先懷疑這個。之前 e2e 的回標題測試用重試迴圈「按到暫停選單開為止」，剛好把這個 bug 蓋掉了，e2e 裡的重試迴圈要小心。
 - **暫停選單開著時 Phaser 場景沒暫停**：`game:pause` 只關角色輸入，場景照跑（燈光脈動、NOVA 對話不受影響），所以 Phaser 這邊聽的鍵（E 開終端機）要自己擋。`TerminalZones.setInteractEnabled` 由 Station 在 `game:pause`／`game:resume` 切換；之後新增 Phaser 端的按鍵都要走同一條路。
 - **e2e 在地圖上走路用「貼牆滑行」**：角色碰撞盒 20x14、速度 120 px/s、門只有一格寬（容錯 ±6 px），純計時走會偏。同時按住兩個方向鍵，被牆擋住的軸停住、另一軸沿牆滑，滑到門口自動進去；進門後用 `hud-room` 的艙區名當檢查點（`holdUntilRoom`），只有最後對齊終端機那段用計時（互動半徑 40 px，容錯 ±30 px）。兩個坑：（1）走廊上下兩排的門在同一欄（x=6、18、30），進走廊後要先橫移一段再貼牆，不然會從對面的門鑽回去；（2）離開房間要「先直走到牆再貼牆」，斜著走會在碰到牆之前就越過門口。範例在 `e2e/happy-path.spec.ts`。
 - **劇本的三個坑（第八場）**：（1）`deckTerminal()` 回傳的物件多一個 `slot`，`terminalDefinitionSchema` 是 strictObject，直接 `...deckTerminal(n, i)` 展開會驗證失敗，用 `deckTerminalIdentity(n, i)`；（2）性別檢查的正規表示式 `/[他她]|…/` 連「其他」「他們」都擋，劇本文字要改寫成「別的」「那些」；（3）每台終端機的 FS 會序列化進 localStorage，單台控制在 40 個檔案、20 KB，各章測試有檢查。前一台的成果要「預先放進」後一台的快照（每台 FS 獨立）。
@@ -476,27 +476,27 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 
 | # | 決策 | 理由 | 推翻時要改 |
 |---|---|---|---|
-| 1 | 已學指令存**完整字串**（`ls -a`、`cd ~`），shell 的 `help` 只學指令名 | 側邊面板要顯示「ls -a」才看得出這台教的是旗標；`help` 只認指令名 | `PlayScreen.toCommandName`、`CommandCheatSheet` |
-| 2 | 指令在**過關後**才算學會，不是開終端機就學 | 4.8 說每台終端機引入新概念，過關代表學會；M3 的「開了就學」是臨時簡化 | `PlayScreen.handleExecuted` |
+| 1 | 已學指令存**完整字串**（`ls -a`、`cd ~`），shell 的 `help` 只學指令名 | 側邊面板要顯示「ls -a」才看得出這台教的是旗標；`help` 只認指令名 | `terminalSession.toCommandName`、`CommandCheatSheet`（M11-2 起） |
+| 2 | 指令在**過關後**才算學會，不是開終端機就學 | 4.8 說每台終端機引入新概念，過關代表學會；M3 的「開了就學」是臨時簡化 | `useSolveFlow.handleExecuted`（M11-2 起） |
 | 3 | 人影閃現位置夾在**鏡頭視野邊緣**，不是走廊真正的盡頭 | 鏡頭放大兩倍只看得到 15 格，走廊 33 格寬，玩家在中段時真盡頭在畫面外，玩家根本看不到那一幀 | `effects.shadowFlashPosition` 的第三參數、`Station.SHADOW_VIEW_MARGIN` |
 | 4 | 終端機開著時過關，Phaser 演出**延到關閉終端機才播** | 場景暫停中播不了，而且玩家正盯著終端機；關掉後看到燈亮比較有戲 | `Station.playSolvedEffect` 的排隊邏輯 |
-| 5 | NOVA 過關台詞：全部內嵌在終端機輸出區，關閉後地圖對話框**只重說最後一句** | 避免同一段話在兩個地方完整播兩次 | `PlayScreen.pendingSolvedLineRef` |
-| 6 | 進艙區台詞每間**只說一次**，用 `ch1.room.<id>.entered` 旗標跨重整去重；開場 `intro` 用 `ch1.introShown`；結尾 `outro` 六台全過後用 `ch1.outroShown` | 重複觸發會很吵 | `PlayScreen` 三個 useEffect |
-| 7 | 開發模式掛 `window.__kepler9.emit` 除錯鉤子，正式 build 不掛 | 用鍵盤走到 T4 的自動化太脆弱，直接發事件才能截圖驗證演出；之後除錯也方便 | `PlayScreen` 第一個 useEffect |
+| 5 | NOVA 過關台詞：全部內嵌在終端機輸出區，關閉後地圖對話框**只重說最後一句** | 避免同一段話在兩個地方完整播兩次 | `useNovaTriggers.deferSolvedLine`／`flushSolvedLine`（M11-2 起） |
+| 6 | 進艙區台詞每間**只說一次**，用 `ch1.room.<id>.entered` 旗標跨重整去重；開場 `intro` 用 `ch1.introShown`；結尾 `outro` 六台全過後用 `ch1.outroShown` | 重複觸發會很吵 | `useNovaTriggers` 的開場 effect 與 `enterRoom`（M11-2 起） |
+| 7 | 開發模式掛 `window.__kepler9.emit` 除錯鉤子，正式 build 不掛 | 用鍵盤走到 T4 的自動化太脆弱，直接發事件才能截圖驗證演出；之後除錯也方便 | `usePhaserBridge`（M11-2 起） |
 | 8 | T6 過關時若 T4 還沒過，也把燈全亮 | 存檔漏了 T4 時玩家摸黑走出去很怪；正常流程 T4 一定先過 | `Station.playSolvedEffect` 的 `ch1-t6` 分支 |
 | 9 | `startGame` 多一個選填 `solvedTerminals`，經 `game.registry` 給 Station 還原狀態 | registry 要 `new Phaser.Game` 之後才有，`startGame` 前沒辦法 set | `main.ts`、`PhaserGame.tsx` |
 | 10 | ~~設定的「關閉閃爍」目前管不到 Phaser 的人影閃現與鏡頭震動~~ **M9 已補**（#43） | M7-5 做設定選單時一起接，到時加 registry key 或事件 | 列在 M7-5 |
 | 11 | zod schema 用 `strictObject`，劇本多打一個欄位就報錯 | 3.4 要求「欄位打錯會直接報錯」，寬鬆物件抓不到打錯的欄位名 | `schema.ts` |
 | 12 | 阿彬的本名**沒寫**，病歷寫「慣用稱呼：阿彬」 | 設計說本名只在病歷出現一次，但沒定名字，不擅自編 | `ch1-life-support.ts` T5 的病歷檔 |
 | 13 | `day_900.txt` 的 mtime 比喚醒排程被改的時間早 16 分鐘 | 若兩者相同會讓人以為排程是阿彬改的，跟核心真相衝突 | 同上 T3 |
-| 14 | 按鍵聲改成**每送出一道指令響一次**，不是每個按鍵 | 每鍵都響很吵，而且 Terminal 元件沒有按鍵 callback | `PlayScreen.handleExecuted` 開頭的 `sfx:play key` |
+| 14 | 按鍵聲改成**每送出一道指令響一次**，不是每個按鍵 | 每鍵都響很吵，而且 Terminal 元件沒有按鍵 callback | `useSolveFlow.handleExecuted` 開頭的 `sfx:play key`（M11-2 起） |
 | 15 | ~~**角色位置不存檔**，重開一律從出生點開始~~ **M9 推翻**（#40） | 地圖只有一層、走回終端機很快；存位置要多一個 store 欄位與 Phaser 讀寫，第一版不值得 | `progress` 加欄位、`Station.createPlayer` 讀它 |
 | 16 | 艙區插圖用在**第一次進艙區的插圖卡**（2.6 秒自動淡出），不是終端機背景 | 4.9 要求彈窗後面的地圖要看得到，插圖當背景會擋地圖；進房卡是常見手法也不擋操作 | `SceneCard.tsx`、`PlayScreen` 的 `room:enter` handler |
 | 17 | 開場插圖放在 boot log 之後、進地圖之前；結尾插圖放章節結束畫面的 outro 階段 | 4.7 的流程沒有開場插圖的位置，接在 boot log 後當「淡入地圖」的過場最自然 | `TitleFlow` 的 `intro` stage |
-| 18 | 重玩本章用 `window.location.reload()` 重新載入頁面 | Phaser 實例、Shell 快取、NOVA 佇列都要重建，整頁重載最乾淨 | `PlayScreen.handleRestartChapter` |
+| 18 | 重玩本章用 `window.location.reload()` 重新載入頁面 | Phaser 實例、Shell 快取、NOVA 佇列都要重建，整頁重載最乾淨 | `useChapterNavigation` 與 `reloadPage`（M11-2 起） |
 | 19 | 選完角就 `touchSave`，所以還沒進地圖就有「繼續」 | 玩家在 boot log 關掉瀏覽器回來，應該能直接進地圖而不是重選角 | `TitleFlow.handleCharacterConfirm` |
 | 20 | 音效 agent 看檔名挑的五個檔沒有人試聽 | 我沒有辦法聽；Danny 試聽後覺得不對直接換檔案，key 與路徑在 `audio.ts` | 換 `public/audio/` 的檔案即可 |
-| 21 | 卡關台詞與第 9 次錯誤台詞只在**終端機內嵌**顯示，不上地圖對話框 | 這兩種反應都發生在終端機開著的時候，地圖對話框被彈窗蓋住看不到 | `PlayScreen.handlePressureReaction` |
+| 21 | 卡關台詞與第 9 次錯誤台詞只在**終端機內嵌**顯示，不上地圖對話框 | 這兩種反應都發生在終端機開著的時候，地圖對話框被彈窗蓋住看不到 | `usePressureReactions`（M11-2 起） |
 | 22 | 暫停選單只停角色輸入，Phaser 場景不暫停 | 場景暫停會讓終端機發光脈動、NOVA 對話框的淡出 tween 都停住；只停輸入就夠 | `Station` 的 `game:pause` handler |
 
 第八場（2026-10-01，Danny 下 `/goal` 要求做到第六章、不停下來）新增：
@@ -511,7 +511,7 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 | 28 | ~~`grep` 是字面比對不是正規表示式~~ **M9 推翻**（#45）；沒符合不算錯誤（ok true、沒輸出）維持 | 新手不需要先學 regex；避免懲罰探索 | `commands/grep.ts` |
 | 29 | `chmod` 可以改任何檔案（不檢查擁有者）；讀取權限只看擁有者是玩家時的前三碼、否則看後三碼 | 遊戲簡化，第五章只需要「鎖著 → 解鎖」 | `types.ts` 的 `canRead`、`commands/chmod.ts` |
 | 30 | 程序是每台終端機各自的清單（`processes`），`kill` 的結果存在 shell session | 不需要全站程序表；第六章每台各自描述 | `shell/types.ts` 的 `ProcessInfo`、劇本 `processes` 欄位 |
-| 31 | 換章用整頁重載（`advanceChapter` 後 `window.location.reload()`），重玩本章只清該章（`resetChapter`） | Phaser 要換地圖、Shell 快取與 NOVA 佇列要清空，重載最乾淨；重玩不該把前幾章洗掉 | `PlayScreen.handleNextChapter`、`gameStore.resetChapter` |
+| 31 | 換章用整頁重載（`advanceChapter` 後 `window.location.reload()`），重玩本章只清該章（`resetChapter`） | Phaser 要換地圖、Shell 快取與 NOVA 佇列要清空，重載最乾淨；重玩不該把前幾章洗掉 | `useChapterNavigation`、`gameStore.resetChapter`（M11-2 起） |
 | 32 | 存檔格式版本不變（仍 v1）：`chapter` 欄位本來就有，終端機與旗標都帶章節前綴 | 不需要 migrate | — |
 | 33 | 回顧卡只列「這一章教的指令」（`chapterTeaches`），不是全部已學 | 六章累積會太長 | `chapters/index.ts` |
 | 34 | 第六章之後顯示片尾（`ending.ts`，救援船終端機逐句打字）再回標題；標題副標顯示目前章節 | 4.3 的片尾；玩家看得出自己玩到哪 | `ChapterEndScreen` 的 `ending` prop、`TitleFlow.subtitleFor` |
@@ -522,7 +522,7 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 
 | # | 決策 | 理由 | 推翻時要改 |
 |---|---|---|---|
-| 37 | 章節結束畫面在六台全解且終端機關閉時**一定**出現；`outroShown` 旗標只拿來跳過 outro 打字段，直接從回顧卡開始（`ChapterEndScreen` 新 prop `skipOutro`） | 否則全解後回標題再「繼續」會被困在完成的甲板，沒有任何 UI 能進下一章（第九場實測重現的死路）；代價是完成的章節不能再自由走動，但設計本來就沒有這個需求 | `PlayScreen` 的 `showChapterEnd`、`ChapterEndScreen.skipOutro`、e2e「章節結束畫面的回訪」 |
+| 37 | 章節結束畫面在六台全解且終端機關閉時**一定**出現；`outroShown` 旗標只拿來跳過 outro 打字段，直接從回顧卡開始（`ChapterEndScreen` 新 prop `skipOutro`） | 否則全解後回標題再「繼續」會被困在完成的甲板，沒有任何 UI 能進下一章（第九場實測重現的死路）；代價是完成的章節不能再自由走動，但設計本來就沒有這個需求 | `useChapterNavigation` 的章節結束判斷、`ChapterEndScreen.skipOutro`、e2e「章節結束畫面的回訪」（M11-2 起） |
 | 38 | `>`、`>>`、`\|`、`$變數` 的說明放獨立的 `CONCEPT_DOCS`（`docsConcepts.ts`），由 `getTeachDoc` 在查不到指令時改查；不併入 `COMMAND_DOCS` | 回顧卡與側邊面板需要說明，但它們不是可執行的指令，help 與 man 的指令清單不該混進它們 | `docsConcepts.ts`、`docs.ts` 的 `getTeachDoc`、`chapters.test.ts` 的守門測試 |
 | 39 | 缺圖時的佔位文字統一用世界觀內的「影像訊號遺失」 | 原文字「過場插圖（M6 產圖）」把內部里程碑字樣露給玩家；改成敘事內的字樣在補完 12 張插圖前也不突兀 | `ChapterEndScreen` 的 `Illustration` |
 
@@ -537,7 +537,7 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 | 44 | 「按 E」直接用 next/font 的 Fusion Pixel，不另做 bitmap 字型 | 已經載入、有中文、跟終端機同一套；解析度 1 加鏡頭放大就是像素顆粒 | `objects/pixelFont.ts`、`TerminalZone.createHintText` |
 | 45 | grep 照真的 grep（BRE 預設、`-E`、`-F`），推翻 #28 | Danny 拍板；一般單字照樣比對得到，六章劇本的樣式都沒有特殊字元，不用改劇本 | `commands/grep.ts`、`grepPattern.ts` |
 | 46 | 第六章第一次走進 `nv_core` 之後對話框改用 `nova-core`，用艙區旗標判定所以重整後維持 | Danny 拍板；配合「看到本體」的揭露時點 | `story/flags.novaPortraitFor` |
-| 47 | 1280 以下「按 E 開啟」提示往上移（`lg:bottom-32`、更窄 `bottom-60`），1024 以下 NOVA 對話框疊到目標面板上方（`bottom-32`） | 1280 以下三個元件塞不進同一排，實測 1024 與 768 都重疊 | `PlayScreen` 的 `Hud`、`NovaDialogue` |
+| 47 | 1280 以下「按 E 開啟」提示往上移（`lg:bottom-32`、更窄 `bottom-60`），1024 以下 NOVA 對話框疊到目標面板上方（`bottom-32`） | 1280 以下三個元件塞不進同一排，實測 1024 與 768 都重疊 | `Hud.tsx`、`NovaDialogue`（M11-2 起） |
 | 48 | 引號外的反斜線跳脫過的 word 整個標成 `quoted`、不做萬用字元展開 | 沿用引號的整個 word 簡化，不用為每個字元記「是否被跳脫」；遊戲裡沒有需要 `a\ b*` 這種寫法的謎題 | `parser/tokenizer.ts`、`shell.ts` 的萬用字元展開 |
 | 49 | 逐日編號以「2027-07-26＝第 1 天」為錨點，差一的全部 +1：ch1 `day_312` → `day_313`（檔名與內文）、ch6 五個 `.mem` 檔名 +1 | ch6 `day_0150`（2027-12-22 冬至聚餐）編號正確，證明錨點既定，錯的是撤離日那一側；已驗算含 2028-02-29 閏日 | `ch1-life-support.ts`、`ch6-nova-core.ts` 的 MEMORY 清單 |
 | 50 | 乘員離站改搭**補給船**（第 19、27、28 段與 `evac_2028-06-02.log`），刪掉「逃生艙 1／2 發射」 | ch5 四艘逃生艙的 `launch.log` 全寫「停靠，未使用」、NOVA 也說「四艘，都還在」，ch2 卻寫發射了兩艘；補給船當晚停靠也解釋了「為何偏偏那晚撤離」。玩家自己則是搭 ch6 的 EP-2 離站，不衝突 | `ch2-datacenter.ts` 的 `EVAC_SUMMARIES` 與 evac log |
@@ -546,12 +546,40 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 | 53 | CI（GitHub Actions）只跑 lint、tsc、單元測試、build，不跑 e2e；sitemap 與 `metadataBase` 的網域吃 `NEXT_PUBLIC_SITE_URL`，沒設時用 localhost；分頁 icon 用 nova-eye 縮 64px | e2e 要裝 Playwright 瀏覽器、吃 CI 分鐘數，而且走路類測試在共用 runner 上容易 flaky；網域還沒定 | `.github/workflows/ci.yml`、`src/app/sitemap.ts`、`layout.tsx`、`icon.png` |
 | 54 | `directoryNeedsRecursive` 改成呼叫端傳完整示範指令（grep 帶樣式、cp 帶目的地） | 原本一律建議「指令 -r 路徑」，grep 照著打會把樣式當路徑搜錯東西、cp 會缺目的地再錯一次，對新手是陷阱 | `messages.ts` 與 rm／cp／grep 三個呼叫端 |
 | 55 | Fusion Pixel 依「src 掃出的專案用字＋ASCII」切子集（931KB → 49KB，1288 字元），`pnpm font:subset` 重切，`subset.test.ts` 缺字時紅燈 | 顯示的中文字全部寫在 src 裡，掃出來就是完整集合；玩家亂打的罕用字 fallback 系統字型仍可讀，只是不是像素風 | `scripts/subset-font.py`、`fonts.ts` 改回全字型檔 |
-| 56 | NOVA 的 nova-blip 音效維持只在「首次進艙區台詞」播放，其他說話時機（intro、過關、終端機內）刻意靜音 | 第二輪審計發現與設計 4.10 有落差；但 NOVA 台詞很密，每句都 blip 會吵，進艙區那一下已足以建立「這個聲音=NOVA」的連結 | `PlayScreen.tsx` 的 `sfx:play` 呼叫處，想全掛就加進 `NovaDialogue` 與 `DialogueBlock` |
+| 56 | NOVA 的 nova-blip 音效維持只在「首次進艙區台詞」播放，其他說話時機（intro、過關、終端機內）刻意靜音 | 第二輪審計發現與設計 4.10 有落差；但 NOVA 台詞很密，每句都 blip 會吵，進艙區那一下已足以建立「這個聲音=NOVA」的連結 | `useNovaTriggers.enterRoom` 的 `sfx:play` 呼叫處（M11-2 起），想全掛就加進 `NovaDialogue` 與 `DialogueBlock` |
 | 57 | T2 的 cd 陷阱用「hint 3 改絕對路徑＋家目錄放 note.txt 指路」解，`cd` 不帶參數維持跟 bash 一樣靜默 | 新手代理實測裸打 `cd` 會被帶回空的家目錄且三段 hint 全失效；讓 cd 印「已回到家目錄」能救但偏離真實 shell 行為（設計第 1 節：指令教學永遠正確） | `ch1-life-support.ts` T2 的 hints 與 fs |
 | 58 | ch4 T5 的過關判定加 `fileContains(outbox, "它在聽")`：用 `>` 覆寫掉 abin 的舊訊息就不過關 | banner 宣稱「佇列只能追加」但實測覆寫照樣過關，教 `>>` 的關卡不用 `>>` 也能過；改判定比改 fs 禁寫簡單且 e2e 正解（`>>`）不受影響 | `ch4-comms.ts` T5 的 objective.check |
 | 59 | ch6 排程機房（T5）的 banner／onOpen／hint 1 改成不斷言核心已停 | 地圖不鎖終端機順序，亂序先到 T5 會看到「核心：無回應」但核心還活著；每台終端機的 processes 快照是獨立的、不隨章節進度變，文案不斷言是改動最小的解法 | `ch6-nova-core.ts` schedulerTerminal；要做劇情閘門得讓 onOpen 依 solvedTerminals 分支 |
 | 60 | 第三輪走查三項刻意不修：cat 空檔案不印提示、find 零結果不印提示（偏離真實 shell，前者用 ch6 發射程序檔補檢查指令、後者用 ch2 T6 的 NOVA 台詞教 `*` 替代）；pathNotFound 不偵測「忘打 $」（messages 層拿不到 env，跨層改動大） | 教學價值與「指令行為貼近真實 shell」衝突時，優先改劇本文案不改指令行為 | 各項的替代修法已上；要翻案看第十二場日誌的第三輪段落 |
-| 61 | NOVA 台詞佇列落後：換艙區時丟掉佇列裡「其他房的未播進房台詞」（`useNovaQueue.dropStaleRoomMessages`，正在顯示的讓它播完；intro 與過關台詞不丟）；Enter 跳過不做 | 三個走查代理在五章都重現「走到下一間還在聽上一間」；只丟 `room-` 前綴訊息改動最小。Enter 跳過會跟終端機輸入、插圖卡關閉的 Enter 撞鍵，`NOVA_SKIP_EVENT` 維持佔位 | `useNovaQueue.ts`、`PlayScreen` 的 room:enter handler |
+| 61 | NOVA 台詞佇列落後：換艙區時丟掉佇列裡「其他房的未播進房台詞」（`useNovaQueue.dropStaleRoomMessages`，正在顯示的讓它播完；intro 與過關台詞不丟）；Enter 跳過不做 | 三個走查代理在五章都重現「走到下一間還在聽上一間」；只丟 `room-` 前綴訊息改動最小。Enter 跳過會跟終端機輸入、插圖卡關閉的 Enter 撞鍵，`NOVA_SKIP_EVENT` 維持佔位 | `useNovaQueue.ts`、`useNovaTriggers.enterRoom`（M11-2 起） |
+
+第十四場（2026-10-09，`/loop` 自主實作 M10 到 M14，多個 agent 平行做）新增，全部是我或 agent 自己拍板的實作取捨：
+
+| # | 決策 | 理由 | 推翻時要改 |
+|---|---|---|---|
+| 62 | 卡關重複提醒：第一次仍是 3 分鐘或連錯 5 次；之後每次要距離上次提醒或上次 `hint` 滿 2 分鐘，且這段時間打過指令（閒置路徑）或重新連錯 5 次（錯誤路徑）。重複提醒是系統行「輸入 hint 取得提示……」，不是 NOVA 台詞 | 比第一次短才算再提醒；離座不洗版；連錯時不會每錯一次提醒一次；4.6 說提示來自系統，第六章 NOVA 被終止後也不穿幫 | `story/pressure.ts` 的 `STUCK_REPEAT_MS`、`STUCK_REMINDER_LINES`、`checkIdle`；`usePressureReactions` |
+| 63 | 用 `ShellExecution.hintUsed` 偵測這一行跑過 `hint`（含管線與 `;`、`&&` 串接），閒置計時從開終端機或上次 hint 起算 | 執行結果是 UI 唯一需要看的東西 | `shell/types.ts`、`shell.ts`、`useSolveFlow` |
+| 64 | 概念字典補 `..`、`~`、Tab、`*` 並列進 teaches：ch1 T2 `..`、T3 `cd ~` 改 `~`、T5 加 Tab（這台教三項，4.8 補例外）、ch2 T2 `*`；`help` 排除概念名稱（順便修好 `>`、`\|`、`$變數` 被 help 列為指令） | 回顧卡與面板要看得到這些概念；終端機底部「已學：」照樣列概念 | `docsConcepts.ts`、`help.ts` 的 `isConcept`、各章 teaches |
+| 65 | `hintExhausted` 改成「上面是最詳細的一段，用到前一個指令印出的路徑就照實抄」；ch2 T5、T6、ch6 T3 第三段寫絕對路徑，ch6 T6 開頭補 `cd /deck6/escape` 並一行一道 | 不再宣稱「完整答案」；36 台照抄已由 M11-1 常駐測試守住 | `messages.ts`、三章劇本 hints |
+| 66 | `;` 串接時任一段失敗整行算一次錯誤且不判定過關；`&&` 被跳過的段不算失敗；目標判定逐段看（`ShellExecution.segments`），任一段成立就過關 | 延續 #27；整行判定會誤判（`grep OPEN x ; cat x` 會被 cat 湊成過關） | `shell.ts` 的 `combineSegments`、`objectives.evaluateObjective` |
+| 67 | `~` 只在未加引號的 word 開頭展開；`~abin` 原樣保留、`export A=~/x` 的 `~` 不展開（後者跟 bash 不同）；`cd` 參數超過一個就報參數太多（就算第一個不存在） | 範圍只講 word 開頭；bash 先檢查參數個數 | `parser/tokenizer.ts`、`commands/cd.ts` |
+| 68 | 不支援的 `\|\|`、背景 `&`、`<`、`<<`、`2>`、`2>&1`、`&>`、`\|&`、`$()`、反引號回 `UNSUPPORTED_SYNTAX` 並給替代寫法；雙引號內的 `$()` 與反引號也攔 | 原本會被默默誤解；bash 在雙引號內會執行它們 | `parser/parse.ts`、`messages.unsupportedSyntax` |
+| 69 | `clear ; pwd` 清掉 clear 之前的輸出、保留之後的 | 照 bash | `shell.combineSegments`、`useTerminalKeyboard` 的 submit |
+| 70 | 面板快捷鍵 Alt+C（已學指令）、Alt+L（NOVA 對話紀錄），地圖與終端機共用，比對 `event.code`；兩個面板合成 `SidePanels` 同時只開一個，z-41 疊在終端機上、不透明、最高 60vh，擋 mousedown 保住輸入框焦點（代價：面板文字不能選取；1024 寬時蓋住終端機右上的「[Esc] 關閉」字樣） | shell 與地圖都沒用 Alt；Ctrl 多為瀏覽器保留、F 鍵在 Mac 要 fn；避開 Firefox 選單加速鍵與 Mac Option 死鍵 | `useSidePanelShortcuts.ts`、`SidePanels.tsx`、4.6 按鍵表 |
+| 71 | NOVA 對話紀錄只放記憶體，重整就清空；被換房丟掉的台詞照順序列出並標「未播出」 | 不動存檔格式 | `useNovaQueue` 的 `history`、`NovaLogPanel` |
+| 72 | 過關系統行用 ☑（不是 ✓），青綠 `tone: "success"`；powerRestored 那台過關當下不播 power（關終端機亮燈時 Station 會播），其他台過關當下播一次 power | Fusion Pixel 與 VT323 沒有 U+2713；避免同一次過關響兩聲 | `solvedFeedback.ts`、`OutputBlock`、`TerminalFrame` 的已完成徽章 |
+| 73 | 目標面板：開著且未過關的那台 > 附近且未過關的那台 > 第一台未過關；已過關的不搶目標 | 審計驗證段建議不加「附近」，但任務列寫要加；排除已過關後跳動很少 | `story/currentObjective.ts` |
+| 74 | 第一章 T1 過關前在畫面上方常駐「方向鍵移動 · E 互動 · Esc 選單」，終端機開著時隱藏；扣氧時 O2 數字閃琥珀並浮出 -1（0.9 秒），終端機開著時 O2 讀數拉到黑幕上（z-41），減少動態效果時只變色 | 方向鍵與 Esc 在終端機裡另有意義；錯誤只在終端機裡發生 | `ControlsHint.tsx`、`OxygenReadout.tsx` |
+| 75 | `/play` 沒選角就 `router.replace("/")`，sitemap 拿掉 `/play`、加 noindex，但 robots.txt 不擋 `/play` | robots 擋了爬蟲就讀不到 noindex | `PlayScreen`、`sitemap.ts`、`play/page.tsx` |
+| 76 | 觸控提示只用 `(pointer: coarse) and (hover: none)` 判斷，做成標題上可略過的疊層，略過記在 sessionStorage | 觸控筆電的 `maxTouchPoints` 也大於 0；接鍵盤的 iPad 不該被擋 | `useTouchWarning.ts`、`TouchWarningPanel` |
+| 77 | 標題一掛載就排預取：1 秒後在閒置時段 `router.prefetch("/play")` 並動態 import `PhaserGame`（下載加評估），接著用一次一張、低優先的 `Image` 佇列預載本章插圖；`/play` 掛載時也排同一條佇列。代價：`PhaserGame` 的模組圖會在標題頁評估、觸控裝置也會下載 Phaser | 「繼續」路徑沒有 boot log；public 檔是 `max-age=0`，`<link rel=preload>` 沒用到會警告 | `usePlayPrefetch.ts`、`useScenePreload.ts`、`lib/preload.ts` |
+| 78 | Phaser 用 `next.config.ts` 的 `turbopack.resolveAlias` 換成 `phaser-arcade-physics.min.js`；移除 swr、react-hook-form、@hookform/resolvers、lucide-react、class-variance-authority、@radix-ui/react-slot、tw-animate-css 與兩個沒用的 ui 元件，保留 `@next/playwright` | 省 33KB gz；這些相依零引用；`@next/playwright` 是 Danny 刻意加的 | `next.config.ts`、`phaserBuild.test.ts`、`package.json`、CLAUDE.md |
+| 79 | 存檔寫入失敗時遊戲照常、頂端一行提示（狀態放 zustand 外的 `saveStatus.ts`，避免 set 旗標又觸發寫檔）；較新版本存檔整個分頁不讀不寫；舊版升級前備份到 `kepler9-save.backup.v<舊版號>`；某台終端機 session 壞掉就整台用劇本初始狀態重建 | 保護原始資料優先；部分修復要逐欄位判斷太複雜 | `gameStore.safeLocalStorage`、`saveStatus.ts`、`sessionRecord.ts`、`terminalSession.ts` |
+| 80 | 素材缺地圖、tileset、sprite 時停在 Preloader 顯示全畫面提示與重新載入；只缺音效時頂端可收起提示，解碼失敗不提示 | 沒聲音也能玩 | `scenes/assetCheck.ts`、`AssetLoadErrorNotice` |
+| 81 | 新指令 less、tree、cut、diff、which 只開放不教：diff 有差異與 which 找不到都不算錯誤；which 的路徑照 Debian（一般 `/usr/bin`、hint 在 `/usr/local/bin`、cd／export／help／history 內建），沒有 PATH 時用預設值且 PATH 只影響 which；tree 目錄名尾加 `/`；cut `-c` 以字元計；less 只在管線最後且沒重導向時分頁，分頁中 Esc 跟 q 一樣只離開分頁 | 同 #28 不懲罰探索；新手看不懂安靜回 1；GNU 的 `-c` 以位元組計會切壞中文；照真 less 在非終端機輸出的行為 | `commands/{less,tree,cut,diff,which}.ts`、`docsExtra.ts`、`Pager.tsx`、`pagerModel.ts` |
+| 82 | 共用正解 `src/game/chapters/solutions.ts`（零 import，e2e 用相對路徑）；36 台 hint 第三段照抄測試 allowlist 為空，抽取規則認「輸入」「例如」、頓號、一行一道與「再按 Tab」；第一章 e2e 改打完整正解 | 只維護一份已驗證的正解 | `hintCommands.ts`、`e2e/helpers/deck.ts` 的 `terminalScripts` |
+| 83 | 沙盒是獨立路由 `/sandbox`（列進 sitemap），標題選單最後一項「練習模式」；Alt+R 直接重置不確認，Esc 先確認再回標題；`hint` 輪流給 10 則練習建議；只讀 store 的設定、不呼叫 action；練習檔案設在 2027 年的訓練環境，測試擋主線關鍵字 | 不載 Phaser、可直連；不劇透；光敏設定要生效 | `src/app/sandbox/`、`components/sandbox/`、`game/sandbox/` |
+| 84 | PlayScreen 拆成 `useTerminalSessions`、`useNovaTriggers`、`usePressureReactions`、`useSolveFlow`、`usePauseMenu`、`useChapterNavigation`、`usePhaserBridge`、`Hud`、`TerminalModal` 等；Phaser 事件訂閱用 React 19 的 `useEffectEvent` 只掛一次；拿掉 `DEFAULT_CHARACTER` | 每個 hook 可單獨測；EventBus 不再每次 render 重掛（測試鎖住 `onGameEvent` 只呼叫 5 次） | `src/components/game/` 各檔 |
 
 ## 9. 第一版之後的候選工作
 
