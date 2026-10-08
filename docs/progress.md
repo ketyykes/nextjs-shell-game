@@ -43,9 +43,9 @@
 | M9 | 第一版之後的小尾巴：shell 邊界、存檔 v2（角色位置）、選章、關閉閃爍管到 Phaser、按 E 像素字型、第六章 NOVA 立繪、小視窗排版 | ✅ | 4.1、4.7、4.8、4.9 |
 | M10 | 玩家體驗與引導：過關回饋、目標跟著終端機、操作提示、NOVA 對話紀錄、卡關偵測、萬用字元說明、扣氧回饋、/play 入口、觸控提示 | ✅ | 4.6、4.7、4.8、4.9 |
 | M11 | 地基：拆 PlayScreen 補測試、hook 穩定化、registry 型別化、整併重複、e2e flaky、hint 照抄常駐測試 | ⬜ | 3.1、3.2、3.4 |
-| M12 | 效能與存檔穩健：預取、插圖預載、瘦身相依、劇本改版偵測、存檔寫入失敗與損毀、素材載入失敗 | ⬜ | 3.2、4.7 |
+| M12 | 效能與存檔穩健：預取、插圖預載、瘦身相依、劇本改版偵測、存檔寫入失敗與損毀、素材載入失敗 | ✅ | 3.2、4.7 |
 | M13 | shell 擴充：不支援語法提示、`;` `&&` 與 `~` 展開、less／tree／cut／diff／which | ✅ | 3.3、4.8 |
-| M14 | 新功能：通關狀態與遊玩統計（存檔 v3）、存檔匯出匯入、沙盒練習模式 | ⬜ | 4.7 |
+| M14 | 新功能：通關狀態與遊玩統計（存檔 v3）、存檔匯出匯入、沙盒練習模式 | ✅ | 4.7 |
 
 ## 3. 任務清單
 
@@ -212,11 +212,11 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 | 任務 | 審計 | 狀態 | 注意 |
 |---|---|---|---|
 | M11-1 hint 照抄常駐測試，e2e 與單元測試共用同一份正解 | A24、A27 | ✅ | 抽取 regex 抓不到中文參數（ch4 T2）與沒有「輸入」字樣的（ch6 T6），allowlist 要逐台說明 |
-| M11-2 拆 PlayScreen 並補單元測試 | A18、A25 | ⬜ | M10 會先往 PlayScreen 加東西，拆的時候一起帶走 |
-| M11-3 hook 與 selector 穩定化：`useNovaQueue`、`useTerminalPressure` 回傳值 useMemo，PlayScreen 改 `useShallow` | A4、A19 | ⬜ | 目前沒有實際壞掉的情境，屬預防 |
+| M11-2 拆 PlayScreen 並補單元測試 | A18、A25 | ✅ | M10 會先往 PlayScreen 加東西，拆的時候一起帶走 |
+| M11-3 hook 與 selector 穩定化：`useNovaQueue`、`useTerminalPressure` 回傳值 useMemo，PlayScreen 改 `useShallow` | A4、A19 | ✅ | 目前沒有實際壞掉的情境，屬預防 |
 | M11-4 Phaser registry 型別化 | A20 | ⬜ | |
 | M11-5 整併重複：五章的終端機身分小幫手改用 `decks.ts` 的 `deckTerminalIdentity`、十個指令的選項切分抽共用 | A21、A22 | ⬜ | |
-| M11-6 e2e flaky：走路改讀角色座標的閉環走法，Playwright 層 retry 標 flaky | A23 | ⬜ | 審計對 Phaser `fixedStep` 的根因分析有誤，見驗證段；座標鉤子沿用 #7 只在開發模式掛 |
+| M11-6 e2e flaky：走路改讀角色座標的閉環走法，Playwright 層 retry 標 flaky | A23 | ✅ | 審計對 Phaser `fixedStep` 的根因分析有誤，見驗證段；座標鉤子沿用 #7 只在開發模式掛 |
 
 **M12 效能與存檔穩健**
 
@@ -225,7 +225,7 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 | M12-1 預取 `/play` 與 Phaser chunk | A1 | ✅ | 包在 idle callback 或只在 boot 階段觸發，避免標題動畫卡頓 |
 | M12-2 本章插圖背景預載 | A3 | ✅ | 在 `scene:ready` 才預載救不到第一間房，要更早開始 |
 | M12-3 瘦身相依：Phaser 換 arcade 版、清模板殘留相依與沒用的 ui 元件 | A5、A7 | ✅ | |
-| M12-4 劇本改版偵測：存檔記劇本內容雜湊，未過關的終端機遇到新版就重建、保留歷史與計數 | G1 | ⬜ | Danny 潤稿時最需要；會動存檔格式，跟 M14-1 的 v3 一起規劃 |
+| M12-4 劇本改版偵測：存檔記劇本內容雜湊，未過關的終端機遇到新版就重建、保留歷史與計數 | G1 | ✅ | Danny 潤稿時最需要；會動存檔格式，跟 M14-1 的 v3 一起規劃 |
 | M12-5 寫入失敗與損毀：接 QuotaExceededError、terminals 壞掉時不再按 E 無聲失敗、較新版本存檔不硬轉 | A16、A17、A50 | ✅ | |
 | M12-6 素材載入失敗提示：Preloader 處理 loaderror，顯示繁中提示與重新載入 | 淘汰項的附帶發現 | ✅ | error boundary 接不到 Phaser 迴圈裡的例外，要走 loader 事件 |
 
@@ -241,8 +241,8 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 
 | 任務 | 審計 | 狀態 | 注意 |
 |---|---|---|---|
-| M14-1 通關狀態與遊玩統計：片尾後標題顯示已逃離、記錄每章時間與錯誤、hint 次數，章節結束顯示 | A41、A42 | ⬜ | 存檔升 v3；推翻第九場「通關後副標停在第六章屬預期」與 #34 的一部分 |
-| M14-2 存檔匯出匯入 | A45、A49 | ⬜ | 匯入要走 migrate 與 schema 驗證 |
+| M14-1 通關狀態與遊玩統計：片尾後標題顯示已逃離、記錄每章時間與錯誤、hint 次數，章節結束顯示 | A41、A42 | ✅ | 存檔升 v3；推翻第九場「通關後副標停在第六章屬預期」與 #34 的一部分 |
+| M14-2 存檔匯出匯入 | A45、A49 | ✅ | 匯入要走 migrate 與 schema 驗證 |
 | M14-3 沙盒練習模式：標題新入口，預載一組練習檔案、可重置、所有指令開放、不存檔不扣氧 | A40 | ✅ | 擴充 4.7 標題選單；`Terminal` 元件本身不綁 store，可直接用 |
 
 ## 4. 待處理雜項
@@ -580,6 +580,12 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 | 82 | 共用正解 `src/game/chapters/solutions.ts`（零 import，e2e 用相對路徑）；36 台 hint 第三段照抄測試 allowlist 為空，抽取規則認「輸入」「例如」、頓號、一行一道與「再按 Tab」；第一章 e2e 改打完整正解 | 只維護一份已驗證的正解 | `hintCommands.ts`、`e2e/helpers/deck.ts` 的 `terminalScripts` |
 | 83 | 沙盒是獨立路由 `/sandbox`（列進 sitemap），標題選單最後一項「練習模式」；Alt+R 直接重置不確認，Esc 先確認再回標題；`hint` 輪流給 10 則練習建議；只讀 store 的設定、不呼叫 action；練習檔案設在 2027 年的訓練環境，測試擋主線關鍵字 | 不載 Phaser、可直連；不劇透；光敏設定要生效 | `src/app/sandbox/`、`components/sandbox/`、`game/sandbox/` |
 | 84 | PlayScreen 拆成 `useTerminalSessions`、`useNovaTriggers`、`usePressureReactions`、`useSolveFlow`、`usePauseMenu`、`useChapterNavigation`、`usePhaserBridge`、`Hud`、`TerminalModal` 等；Phaser 事件訂閱用 React 19 的 `useEffectEvent` 只掛一次；拿掉 `DEFAULT_CHARACTER` | 每個 hook 可單獨測；EventBus 不再每次 render 重掛（測試鎖住 `onGameEvent` 只呼叫 5 次） | `src/components/game/` 各檔 |
+| 85 | e2e 座標鉤子獨立掛在 `window.__kepler9Player`；路徑點寫死在 `e2e/helpers/deck.ts` 的 `SLOT_GEOMETRY`；本機 workers 4、retry 本機 1／CI 2、html 報告不自動開 | 六張圖碰撞層相同；Playwright 層 retry 才會標 flaky | `playerProbe.ts`、`deck.ts`、`playwright.config.ts` |
+| 86 | 存檔 v3：`progress.clearedAt`、頂層 `stats`（每章 `playTimeMs`、`errors`、`hints`）、每台終端機 `scriptHash`；v2→v3 時若已有 `ch6.outroShown` 就當作已逃離（時間用 `savedAt`）；migrate 搬到純模組 `store/migrate.ts` | 一次升版涵蓋 M12-4 與 M14-1 | `store/types.ts`、`migrate.ts` |
+| 87 | 劇本雜湊（FNV-1a 64 位元、鍵排序 JSON）只涵蓋 fs、banner、initialCwd、env、processes，不含 hint、NOVA 台詞、目標、teaches（那些每次都讀最新劇本）；雜湊不同且未過關的終端機用新劇本重建，保留歷史、hint 次數、錯誤數與輸出紀錄，插一行「已更新」；**舊 v2 沒有雜湊的紀錄也算改版**（未過關的會重建一次） | Danny 潤稿時最需要；現有存檔多半已過時，代價是未過關終端機裡改過的檔案會回到劇本初始 | `story/scriptHash.ts`、`terminalSession.createTerminalSession` 的 `revised` |
+| 88 | 通關後標題副標「已逃離 Kepler-9」、拿掉「繼續」、第一項換成「通關紀錄」（每章與總計）；用選章重玩會讓「繼續」回來。**推翻 #34 與第九場「通關後副標停在第六章屬預期」** | 通關後再按繼續重播片尾沒有意義 | `selectIsGameFinished`、`TitleScreen.buildItems`、`ClearRecordPanel` |
+| 89 | 遊玩時間只算 `/play` 在前景、本章還沒全解、沒開暫停或設定選單的時間，每 30 秒寫一次、兩次寫入間隔最多算 2 分鐘；錯誤數跟扣氧同一個定義（含過關後打錯）；重玩該章清掉該章統計，新遊戲全清；統計只列數字不評分 | 掛機與背景分頁不灌水；4.8 不懲罰探索 | `usePlayTime`、`recordCommandStats`、`ChapterEndScreen` |
+| 90 | 存檔匯出匯入只放標題的「存檔管理」：匯出下載 `kepler9-save-YYYYMMDD-HHmm.json`，匯入選檔後走 migrate 與完整 zod 驗證（任一台壞掉就整個拒絕），覆蓋前確認、預設取消，成功後重載；版本較新時匯出原始字串 | 匯入要整頁重載，暫停選單不適合；zod 用動態載入不進標題 bundle | `SaveManager.tsx`、`saveImport.ts` |
 
 ## 9. 第一版之後的候選工作
 
