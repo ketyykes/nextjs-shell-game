@@ -832,6 +832,44 @@ describe("存檔寫入失敗", () => {
 	});
 });
 
+describe("瀏覽器整個封鎖儲存空間", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	/** 封鎖網站資料時連讀取都丟 SecurityError，寫入也一樣。 */
+	function blockStorage() {
+		const blocked = () => {
+			throw new DOMException("存取被拒", "SecurityError");
+		};
+		vi.spyOn(Storage.prototype, "getItem").mockImplementation(blocked);
+		vi.spyOn(Storage.prototype, "setItem").mockImplementation(blocked);
+		vi.spyOn(Storage.prototype, "removeItem").mockImplementation(blocked);
+	}
+
+	it("讀取丟 SecurityError 時照預設值完成 hydration，不會卡在讀檔中，並回報無法使用儲存空間", async () => {
+		vi.spyOn(console, "warn").mockImplementation(() => {});
+		blockStorage();
+
+		await useGameStore.persist.rehydrate();
+
+		expect(useGameStore.persist.hasHydrated()).toBe(true);
+		expect(useGameStore.getState().progress).toEqual(DEFAULT_PROGRESS);
+		expect(getSaveIssue()).toBe("unavailable");
+	});
+
+	it("無法使用儲存空間時，之後的寫入失敗不會把提示換成存檔失敗", async () => {
+		vi.spyOn(console, "warn").mockImplementation(() => {});
+		blockStorage();
+		await useGameStore.persist.rehydrate();
+
+		expect(() => useGameStore.getState().loseOxygen()).not.toThrow();
+		expect(() => useGameStore.persist.clearStorage()).not.toThrow();
+
+		expect(getSaveIssue()).toBe("unavailable");
+	});
+});
+
 describe("useStoreHydration", () => {
 	it("一開始回傳 false，mount 後讀完存檔變成 true", async () => {
 		// 換一份全新的模組，確保 store 還沒 hydrate 過

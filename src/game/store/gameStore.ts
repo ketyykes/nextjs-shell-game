@@ -97,6 +97,7 @@ function backupBeforeMigrate(name: string, version: number, raw: string): void {
  * - 版本比程式新（例如部署回滾）：不讀進來也不寫回去，原始存檔原封不動，回報 `newer-version` 讓畫面提示。
  *   以前會照目前格式硬轉型讀進來，下一次寫檔就把新版的資料蓋掉。
  * - 版本比程式舊：交給 persist 呼叫 migrate 升級之前，先把原始字串備份到 `<key>.backup.v<舊版號>`。
+ * - 讀取就丟例外（瀏覽器封鎖網站資料的 `SecurityError`）：當成沒有存檔、回報 `unavailable`，讓讀檔照預設值完成。
  * - 寫入失敗（配額滿的 `QuotaExceededError`、瀏覽器封鎖儲存的 `SecurityError`）不往外丟：
  *   persist 每次 `set` 都同步寫檔，例外會從 action 一路冒到按鍵 handler，記憶體狀態已改、存檔沒寫、玩家看不到提示。
  *   改成 console.warn 並回報 `write-failed` 讓畫面提示，記憶體裡的進度照常，下次寫入成功就清掉提示。
@@ -108,7 +109,15 @@ const safeLocalStorage: StateStorage = {
 			setSaveIssue(null);
 		}
 
-		const raw = localStorage.getItem(name);
+		let raw: string | null;
+		try {
+			raw = localStorage.getItem(name);
+		} catch (error) {
+			// 瀏覽器封鎖網站資料時連讀取都丟 SecurityError；persist 遇到例外不會完成 hydration，畫面會卡在讀檔中
+			console.warn(`[gameStore] 無法讀取存檔 ${name}，這次不存檔。`, error);
+			setSaveIssue("unavailable");
+			return null;
+		}
 
 		if (raw === null) {
 			return null;
@@ -142,7 +151,10 @@ const safeLocalStorage: StateStorage = {
 			localStorage.setItem(name, value);
 		} catch (error) {
 			console.warn(`[gameStore] 存檔 ${name} 寫入失敗，進度只留在記憶體裡。`, error);
-			setSaveIssue("write-failed");
+			// 整個儲存空間不能用時維持那則提示，不換成「存檔失敗」
+			if (getSaveIssue() !== "unavailable") {
+				setSaveIssue("write-failed");
+			}
 			return;
 		}
 		if (getSaveIssue() === "write-failed") {
@@ -150,7 +162,11 @@ const safeLocalStorage: StateStorage = {
 		}
 	},
 	removeItem: (name) => {
-		localStorage.removeItem(name);
+		try {
+			localStorage.removeItem(name);
+		} catch (error) {
+			console.warn(`[gameStore] 無法刪除存檔 ${name}。`, error);
+		}
 	},
 };
 
