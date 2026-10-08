@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { fullwidthChar } from "@/game/shell/messages";
 import { findFullwidthChar } from "@/game/shell/parser/fullwidth";
 import type { Shell } from "@/game/shell/shell";
-import type { ShellExecution } from "@/game/shell/types";
+import type { PagerRequest, ShellExecution } from "@/game/shell/types";
 import { TEXT_SPEED_MS } from "@/game/store/types";
 import type { OutputEntry, TextSpeed } from "@/game/store/types";
 import { DialogueBlock } from "./DialogueBlock";
 import { OutputBlock } from "./OutputBlock";
+import { Pager } from "./Pager";
 import { PromptInput } from "./PromptInput";
 import { TerminalFrame } from "./TerminalFrame";
 import { useTerminalKeyboard } from "./useTerminalKeyboard";
@@ -37,6 +38,7 @@ const STICK_TO_BOTTOM_THRESHOLD_PX = 24;
 /**
  * 終端機彈窗：組合外框、輸出區與輸入列。
  * 鍵盤行為在 `useTerminalKeyboard`，這裡只管畫面與焦點、捲動。
+ * 執行結果帶 `less` 的分頁請求時，輸出區與輸入列整塊藏起來，改顯示全螢幕分頁器（`Pager`），翻完回到原樣。
  */
 export function Terminal({
 	title,
@@ -56,14 +58,40 @@ export function Terminal({
 	// 掛載時就已存在的對話（例如重新打開終端機還原的紀錄）不重播打字動畫
 	const [initialEntryIds] = useState(() => new Set(entries.map((entry) => entry.id)));
 
+	// less 的分頁請求（M13-3）：排第一個的正在顯示，翻完（q）換下一個，空了回到提示列
+	const [pagerQueue, setPagerQueue] = useState<PagerRequest[]>([]);
+	const activePager = pagerQueue[0] ?? null;
+
+	const handleExecuted = useCallback(
+		(execution: ShellExecution) => {
+			if (execution.pagers !== undefined) {
+				setPagerQueue(execution.pagers);
+			}
+			onExecuted?.(execution);
+		},
+		[onExecuted],
+	);
+
 	const { value, handleChange, handleKeyDown } = useTerminalKeyboard({
 		shell,
 		entries,
 		onEntriesChange,
-		onExecuted,
+		onExecuted: handleExecuted,
 		onClose,
 		inputRef,
 	});
+
+	// 離開分頁（或剛掛載）時捲回最底、焦點回到輸入框，畫面跟 bash 離開 less 後一樣停在提示列
+	useEffect(() => {
+		if (activePager !== null) {
+			return;
+		}
+		const element = scrollRef.current;
+		if (element !== null) {
+			element.scrollTop = element.scrollHeight;
+		}
+		inputRef.current?.focus();
+	}, [activePager]);
 
 	// 有新區塊時捲到最底
 	useEffect(() => {
@@ -121,7 +149,19 @@ export function Terminal({
 	return (
 		<div className="flex h-full w-full max-w-4xl" onClick={focusInput}>
 			<TerminalFrame title={title} learnedCommands={learnedCommands} onClose={onClose} solved={solved}>
-				<div ref={scrollRef} onScroll={handleScroll} className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
+				{activePager !== null && (
+					<Pager
+						key={`pager-${pagerQueue.length}`}
+						request={activePager}
+						onQuit={() => setPagerQueue((queue) => queue.slice(1))}
+					/>
+				)}
+				<div
+					ref={scrollRef}
+					onScroll={handleScroll}
+					hidden={activePager !== null}
+					className="min-h-0 flex-1 overflow-y-auto px-3 py-2"
+				>
 					<div role="log" aria-label="終端機輸出">
 						{entries.map((entry) => {
 							if (entry.kind === "dialogue") {

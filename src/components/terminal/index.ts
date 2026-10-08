@@ -2,6 +2,8 @@ export { DialogueBlock } from "./DialogueBlock";
 export type { DialogueBlockProps } from "./DialogueBlock";
 export { OutputBlock } from "./OutputBlock";
 export type { OutputBlockEntry, OutputBlockProps } from "./OutputBlock";
+export { Pager } from "./Pager";
+export type { PagerProps } from "./Pager";
 export { PromptInput } from "./PromptInput";
 export type { PromptInputProps } from "./PromptInput";
 export { Terminal } from "./Terminal";

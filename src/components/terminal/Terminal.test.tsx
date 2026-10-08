@@ -321,3 +321,76 @@ describe("Terminal", () => {
 		expect(screen.getByTestId("dialogue-text").textContent).toBe("早安，技師。");
 	});
 });
+
+describe("Terminal 的 less 分頁模式（M13-3）", () => {
+	function getPager(): HTMLElement {
+		return screen.getByRole("region", { name: "less 分頁器" });
+	}
+
+	function queryPager(): HTMLElement | null {
+		return screen.queryByRole("region", { name: "less 分頁器" });
+	}
+
+	it("less 檔名：進入分頁模式，輸出區與輸入框藏起來，焦點在分頁器", () => {
+		render(<Harness />);
+		runCommand("less wake_up.txt");
+
+		const pager = getPager();
+		expect(within(pager).getByText("喚醒排程：三年後")).toBeDefined();
+		expect(document.activeElement).toBe(pager);
+		expect(screen.queryByRole("log")).toBeNull();
+		// 輸入框留在 DOM 裡保住輸出區的捲動位置，但整塊藏起來，收不到字
+		expect(getInput().closest("[hidden]")).not.toBeNull();
+	});
+
+	it("按 q 回到提示列：畫面只多一行指令，不留分頁內容，焦點回到輸入框", () => {
+		const onEntriesChange = vi.fn();
+		render(<Harness onEntriesChange={onEntriesChange} />);
+		runCommand("less wake_up.txt");
+		fireEvent.keyDown(getPager(), { key: "q" });
+
+		expect(queryPager()).toBeNull();
+		expect(document.activeElement).toBe(getInput());
+		expect(within(getLog()).queryByText("喚醒排程：三年後")).toBeNull();
+		expect(onEntriesChange).toHaveBeenLastCalledWith([
+			expect.objectContaining({ kind: "command", input: "less wake_up.txt", lines: [] }),
+		]);
+	});
+
+	it("分頁中按 Esc 只離開分頁，不關終端機", () => {
+		const onClose = vi.fn();
+		render(<Harness onClose={onClose} />);
+		runCommand("less wake_up.txt");
+		fireEvent.keyDown(getPager(), { key: "Escape" });
+
+		expect(onClose).not.toHaveBeenCalled();
+		expect(queryPager()).toBeNull();
+		expect(getInput()).toBeDefined();
+	});
+
+	it("管線最後的 less 也會分頁", () => {
+		render(<Harness />);
+		runCommand("ls | less");
+
+		expect(within(getPager()).getByText("wake_up.txt")).toBeDefined();
+	});
+
+	it("一行有兩個 less 時翻完第一個接著翻第二個", () => {
+		render(<Harness />);
+		runCommand("less wake_up.txt ; ls | less");
+
+		expect(within(getPager()).getByText("喚醒排程：三年後")).toBeDefined();
+		fireEvent.keyDown(getPager(), { key: "q" });
+		expect(within(getPager()).getByText("wake_up.txt")).toBeDefined();
+		fireEvent.keyDown(getPager(), { key: "q" });
+		expect(queryPager()).toBeNull();
+	});
+
+	it("onExecuted 照常收到 execution，分頁內容不在 lines 裡", () => {
+		const onExecuted = vi.fn();
+		render(<Harness onExecuted={onExecuted} />);
+		runCommand("less wake_up.txt");
+
+		expect(onExecuted).toHaveBeenCalledWith(expect.objectContaining({ lines: [], isError: false }));
+	});
+});
