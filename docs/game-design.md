@@ -64,6 +64,7 @@
 - `PhaserGame` 元件是 client component，用 `next/dynamic` 加 `ssr: false` 載入，因為 Phaser 會碰 `window`。
 - 用 `useLayoutEffect` 建立 `new Phaser.Game()`，卸載時 `game.destroy(true)`，並防 React 嚴格模式重複建立。
 - 遊戲設定：`pixelArt: true` 讓像素放大不糊，`type: Phaser.AUTO`。
+- 預取：標題流程（`usePlayPrefetch`）在標題淡入動畫跑完後的閒置時段 `router.prefetch("/play")`，並動態 import `PhaserGame` 模組（`preloadPhaserGame`，跟 `PhaserGameDynamic` 同一個 chunk），所以 **`PhaserGame` 的整個模組圖會在標題頁評估**，那條 import 鏈上不要放有副作用或依賴 `/play` 狀態的頂層程式碼。引擎排完接著預載要進的那一章插圖；進 `/play` 掛載時（`useScenePreload`）也會排本章插圖，兩邊共用同一條一次一張、低優先的 `Image` 佇列（`lib/preload.ts`），載過的留在記憶體快取，插圖卡顯示時不再發請求。
 
 ### 3.3 虛擬 shell 引擎
 
