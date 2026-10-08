@@ -210,6 +210,28 @@ describe("第二章正解序列", () => {
 		});
 	}
 
+	it("T5、T6 第三段提示寫出完整絕對路徑，照抄就能過關，先 cd 到別處也一樣", () => {
+		const finalHintSteps: Record<string, string[]> = {
+			"ch2-t5": [
+				'find . -name "rollback_*"',
+				"tail /deck2/backup/snapshots/2028/06/02/core/nova/rollback_2028-06-02.log",
+			],
+			"ch2-t6": [
+				'find /deck2/vault -name "*exit_key*"',
+				"grep -r ACTIVE /deck2/vault",
+				"cat /deck2/vault/2031/03/.pending/.exit_key_2031.txt",
+			],
+		};
+		for (const [id, steps] of Object.entries(finalHintSteps)) {
+			const finalHint = terminalById(id).hints.at(-1) ?? "";
+			for (const step of steps) {
+				expect(finalHint, `${id} 第三段提示`).toContain(`輸入 ${step}`);
+			}
+			expect(runSteps(id, steps).solved, id).toBe(true);
+			expect(runSteps(id, ["cd /", ...steps]).solved, `${id} 先 cd / 再照抄`).toBe(true);
+		}
+	});
+
 	it("T1 的 head 看得到撤離前有 tech 的登錄，tail 除了最後一行全是 nova", () => {
 		const headLines = runSteps("ch2-t1", ["head access.log"]).lines;
 		expect(headLines).toHaveLength(10);

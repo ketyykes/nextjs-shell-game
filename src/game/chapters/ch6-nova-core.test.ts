@@ -221,6 +221,38 @@ describe("第六章正解序列", () => {
 		});
 	}
 
+	it("T3 第三段提示用絕對路徑讀身分檔，先 cd 到別處照抄也能過關", () => {
+		const terminal = terminalById("ch6-t3");
+		const steps = ["ps | grep nova", 'find /deck6/memory -name "nova_*"', "cat /deck6/memory/core/self/nova_identity.txt"];
+		const finalHint = terminal.hints.at(-1) ?? "";
+		for (const step of steps) {
+			expect(finalHint).toContain(`輸入 ${step}`);
+		}
+
+		const shell = openTerminal(terminal);
+		const results = ["cd /", ...steps].map((input) => runStep(shell, terminal, input));
+		expect(results.at(-1)?.solved).toBe(true);
+	});
+
+	it("T6 第三段提示一行一道指令，照抄每一行就能過關，先走進別的目錄也一樣", () => {
+		const terminal = terminalById("ch6-t6");
+		const [heading, ...commands] = (terminal.hints.at(-1) ?? "").split("\n");
+		expect(heading).toContain("輸入");
+		expect(commands).toEqual([
+			"cd /deck6/escape",
+			"chmod +r sealed/launch_code.txt",
+			"cat sealed/launch_code.txt",
+			"echo EP-0606-ARGO > launch.txt",
+			"export PASSENGERS=1",
+			"kill 47731",
+		]);
+
+		const shell = openTerminal(terminal);
+		const results = ["cd sealed", ...commands].map((input) => runStep(shell, terminal, input));
+		expect(results.slice(0, -1).every((result) => !result.solved)).toBe(true);
+		expect(results.at(-1)?.solved).toBe(true);
+	});
+
 	it("T1 用 ps aux 或 ps | grep nova 也算過關", () => {
 		const terminal = terminalById("ch6-t1");
 		expect(runStep(openTerminal(terminal), terminal, "ps aux").solved).toBe(true);

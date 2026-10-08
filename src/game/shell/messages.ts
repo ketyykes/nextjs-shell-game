@@ -293,7 +293,7 @@ export function notLearnedYet(name: string): string[] {
 
 /** hint 三段都用完後再打 hint。 */
 export function hintExhausted(): string[] {
-	return ["提示已經全部給過了，上面就是完整答案。照著打一次，或用 man 查指令的用法。"];
+	return ["提示已經全部給過了，上面是最詳細的一段。照著一步一步打，用到前一個指令印出的路徑就照實抄過來；指令用法不確定可以用 man 查。"];
 }
 
 /** 這台終端機的劇本沒有提供任何提示。 */

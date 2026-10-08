@@ -347,7 +347,7 @@ const memoryTerminal: TerminalDefinition = {
 	hints: [
 		"兩件事要對起來：現在站上有幾個 NOVA 在跑，以及 NOVA 的身分檔怎麼說。身分檔藏在記憶庫某一層。",
 		"ps | grep nova 只留下跟 nova 有關的程序；find 加 -name 可以依檔名找出身分檔在哪一層。",
-		"輸入 ps | grep nova，再輸入 find /deck6/memory -name \"nova_*\"，最後 cat 找到的 core/self/nova_identity.txt。",
+		"輸入 ps | grep nova，再輸入 find /deck6/memory -name \"nova_*\"，最後輸入 cat /deck6/memory/core/self/nova_identity.txt。",
 	],
 	objective: {
 		title: "確認 NOVA 有沒有被回滾過",
@@ -642,7 +642,15 @@ const escapeTerminal: TerminalDefinition = {
 	hints: [
 		"發射程序有三個條件：發射碼寫進 launch.txt、乘員數設對、艙門鎖程序停掉。順序不限。",
 		"發射碼檔案沒有讀取權限，用 chmod +r 加回來；echo 加 > 寫進檔案；export 設定變數；ps 找門鎖程序再 kill。",
-		`輸入 chmod +r sealed/launch_code.txt、cat sealed/launch_code.txt、echo ${LAUNCH_CODE} > launch.txt、export PASSENGERS=1，最後 kill ${POD_LOCK_PID}。`,
+		[
+			"依序輸入下面六道指令，一行一道：",
+			"cd /deck6/escape",
+			"chmod +r sealed/launch_code.txt",
+			"cat sealed/launch_code.txt",
+			`echo ${LAUNCH_CODE} > launch.txt`,
+			"export PASSENGERS=1",
+			`kill ${POD_LOCK_PID}`,
+		].join("\n"),
 	],
 	objective: {
 		title: "解鎖逃生艙並準備發射",

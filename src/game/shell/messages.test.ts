@@ -230,6 +230,13 @@ describe("man、hint、history 相關訊息", () => {
 		expect(joinLines(hintExhausted())).toContain("提示");
 	});
 
+	it("hintExhausted 不宣稱「上面就是完整答案」，改說已經全部給過、照著一步一步打", () => {
+		const text = joinLines(hintExhausted());
+		expect(text).not.toContain("完整答案");
+		expect(text).toContain("全部給過");
+		expect(text).toContain("一步一步");
+	});
+
 	it("historyEmpty 會有內容", () => {
 		expect(historyEmpty().length).toBeGreaterThan(0);
 	});

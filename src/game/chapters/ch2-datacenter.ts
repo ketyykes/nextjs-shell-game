@@ -532,7 +532,7 @@ const backupTerminal: TerminalDefinition = {
 	hints: [
 		"回滾日誌藏在很深的目錄裡。不用一層一層 ls，讓終端機替你找檔名。",
 		"find 起點 -name \"樣式\" 會從起點往下找出檔名符合的檔案，* 代表任意文字；-type d 只列目錄。",
-		"輸入 find . -name \"rollback_*\"，再照 find 印出的路徑讀 rollback_2028-06-02.log，例如 tail 加那個路徑。",
+		`輸入 find . -name "rollback_*" 找出回滾日誌在哪一層，再輸入 tail ${ROLLBACK_LOG_PATH} 讀它的結尾。`,
 	],
 	objective: {
 		title: "找出撤離當晚的回滾日誌",
@@ -664,7 +664,7 @@ const exitTerminal: TerminalDefinition = {
 	hints: [
 		"門鎖檔只給了鑰匙檔名的一部分和大概位置。先找出所有候選，再挑出還有效的那一把。",
 		"find 加 -name 和 * 可以用檔名片段找檔案；grep -r 可以一次搜遍目錄，看哪一把寫著 ACTIVE。",
-		"輸入 find /deck2/vault -name \"*exit_key*\"，再輸入 grep -r ACTIVE /deck2/vault，最後 cat 那把 ACTIVE 的鑰匙檔完整路徑。",
+		`輸入 find /deck2/vault -name "*exit_key*" 列出所有鑰匙檔，再輸入 grep -r ACTIVE /deck2/vault 看哪一把還有效，最後輸入 cat ${ACTIVE_KEY_PATH}。`,
 	],
 	objective: {
 		title: "用有效的鑰匙打開資料中心艙門",
