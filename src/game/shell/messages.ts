@@ -388,3 +388,45 @@ export function invalidTreeLevel(value: string): string[] {
 export function treeUnreadableMark(): string {
 	return "[沒有讀取權限，打不開]";
 }
+
+/** `cut` 沒有指定 `-f` 或 `-c`（cut：you must specify a list of bytes, characters, or fields）。 */
+export function cutMissingList(): string[] {
+	return [
+		"cut 需要知道要切出哪一段：-f 取欄位（搭配 -d 指定分隔字元），或 -c 取字元位置。",
+		"例如 cut -d , -f 2 crew.csv 取逗號分隔的第二欄，cut -c 1-5 door.log 取每行前五個字。",
+	];
+}
+
+/** `cut` 同時給了 `-f` 與 `-c`（cut：only one list may be specified）。 */
+export function cutConflictingLists(): string[] {
+	return ["cut 的 -f 和 -c 不能一起用：-f 是依分隔字元切欄位，-c 是依字元位置切，選一個就好。"];
+}
+
+/** `cut -d` 搭配 `-c`（cut：an input delimiter may be specified only when operating on fields）。 */
+export function cutDelimiterNeedsFields(): string[] {
+	return ["cut 的 -d 只能跟 -f 一起用：分隔字元是用來切欄位的，-c 依字元位置切不需要它，例如 cut -d , -f 2 crew.csv。"];
+}
+
+/** `cut -s` 搭配 `-c`（cut：suppressing non-delimited lines makes sense only when operating on fields）。 */
+export function cutSuppressNeedsFields(): string[] {
+	return ["cut 的 -s 只能跟 -f 一起用：它的意思是「不印沒有分隔字元的行」，-c 依字元位置切用不到它。"];
+}
+
+/** `cut -d` 的分隔字元不是剛好一個字（cut：the delimiter must be a single character）。 */
+export function cutInvalidDelimiter(value: string): string[] {
+	return [`\`${value}\` 不能當分隔字元，cut 的 -d 後面要接剛好一個字，例如 -d , 或 -d :；空白要用引號包起來：-d " "。`];
+}
+
+/**
+ * `cut -f`／`-c` 的清單寫法不對：`zero` 是從 0 開始數（cut：fields are numbered from 1）、
+ * `decreasing` 是範圍前大後小（cut：invalid decreasing range）、`invalid` 是看不懂的寫法。
+ */
+export function cutInvalidList(list: string, reason: "zero" | "decreasing" | "invalid"): string[] {
+	let detail = "可以寫 2、1,3、2-4 或 3-（第 3 個到最後）";
+	if (reason === "zero") {
+		detail = "位置從 1 開始數，沒有第 0 個";
+	} else if (reason === "decreasing") {
+		detail = "範圍要小的在前，例如 1-3，不是 3-1";
+	}
+	return [`\`${list}\` 不是 cut 看得懂的位置清單：${detail}。`];
+}

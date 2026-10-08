@@ -11,6 +11,7 @@ import { cdCommand } from "./cd";
 import { chmodCommand } from "./chmod";
 import { clearCommand } from "./clear";
 import { cpCommand } from "./cp";
+import { cutCommand } from "./cut";
 import { echoCommand } from "./echo";
 import { envCommand } from "./env";
 import { exportCommand } from "./export";
@@ -75,6 +76,7 @@ export const ALL_COMMANDS: CommandDefinition[] = [
 	killCommand,
 	// M13-3：只開放使用，不在劇本裡
 	treeCommand,
+	cutCommand,
 ];
 
 export { catCommand, cdCommand, clearCommand, helpCommand, hintCommand, historyCommand, lsCommand, manCommand, pwdCommand };

@@ -4,7 +4,7 @@ import { ALL_COMMANDS } from ".";
 import { EXTRA_COMMAND_DOCS, EXTRA_COMMAND_ORDER } from "./docsExtra";
 
 /** M13-3 開放使用但沒編進劇本的指令。 */
-const EXTRA_COMMANDS = ["tree"];
+const EXTRA_COMMANDS = ["tree", "cut"];
 
 describe("EXTRA_COMMAND_ORDER", () => {
 	it("順序照 M13-3 的清單", () => {
@@ -44,5 +44,16 @@ describe("EXTRA_COMMAND_DOCS", () => {
 			expect(text).toContain(flag);
 		}
 		expect(text).toContain("/");
+	});
+
+	it("cut 說明 -d、-f、-c 與範圍寫法", () => {
+		const doc = EXTRA_COMMAND_DOCS.cut;
+		const text = doc.description.join("\n");
+		for (const flag of ["-d", "-f", "-c"]) {
+			expect(doc.usage).toContain(flag);
+			expect(text).toContain(flag);
+		}
+		expect(text).toContain("2-4");
+		expect(text).toContain("3-");
 	});
 });
