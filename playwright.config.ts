@@ -9,10 +9,13 @@ export default defineConfig({
 	fullyParallel: true,
 	// CI 上若殘留 test.only 就讓建置失敗
 	forbidOnly: !!process.env.CI,
-	retries: process.env.CI ? 2 : 0,
-	// 整章走完的測試對時間很敏感，六個 worker 同時跑會讓瀏覽器掉幀、貼牆滑行錯過門口，所以本機也只開兩個
-	workers: process.env.CI ? 1 : 2,
-	reporter: "html",
+	// Playwright 層的重試：失敗後重跑過關的測試會在報告裡標成 flaky（不是測試裡自己寫重試迴圈，不會把 bug 蓋掉）
+	retries: process.env.CI ? 2 : 1,
+	// 走路已改成讀座標的閉環（M11-6），掉幀只會走得慢、不會走偏，六個 worker 在 load 48 下也全綠；
+	// 但機器忙時整章測試會從一分鐘拉長到兩分鐘，逼近 180 秒的逾時，所以本機折衷開四個
+	workers: process.env.CI ? 1 : 4,
+	// list 在終端機直接列出 flaky 的測試與總數；html 報告不自動開瀏覽器（失敗時用 pnpm exec playwright show-report 看）
+	reporter: [["list"], ["html", { open: "never" }]],
 	use: {
 		baseURL,
 		trace: "on-first-retry",
