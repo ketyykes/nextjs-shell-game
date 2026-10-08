@@ -93,7 +93,7 @@ function lineNumberPrefix(row: PagerRow): string {
 /**
  * 全螢幕分頁器（`less`，M13-3）：蓋在終端機輸出區的位置，鍵盤只由它接收，翻完按 q 回到提示列。
  * 按鍵、搜尋與狀態列的規則在 `pagerModel.ts`；這裡負責量尺寸、折行、畫面與焦點。
- * Esc 只離開分頁、不關終端機，所以 keydown 一律 `stopPropagation`，不讓 PlayScreen 的 window 監聽接到。
+ * Esc 只離開分頁、不關終端機，所以 keydown 一律 `stopPropagation`，不讓暫停選單（usePauseMenu）的 window 監聽接到。
  */
 export function Pager({ request, onQuit }: PagerProps) {
 	const rootRef = useRef<HTMLDivElement>(null);
