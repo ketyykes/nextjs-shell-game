@@ -51,6 +51,43 @@ async function openCryoTerminal(page: Page): Promise<void> {
 	await expect(page.getByLabel("指令輸入")).toHaveValue("");
 }
 
+/** 扣氧回饋出現當下的樣子：浮字文字、數字是否琥珀、浮字的 display。 */
+interface OxygenLossRecord {
+	text: string;
+	amber: boolean;
+	display: string;
+}
+
+/**
+ * 在頁面上掛 MutationObserver，記錄扣氧回饋（M10-9）出現過的樣子。
+ * 回饋只維持 0.9 秒，機器忙的時候輪詢斷言可能整段錯過，所以改成在頁面裡當場記下來再比對。
+ */
+async function watchOxygenLoss(page: Page): Promise<void> {
+	await page.evaluate(() => {
+		const records: Array<{ text: string; amber: boolean; display: string }> = [];
+		Object.assign(window, { __oxygenLossRecords: records });
+		const observer = new MutationObserver(() => {
+			const loss = document.querySelector<HTMLElement>('[data-testid="hud-oxygen-loss"]');
+			const value = document.querySelector<HTMLElement>('[data-testid="hud-oxygen-value"]');
+			if (loss === null || value === null) {
+				return;
+			}
+			records.push({
+				text: loss.textContent ?? "",
+				amber: value.className.includes("text-game-amber"),
+				display: getComputedStyle(loss).display,
+			});
+		});
+		observer.observe(document.body, { childList: true, subtree: true, attributes: true, characterData: true });
+	});
+}
+
+async function oxygenLossSeen(page: Page): Promise<OxygenLossRecord[]> {
+	return page.evaluate(
+		() => (window as unknown as { __oxygenLossRecords?: OxygenLossRecord[] }).__oxygenLossRecords ?? [],
+	);
+}
+
 test("沒有存檔直接開 /play（例如別人分享的網址）會導回標題，不掛 Phaser", async ({ page }) => {
 	await page.goto("/");
 	await page.evaluate(() => window.localStorage.clear());
@@ -84,14 +121,20 @@ test.describe("/play 地圖與終端機", () => {
 
 	test("錯誤指令顯示繁中友善訊息並扣氧氣", async ({ page }) => {
 		await openCryoTerminal(page);
+		await watchOxygenLoss(page);
 		const input = page.getByLabel("指令輸入");
 		await input.fill("catwake_up.txt");
 		await input.press("Enter");
 		await expect(page.getByText("你是不是想打")).toBeVisible();
 		await expect(page.getByText("O2 99%")).toBeVisible();
 		// 扣氧當下數字閃琥珀並浮出 -1（M10-9）
-		await expect(page.getByTestId("hud-oxygen-loss")).toHaveText("-1");
-		await expect(page.getByTestId("hud-oxygen-value")).toHaveClass(/text-game-amber/);
+		await expect
+			.poll(async () =>
+				(await oxygenLossSeen(page)).some(
+					(record) => record.text === "-1" && record.amber && record.display !== "none",
+				),
+			)
+			.toBe(true);
 		// 閃完回到青綠，浮字消失
 		await expect(page.getByTestId("hud-oxygen-loss")).toHaveCount(0);
 		await expect(page.getByTestId("hud-oxygen-value")).toHaveClass(/text-game-success/);
@@ -100,13 +143,14 @@ test.describe("/play 地圖與終端機", () => {
 	test("減少動態效果時扣氧只變色，不浮出 -1", async ({ page }) => {
 		await page.emulateMedia({ reducedMotion: "reduce" });
 		await openCryoTerminal(page);
+		await watchOxygenLoss(page);
 		const input = page.getByLabel("指令輸入");
 		await input.fill("cat nope");
 		await input.press("Enter");
 		await expect(page.getByText("O2 99%")).toBeVisible();
-		await expect(page.getByTestId("hud-oxygen-value")).toHaveClass(/text-game-amber/);
-		await expect(page.getByTestId("hud-oxygen-loss")).toBeAttached();
-		await expect(page.getByTestId("hud-oxygen-loss")).toBeHidden();
+		await expect.poll(async () => (await oxygenLossSeen(page)).length).toBeGreaterThan(0);
+		const records = await oxygenLossSeen(page);
+		expect(records.every((record) => record.amber && record.display === "none")).toBe(true);
 	});
 
 	test("Tab 補全與 ↑ 叫回歷史", async ({ page }) => {
