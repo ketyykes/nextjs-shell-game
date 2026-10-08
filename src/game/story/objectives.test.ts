@@ -314,6 +314,16 @@ describe("管線與重導向", () => {
 		expect(commandHasOption("rm", "-r")(contextOf("rm -rf old"))).toBe(true);
 	});
 
+	it("commandHasOption 不把 -- 之後的參數與長選項算成短選項", () => {
+		expect(commandHasOption("grep", "-r")(contextOf("grep -- -r logs"))).toBe(false);
+		expect(commandHasOption("grep", "-r")(contextOf("grep --recursive ERROR logs"))).toBe(false);
+	});
+
+	it("commandTouches 跳過選項，-- 之後以 - 開頭的也算路徑", () => {
+		expect(commandTouches("cat", "/home/tech/-notes")(contextOf("cat -- -notes"))).toBe(true);
+		expect(commandTouches("cat", "/home/tech/-notes")(contextOf("cat -notes"))).toBe(false);
+	});
+
 	it("redirectsTo 比對重導向目標與種類", () => {
 		expect(redirectsTo("/home/tech/out.txt")(contextOf("sort parts > out.txt"))).toBe(true);
 		expect(redirectsTo("/home/tech/out.txt", "append")(contextOf("sort parts > out.txt"))).toBe(false);

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { fsError, missingOperand, unknownOption } from "../messages";
-import { findCommand, matchNamePattern } from "./find";
+import { findCommand, matchNamePattern, parseFindArgs } from "./find";
 import { createFilterContext, createSealedContext } from "./filterFixtures";
 
 /** `find /deck2` 的完整輸出：深度優先、同層依名稱排序、隱藏檔也列。 */
@@ -235,5 +235,27 @@ describe("find 權限", () => {
 		const result = findCommand.run(["vault", "open.log"], createSealedContext());
 
 		expect(result).toEqual({ ok: false, lines: ["vault", ...fsError("EACCES", "vault"), "open.log"] });
+	});
+});
+
+describe("find 選項切分的邊界", () => {
+	it("-- 沒有特別意義，跟其他不認得的選項一樣回 unknownOption", () => {
+		expect(parseFindArgs(["--", "."])).toEqual({ ok: false, lines: unknownOption("find", "--") });
+	});
+
+	it("-name 後面的參數一律當樣式，即使它以 - 開頭", () => {
+		expect(parseFindArgs(["-name", "-type"])).toEqual({
+			ok: true,
+			paths: ["."],
+			tests: { names: [{ pattern: "-type", ignoreCase: false }], type: null },
+		});
+	});
+
+	it("單獨的 - 當成起點，起點可以放在條件後面", () => {
+		expect(parseFindArgs(["-type", "f", "-", "/deck2"])).toEqual({
+			ok: true,
+			paths: ["-", "/deck2"],
+			tests: { names: [], type: "f" },
+		});
 	});
 });

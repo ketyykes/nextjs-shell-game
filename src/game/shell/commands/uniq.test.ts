@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { extraOperand, fsError, noInput, unknownOption } from "../messages";
-import { uniqCommand } from "./uniq";
+import { parseUniqArgs, uniqCommand } from "./uniq";
 import { createSystemContext } from "./systemFixtures";
 
 describe("uniq", () => {
@@ -167,5 +167,19 @@ describe("uniq 錯誤", () => {
 		const result = uniqCommand.run(["--count", "relay.log"], createSystemContext());
 
 		expect(result).toEqual({ ok: false, lines: unknownOption("uniq", "--count") });
+	});
+});
+
+describe("uniq 選項切分的邊界", () => {
+	it("-- 之後的 -c 當成檔名", () => {
+		expect(parseUniqArgs(["-d", "--", "-c"])).toEqual({
+			ok: true,
+			options: { count: false, duplicatesOnly: true },
+			paths: ["-c"],
+		});
+	});
+
+	it("合併寫法裡有未知字母時只指出那個字母", () => {
+		expect(parseUniqArgs(["-cx"])).toEqual({ ok: false, lines: unknownOption("uniq", "-x") });
 	});
 });

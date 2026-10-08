@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { fsError, invalidNumber, missingOperand, noInput, unknownOption } from "../messages";
-import { headCommand } from "./head";
+import { headCommand, parseLineCountArgs } from "./head";
 import { createFilterContext, createSealedContext, DOOR_EVENTS_LINES, EVAC_LINES, NOVA_CORE_LINES } from "./filterFixtures";
 
 describe("head 單一檔案", () => {
@@ -209,5 +209,24 @@ describe("head 權限", () => {
 		const result = headCommand.run(["locked.log"], createSealedContext());
 
 		expect(result).toEqual({ ok: false, lines: fsError("EACCES", "locked.log") });
+	});
+});
+
+describe("head 選項切分的邊界", () => {
+	it("不認得的合併選項只回報第一個字母", () => {
+		expect(parseLineCountArgs("head", ["-xyz"])).toEqual({ ok: false, lines: unknownOption("head", "-x") });
+	});
+
+	it("-n 後面的參數一律當行數，即使它是 -- 或 -5", () => {
+		expect(parseLineCountArgs("head", ["-n", "--", "a"])).toEqual({ ok: false, lines: invalidNumber("head", "--") });
+		expect(parseLineCountArgs("head", ["-n", "-5"])).toEqual({ ok: false, lines: invalidNumber("head", "-5") });
+	});
+
+	it("-- 之後的 -n 5 都當檔名，行數維持預設", () => {
+		expect(parseLineCountArgs("head", ["--", "-n", "5"])).toEqual({ ok: true, count: 10, paths: ["-n", "5"] });
+	});
+
+	it("單獨的 - 當檔名，多次給行數以最後一次為準", () => {
+		expect(parseLineCountArgs("head", ["-n", "3", "-", "-2"])).toEqual({ ok: true, count: 2, paths: ["-"] });
 	});
 });

@@ -154,3 +154,26 @@ describe("kill 忘記 dash 的訊號", () => {
 		expect(text).not.toContain("沒有編號 9");
 	});
 });
+
+describe("kill 選項切分的邊界", () => {
+	it("單獨的 - 不是 PID，回 unknownOption", () => {
+		expect(killCommand.run(["-", "207"], createSystemContext())).toEqual({
+			ok: false,
+			lines: unknownOption("kill", "-"),
+		});
+	});
+
+	it("-- 沒有特別意義，回 unknownOption", () => {
+		expect(killCommand.run(["--", "207"], createSystemContext())).toEqual({
+			ok: false,
+			lines: unknownOption("kill", "--"),
+		});
+	});
+
+	it("訊號可以放在 PID 後面，多個訊號以最後一個為準", () => {
+		const result = killCommand.run(["3141", "-9", "-TERM"], createSystemContext());
+
+		expect(result.ok).toBe(false);
+		expect(result.lines).toEqual(processIgnoredSignal(3141, NOVA_COMMAND));
+	});
+});

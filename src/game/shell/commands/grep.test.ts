@@ -8,7 +8,7 @@ import {
 	noInput,
 	unknownOption,
 } from "../messages";
-import { grepCommand } from "./grep";
+import { grepCommand, parseGrepArgs } from "./grep";
 import { createFilterContext, createSealedContext, EVAC_LINES } from "./filterFixtures";
 
 const EVAC = "evac_2028-06-02.log";
@@ -433,5 +433,26 @@ describe("grep 權限", () => {
 			ok: false,
 			lines: [...fsError("EACCES", "/locked.log"), "/open.log:NOVA open", ...fsError("EACCES", "/vault")],
 		});
+	});
+});
+
+describe("grep 選項切分的邊界", () => {
+	it("錯誤依參數順序回報：-E -F 衝突在前，就不管後面的未知選項", () => {
+		expect(parseGrepArgs(["-E", "-F", "-z", "x"])).toEqual({ ok: false, lines: conflictingMatchers("grep") });
+	});
+
+	it("錯誤依參數順序回報：未知選項在前，就不管後面的衝突", () => {
+		expect(parseGrepArgs(["-z", "-E", "-F", "x"])).toEqual({ ok: false, lines: unknownOption("grep", "-z") });
+	});
+
+	it("合併寫法裡的衝突也會被抓到", () => {
+		expect(parseGrepArgs(["-EF", "x"])).toEqual({ ok: false, lines: conflictingMatchers("grep") });
+	});
+
+	it("單獨的 - 可以當搜尋字串", () => {
+		const result = parseGrepArgs(["-", "nova_core.log"]);
+
+		expect(result.ok && result.pattern).toBe("-");
+		expect(result.ok && result.paths).toEqual(["nova_core.log"]);
 	});
 });

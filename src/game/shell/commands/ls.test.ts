@@ -310,3 +310,21 @@ describe("formatLongLine", () => {
 		expect(formatLongLine(node, node.name)).toBe("-rw-r--r--  abin  6  2031-03-10 03:07  day_900.txt");
 	});
 });
+
+describe("ls 選項切分的邊界", () => {
+	it("單獨的 - 當成路徑", () => {
+		expect(parseLsArgs(["-", "-a"])).toEqual({ ok: true, options: { all: true, long: false }, paths: ["-"] });
+	});
+
+	it("-- 只結束一次，後面的第二個 -- 也當成路徑", () => {
+		expect(parseLsArgs(["--", "--", "-a"])).toEqual({
+			ok: true,
+			options: { all: false, long: false },
+			paths: ["--", "-a"],
+		});
+	});
+
+	it("未知選項在路徑後面也會回報，前面的合法選項不影響", () => {
+		expect(parseLsArgs(["-a", "pod_01", "-q"])).toEqual({ ok: false, lines: unknownOption("ls", "-q") });
+	});
+});

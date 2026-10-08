@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { fsError, noInput, unknownOption } from "../messages";
-import { wcCommand } from "./wc";
+import { parseWcArgs, wcCommand } from "./wc";
 import { createFilterContext, createSealedContext } from "./filterFixtures";
 
 // nova_core.log：3 行、9 個字、59 位元組
@@ -155,5 +155,19 @@ describe("wc 權限", () => {
 		const result = wcCommand.run(["locked.log"], createSealedContext());
 
 		expect(result).toEqual({ ok: false, lines: fsError("EACCES", "locked.log") });
+	});
+});
+
+describe("wc 選項切分的邊界", () => {
+	it("單獨的 - 當成檔名，-- 之後的 -l 也是檔名，沒有選項時三欄全開", () => {
+		expect(parseWcArgs(["-", "--", "-l"])).toEqual({
+			ok: true,
+			options: { lines: true, words: true, bytes: true },
+			paths: ["-", "-l"],
+		});
+	});
+
+	it("第一個未知字母就停下，後面的長選項不會被回報", () => {
+		expect(parseWcArgs(["-lz", "--bytes"])).toEqual({ ok: false, lines: unknownOption("wc", "-z") });
 	});
 });

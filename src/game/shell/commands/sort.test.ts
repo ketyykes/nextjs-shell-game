@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { fsError, noInput, unknownOption } from "../messages";
-import { sortCommand } from "./sort";
+import { parseSortArgs, sortCommand } from "./sort";
 import { createSystemContext } from "./systemFixtures";
 
 describe("sort 字串排序", () => {
@@ -185,5 +185,23 @@ describe("sort 錯誤", () => {
 		const result = sortCommand.run(["--reverse", "freq.txt"], createSystemContext());
 
 		expect(result).toEqual({ ok: false, lines: unknownOption("sort", "--reverse") });
+	});
+});
+
+describe("sort 選項切分的邊界", () => {
+	it("-- 之後的 -r 當成檔名，單獨的 - 也是檔名", () => {
+		expect(parseSortArgs(["-n", "-", "--", "-r"])).toEqual({
+			ok: true,
+			options: { reverse: false, numeric: true, unique: false },
+			paths: ["-", "-r"],
+		});
+	});
+
+	it("選項可以放在檔名後面", () => {
+		expect(parseSortArgs(["parts.txt", "-ru"])).toEqual({
+			ok: true,
+			options: { reverse: true, numeric: false, unique: true },
+			paths: ["parts.txt"],
+		});
 	});
 });
