@@ -158,14 +158,8 @@ test("某台終端機的存檔壞掉時，按 E 仍打得開，那台用劇本�
 	});
 	await enterPlay(page);
 
-	// 貼左上角再往右到控制台下方；dev 伺服器第一次編譯時會掉幀走不夠，看不到「按 E」就從角落重走（只修正位置）
-	const hint = page.getByTestId("interact-hint");
-	for (let attempt = 0; attempt < 3 && !(await hint.isVisible()); attempt += 1) {
-		await hold(page, ["ArrowUp", "ArrowLeft"], 2500);
-		await hold(page, ["ArrowRight"], 580);
-		await page.waitForTimeout(300);
-	}
-	await expect(hint).toBeVisible();
+	// 閉環走到控制台前（以「按 E」提示為準），dev 伺服器第一次編譯時掉幀也只是走得慢
+	await walkToTerminal(page, 0, "冷凍艙控制台");
 	await page.keyboard.press("e");
 
 	await expect(page.getByTestId("terminal-modal")).toBeVisible();
