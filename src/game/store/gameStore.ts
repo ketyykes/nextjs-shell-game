@@ -15,6 +15,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import type { StateStorage } from "zustand/middleware";
 import { migrateSaveData } from "./migrate";
+import { toSaveData } from "./saveExport";
 import { getSaveIssue, setSaveIssue } from "./saveStatus";
 import {
 	DEFAULT_PROGRESS,
@@ -487,13 +488,7 @@ export const useGameStore = create<GameStore>()(
 			version: SAVE_VERSION,
 			storage: createJSONStorage<SaveData>(() => safeLocalStorage),
 			// 只存資料欄位，actions 不進 localStorage
-			partialize: (state): SaveData => ({
-				progress: state.progress,
-				settings: state.settings,
-				terminals: state.terminals,
-				storyFlags: state.storyFlags,
-				stats: state.stats,
-			}),
+			partialize: toSaveData,
 			migrate: migrateSaveData,
 			merge: mergeSaveData,
 			skipHydration: true,

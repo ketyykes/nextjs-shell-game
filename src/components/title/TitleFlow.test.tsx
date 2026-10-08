@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createInitialSaveData, useGameStore } from "@/game/store";
 import { DEFAULT_PROGRESS, SAVE_STORAGE_KEY, SAVE_VERSION } from "@/game/store/types";
@@ -42,6 +42,20 @@ beforeEach(() => {
 
 afterEach(() => {
 	cleanup();
+});
+
+describe("TitleFlow 的存檔管理（M14-2）", () => {
+	it("沒有存檔也能打開存檔管理；開著時標題選單不收鍵盤，Esc 關掉", async () => {
+		await renderWithSave(createInitialSaveData());
+
+		fireEvent.click(screen.getByRole("button", { name: "存檔管理" }));
+		expect(screen.getByRole("dialog", { name: "存檔管理" })).toBeDefined();
+
+		// 標題選單的「新遊戲」不能被同一下 Enter 觸發（會進選角）
+		fireEvent.keyDown(window, { key: "Escape" });
+		expect(screen.queryByRole("dialog", { name: "存檔管理" })).toBeNull();
+		expect(screen.getByTestId("title-screen")).toBeDefined();
+	});
 });
 
 describe("TitleFlow 的通關狀態（M14-1）", () => {

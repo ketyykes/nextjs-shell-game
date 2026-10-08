@@ -7,6 +7,7 @@
  * 讀檔完成前只顯示載入字樣，確保「繼續」的出現與否是可信的。
  * 觸控為主的裝置先疊一層「需要實體鍵盤」的提示，可以略過（設計文件 4.6）。
  * 練習模式：不看存檔，直接進 /sandbox（設計文件 4.11）。
+ * 存檔管理（M14-2）：匯出與匯入存檔，匯入成功後整頁重新載入讓 store 重新讀檔。
  * 通關（M14-1）：片尾播完回來時副標換成「已逃離 Kepler-9」、「繼續」換成「通關紀錄」；選章重玩後「繼續」回來。
  */
 
@@ -15,6 +16,7 @@ import { useCallback, useState } from "react";
 import { SceneCard } from "@/components/game/SceneCard";
 import { BootLog } from "@/components/title/BootLog";
 import { CharacterSelect } from "@/components/title/CharacterSelect";
+import { SaveManager } from "@/components/title/SaveManager";
 import { SettingsMenu } from "@/components/title/SettingsMenu";
 import type { ChapterOption } from "@/components/title/ChapterSelectPanel";
 import type { ClearRecord } from "@/components/title/ClearRecordPanel";
@@ -22,7 +24,7 @@ import { TitleScreen } from "@/components/title/TitleScreen";
 import { TouchWarningPanel } from "@/components/title/TouchWarningPanel";
 import { usePlayPrefetch } from "@/components/title/usePlayPrefetch";
 import { useTouchWarning } from "@/components/title/useTouchWarning";
-import { getChapterMeta, LAST_CHAPTER, NOVA_FIRST_LINE } from "@/game/chapters/meta";
+import { chapterLabel, chapterNumeral, getChapterMeta, LAST_CHAPTER, NOVA_FIRST_LINE } from "@/game/chapters/meta";
 import { INTRO_SCENE_IMAGE } from "@/game/story/scenes";
 import {
 	selectHasSave,
@@ -44,12 +46,6 @@ const INTRO_CARD = {
 	subtitle: "Kepler-9 研究站 · 木星軌道",
 };
 
-const CHINESE_NUMERALS = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
-
-function chapterNumeral(chapter: number): string {
-	return CHINESE_NUMERALS[chapter] ?? String(chapter);
-}
-
 /** 通關後停在片尾之後的標題副標（M14-1）。 */
 const ESCAPED_SUBTITLE = "已逃離 Kepler-9";
 
@@ -63,8 +59,7 @@ function subtitleFor(chapter: number): string {
 function chapterOptions(furthestChapter: number): ChapterOption[] {
 	const options: ChapterOption[] = [];
 	for (let chapter = 1; chapter <= furthestChapter; chapter += 1) {
-		const meta = getChapterMeta(chapter);
-		options.push({ number: chapter, label: `第${chapterNumeral(chapter)}章 ${meta.deckName}` });
+		options.push({ number: chapter, label: chapterLabel(chapter) });
 	}
 	return options;
 }
@@ -96,6 +91,7 @@ function TitleFlowReady() {
 
 	const [stage, setStage] = useState<TitleStage>("title");
 	const [settingsOpen, setSettingsOpen] = useState(false);
+	const [saveManagerOpen, setSaveManagerOpen] = useState(false);
 	const touchWarning = useTouchWarning();
 	// 標題、選角、boot log 的空檔先把 /play、Phaser 引擎與要進的那一章插圖抓進快取
 	usePlayPrefetch(progress.chapter);
@@ -185,7 +181,8 @@ function TitleFlowReady() {
 				chapters={chapterOptions(progress.furthestChapter)}
 				onSelectChapter={handleSelectChapter}
 				onPractice={goToSandbox}
-				keyboardEnabled={!settingsOpen && !touchWarning.visible}
+				onManageSave={() => setSaveManagerOpen(true)}
+				keyboardEnabled={!settingsOpen && !saveManagerOpen && !touchWarning.visible}
 				crt={{
 					scanlines: settings.scanlinesEnabled,
 					vignette: settings.vignetteEnabled,
@@ -194,6 +191,9 @@ function TitleFlowReady() {
 			/>
 			{settingsOpen && (
 				<SettingsMenu settings={settings} onChange={updateSettings} onClose={() => setSettingsOpen(false)} />
+			)}
+			{saveManagerOpen && (
+				<SaveManager onClose={() => setSaveManagerOpen(false)} onImported={() => window.location.reload()} />
 			)}
 			{touchWarning.visible && <TouchWarningPanel onDismiss={touchWarning.dismiss} />}
 		</>

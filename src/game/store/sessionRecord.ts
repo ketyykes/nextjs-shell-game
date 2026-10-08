@@ -69,7 +69,8 @@ const outputEntrySchema = z.discriminatedUnion("kind", [
 	z.looseObject({ kind: z.literal("dialogue"), id: z.string(), speaker: z.literal("NOVA"), text: z.string() }),
 ]);
 
-const terminalSessionRecordSchema = z.looseObject({
+/** 存檔匯入（`saveImport.ts`）也用同一份 schema 檢查每台終端機。 */
+export const terminalSessionRecordSchema = z.looseObject({
 	shell: shellSessionStateSchema,
 	transcript: z.array(outputEntrySchema),
 	errorCount: z.number().optional(),

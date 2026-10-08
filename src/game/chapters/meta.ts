@@ -36,3 +36,15 @@ export function getChapterMeta(chapter: number): ChapterMeta {
 	}
 	return CHAPTER_METAS[CHAPTER_METAS.length - 1];
 }
+
+const CHINESE_NUMERALS = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
+
+/** 章節號的中文數字，例如 3 → 「三」；超過九就用阿拉伯數字。 */
+export function chapterNumeral(chapter: number): string {
+	return CHINESE_NUMERALS[chapter] ?? String(chapter);
+}
+
+/** 選章清單、通關紀錄與匯入確認用的章節名，例如「第三章 工程艙」。 */
+export function chapterLabel(chapter: number): string {
+	return `第${chapterNumeral(chapter)}章 ${getChapterMeta(chapter).deckName}`;
+}
