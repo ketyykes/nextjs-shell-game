@@ -212,6 +212,17 @@ describe("Terminal", () => {
 		expect(getLog().children).toHaveLength(0);
 	});
 
+	it("clear 之後同一行還有輸出（clear ; pwd）時清完畫面只留這一行", () => {
+		const onEntriesChange = vi.fn();
+		render(<Harness onEntriesChange={onEntriesChange} />);
+		runCommand("ls");
+		runCommand("clear ; pwd");
+
+		const last = onEntriesChange.mock.lastCall?.[0] as OutputEntry[];
+		expect(last).toHaveLength(1);
+		expect(last[0]).toMatchObject({ kind: "command", input: "clear ; pwd", lines: ["/home/tech"], isError: false });
+	});
+
 	it("輸入含全形空白時顯示全形提示，改回半形後消失", () => {
 		render(<Harness />);
 		typeText("cd　pod");

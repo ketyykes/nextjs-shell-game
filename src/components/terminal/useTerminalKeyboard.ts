@@ -77,20 +77,22 @@ export function useTerminalKeyboard({
 		const prompt = shell.prompt();
 		const execution = shell.execute(value);
 
-		if (execution.clearScreen) {
-			onEntriesChange([]);
+		const entry: OutputEntry = {
+			kind: "command",
+			id: createId(),
+			prompt,
+			input: value,
+			lines: execution.lines,
+			isError: execution.isError,
+		};
+
+		if (!execution.clearScreen) {
+			onEntriesChange([...entries, entry]);
+		} else if (execution.lines.length > 0) {
+			// `clear ; pwd` 這種寫法：清完畫面之後同一行還有輸出（shell 已經丟掉 clear 之前的），只留這一行
+			onEntriesChange([entry]);
 		} else {
-			onEntriesChange([
-				...entries,
-				{
-					kind: "command",
-					id: createId(),
-					prompt,
-					input: value,
-					lines: execution.lines,
-					isError: execution.isError,
-				},
-			]);
+			onEntriesChange([]);
 		}
 
 		setValue("");
