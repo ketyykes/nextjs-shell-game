@@ -20,6 +20,14 @@ export function commandNotFound(name: string): string[] {
 	return [`找不到指令 \`${name}\`，輸入 help 看看目前會的指令，或輸入 hint 拿提示。`];
 }
 
+/**
+ * 用完整路徑執行指令，例如照抄 `which ls` 印出的 `/usr/bin/ls`。
+ * 這個遊戲的 shell 只認指令名，照 3.3「不支援的寫法說清楚並給替代寫法」的原則回覆。
+ */
+export function fullPathCommand(path: string, name: string): string[] {
+	return [`這個遊戲的 shell 不支援用完整路徑執行指令；\`${path}\` 就是 ${name}，直接打 ${name} 就好。`];
+}
+
 /** 忘記空格，例如 `cdmedbay` 其實是 `cd medbay`。 */
 export function missingSpace(command: string, rest: string): string[] {
 	return [`你是不是想打 \`${command} ${rest}\`？指令和參數之間要有空格。`];

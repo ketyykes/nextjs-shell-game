@@ -9,6 +9,7 @@ import {
 	emptyCommand,
 	emptyListCommand,
 	fsError,
+	fullPathCommand,
 	fullwidthChar,
 	missingRedirectTarget,
 	missingSpace,
@@ -57,6 +58,15 @@ describe("Shell 基本執行", () => {
 		const result = shell.execute("xyz");
 		expect(result.isError).toBe(true);
 		expect(result.lines).toEqual(commandNotFound("xyz"));
+	});
+
+	it("照抄 which 印的完整路徑執行時，說明不支援並請玩家直接打指令名", () => {
+		const shell = createShell();
+		const result = shell.execute("/usr/bin/ls");
+		expect(result.isError).toBe(true);
+		expect(result.lines).toEqual(fullPathCommand("/usr/bin/ls", "ls"));
+		expect(shell.execute("/bin/cat wake_up.txt").lines).toEqual(fullPathCommand("/bin/cat", "cat"));
+		expect(shell.execute("/usr/bin/cd").lines).toEqual(commandNotFound("/usr/bin/cd"));
 	});
 
 	it("忘記空格時建議正確寫法", () => {

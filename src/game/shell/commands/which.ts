@@ -9,7 +9,9 @@
  *
  * 照環境變數 `PATH` 的目錄順序找，印第一個找得到的位置；`-a` 印出每一個。
  * 環境變數裡沒有 `PATH` 時用 `DEFAULT_PATH`。`PATH` 只影響 which，不影響指令能不能執行（玩家改壞 PATH 不會讓 ls 消失）。
- * 名稱含 `/` 時直接看那個檔案存不存在、能不能執行（擁有者看前三碼的 x，其他人看最後三碼）。
+ * 名稱含 `/` 時：正規化後是某個指令的安裝位置（`/usr/bin/ls`、`/bin/ls`、`/usr/local/bin/hint`）就照印玩家的寫法，
+ * 跟 `which ls` 印出來的對得上；否則直接看那個檔案存不存在、能不能執行（擁有者看前三碼的 x，其他人看最後三碼）。
+ * 安裝位置不受 `PATH` 影響。shell 本身不接受用完整路徑執行指令，見 `messages.fullPathCommand`。
  *
  * 找不到時真的 which 不印東西、回傳 1；這裡改成印一段說明，而且跟 `grep` 沒符合一樣**不算錯誤**，避免懲罰探索，
  * 結束碼照樣是 1（`which vim && vim` 不會往下跑）。
@@ -38,8 +40,8 @@ function normalizeDir(dir: string): string {
 }
 
 /** 指令的程式檔裝在哪個目錄；內建指令或沒有這個指令時回傳 null。 */
-function installDir(name: string, context: CommandContext): string | null {
-	if (SHELL_BUILTINS.has(name) || !context.availableCommands.includes(name)) {
+function installDir(name: string, availableCommands: string[]): string | null {
+	if (SHELL_BUILTINS.has(name) || !availableCommands.includes(name)) {
 		return null;
 	}
 	if (LOCAL_TOOLS.has(name)) {
@@ -54,6 +56,21 @@ function dirContains(pathDir: string, install: string): boolean {
 		return true;
 	}
 	return pathDir === "/bin" && install === "/usr/bin";
+}
+
+/**
+ * 正規化過的絕對路徑是不是某個指令的安裝位置（`/usr/bin/ls`、`/bin/ls`、`/usr/local/bin/hint`），
+ * 是的話回傳指令名，否則回傳 null。which 與 shell 的「找不到指令」說明共用。
+ */
+export function commandAtInstallPath(absolutePath: string, availableCommands: string[]): string | null {
+	const slash = absolutePath.lastIndexOf("/");
+	const name = absolutePath.slice(slash + 1);
+	const dir = absolutePath.slice(0, slash) || "/";
+	const install = installDir(name, availableCommands);
+	if (install === null || !dirContains(dir, install)) {
+		return null;
+	}
+	return name;
 }
 
 /** 檔案能不能執行：擁有者是玩家看前三碼的 x，否則看最後三碼。 */
@@ -92,6 +109,10 @@ function notFound(lines: string[]): LocateResult {
 /** 查一個名稱，回傳要印的行。 */
 function locate(name: string, path: string, all: boolean, context: CommandContext): LocateResult {
 	if (name.includes("/")) {
+		const absolutePath = context.fs.resolvePath(context.cwd, name);
+		if (commandAtInstallPath(absolutePath, context.availableCommands) !== null) {
+			return { lines: [name], found: true };
+		}
 		if (isExecutableFile(name, context)) {
 			return { lines: [name], found: true };
 		}
@@ -102,7 +123,7 @@ function locate(name: string, path: string, all: boolean, context: CommandContex
 		return notFound(whichBuiltin(name));
 	}
 
-	const install = installDir(name, context);
+	const install = installDir(name, context.availableCommands);
 	if (install === null) {
 		return notFound(whichNotFound(name, path, false));
 	}

@@ -13,9 +13,10 @@
 
 import { ALL_COMMANDS } from "./commands";
 import { joinContentLines } from "./commands/cat";
+import { commandAtInstallPath } from "./commands/which";
 import { complete as completeInput } from "./completion";
 import { CommandHistory } from "./history";
-import { commandNotFound, fsError, missingSpace, parseError } from "./messages";
+import { commandNotFound, fsError, fullPathCommand, missingSpace, parseError } from "./messages";
 import { parseCommandLineDetailed, parseCommandList, suggestMissingSpace } from "./parser";
 import type { ParsedWord } from "./parser";
 import type {
@@ -485,8 +486,17 @@ export class Shell {
 		return null;
 	}
 
-	/** 指令不存在時，先試「忘記空格」，例如 `cdpod_06` 建議 `cd pod_06`。 */
+	/**
+	 * 指令不存在時，先看是不是用完整路徑打指令（照抄 `which ls` 印的 `/usr/bin/ls`），
+	 * 再試「忘記空格」，例如 `cdpod_06` 建議 `cd pod_06`。
+	 */
 	private describeUnknownCommand(name: string): string[] {
+		if (name.includes("/")) {
+			const commandName = commandAtInstallPath(this.options.fs.resolvePath(this.currentCwd, name), this.commandNames);
+			if (commandName !== null) {
+				return fullPathCommand(name, commandName);
+			}
+		}
 		const suggestion = suggestMissingSpace(name, this.commandNames);
 		if (suggestion !== null) {
 			return missingSpace(suggestion.command, suggestion.rest);

@@ -102,6 +102,28 @@ describe("which 帶路徑的名稱", () => {
 		);
 		expect(whichCommand.run(["./nope"], createContext()).lines).toEqual(whichNotFound("./nope", DEFAULT_PATH, false));
 	});
+
+	it("指令的安裝路徑照印，跟 which ls 印出來的對得上", () => {
+		expect(whichCommand.run(["/usr/bin/ls"], createContext())).toEqual({ ok: true, lines: ["/usr/bin/ls"] });
+		expect(whichCommand.run(["/bin/cat"], createContext()).lines).toEqual(["/bin/cat"]);
+		expect(whichCommand.run(["/usr/local/bin/hint"], createContext()).lines).toEqual(["/usr/local/bin/hint"]);
+	});
+
+	it("安裝路徑正規化後再比，印玩家原本的寫法；PATH 不影響帶路徑的名稱", () => {
+		const context = createContext({ env: { HOME: HOME_DIR, PATH: "/opt/nova/bin" } });
+		expect(whichCommand.run(["/usr/bin/../bin/ls"], context).lines).toEqual(["/usr/bin/../bin/ls"]);
+		expect(whichCommand.run(["/usr//bin/grep"], context).lines).toEqual(["/usr//bin/grep"]);
+	});
+
+	it("不是安裝路徑的不算：內建指令、裝錯目錄、沒有這個指令", () => {
+		for (const name of ["/usr/bin/cd", "/usr/local/bin/ls", "/usr/bin/hint", "/usr/bin/vim"]) {
+			expect(whichCommand.run([name], createContext())).toEqual({
+				ok: true,
+				lines: whichNotFound(name, DEFAULT_PATH, false),
+				exitStatus: 1,
+			});
+		}
+	});
 });
 
 describe("which 用法錯誤", () => {
