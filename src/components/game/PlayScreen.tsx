@@ -14,6 +14,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChapterEndScreen } from "@/components/game/ChapterEndScreen";
+import { ControlsHint, shouldShowControlsHint } from "@/components/game/ControlsHint";
 import { CrtOverlay } from "@/components/game/CrtOverlay";
 import { NovaDialogue } from "@/components/game/NovaDialogue";
 import { ObjectivePanel } from "@/components/game/ObjectivePanel";
@@ -540,7 +541,17 @@ function PlayScreenReady() {
 				className="flex h-full w-full items-center justify-center"
 			/>
 
-			<Hud oxygen={oxygen} room={currentRoom} nearbyTerminal={nearbyTerminal} terminalOpen={openTerminal !== null} />
+			<Hud
+				oxygen={oxygen}
+				room={currentRoom}
+				nearbyTerminal={nearbyTerminal}
+				terminalOpen={openTerminal !== null}
+				showControlsHint={shouldShowControlsHint({
+					chapter: chapter.chapter,
+					solvedTerminals: progress.solvedTerminals,
+					terminalOpen: openTerminal !== null,
+				})}
+			/>
 			<ObjectivePanel
 				title={objectiveTitle}
 				description={objectiveDescription}
@@ -693,22 +704,27 @@ interface HudProps {
 	room: RoomId | null;
 	nearbyTerminal: TerminalDefinition | null;
 	terminalOpen: boolean;
+	/** 第一章 T1 過關前在上方中央常駐操作提示（M10-3）。 */
+	showControlsHint: boolean;
 }
 
-/** 左上角 O2、右上角艙區名稱、底部「按 E」提示。 */
-function Hud({ oxygen, room, nearbyTerminal, terminalOpen }: HudProps) {
+/** 左上角 O2、右上角艙區名稱、上方中央的操作提示、底部「按 E」提示。 */
+function Hud({ oxygen, room, nearbyTerminal, terminalOpen, showControlsHint }: HudProps) {
 	let oxygenClass = "text-game-success";
 	if (oxygen < 30) {
 		oxygenClass = "text-game-amber";
 	}
 	return (
 		<div className="pointer-events-none absolute inset-0 z-30 text-2xl" aria-live="polite">
-			<div className={`absolute top-4 left-4 ${oxygenClass}`}>O2 {oxygen}%</div>
+			<div className={`absolute top-4 left-4 ${oxygenClass}`} data-testid="hud-oxygen">
+				O2 {oxygen}%
+			</div>
 			{room !== null && (
 				<div className="absolute top-4 right-4 text-game-dim" data-testid="hud-room">
 					{ROOM_NAMES[room]}
 				</div>
 			)}
+			{showControlsHint && <ControlsHint />}
 			{/* 底部一排是目標面板（左）與 NOVA 對話框（右），1280 以下塞不下中間的提示，往上移到它們上方 */}
 			{nearbyTerminal !== null && !terminalOpen && (
 				<div

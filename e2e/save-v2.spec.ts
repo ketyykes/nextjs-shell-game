@@ -111,27 +111,40 @@ for (const viewport of [
 	{ width: 1024, height: 768 },
 	{ width: 768, height: 1024 },
 ]) {
-	test(`${viewport.width}x${viewport.height} 視窗下目標面板、按 E 提示、NOVA 對話框互不重疊`, async ({ page }) => {
+	test(`${viewport.width}x${viewport.height} 視窗下目標面板、按 E 提示、NOVA 對話框、操作提示與上方 HUD 互不重疊`, async ({
+		page,
+	}) => {
 		await page.setViewportSize(viewport);
 		await seedSave(page, { chapter: 1 });
 		await enterPlay(page);
-		// 走到 T1 旁讓「按 E」出現；開場 NOVA 台詞還在說，對話框也在
+		// 走到 T1 旁讓「按 E」出現；開場 NOVA 台詞還在說，對話框也在；T1 還沒過關，操作提示也在
 		await hold(page, ["ArrowUp", "ArrowLeft"], 2500);
 		await hold(page, ["ArrowRight"], 580);
 		await expect(page.getByTestId("interact-hint")).toBeVisible();
 		await expect(page.getByTestId("nova-dialogue")).toBeVisible();
+		await expect(page.getByTestId("controls-hint")).toBeVisible();
 
 		const boxes = {
 			objective: await page.getByTestId("objective-panel").boundingBox(),
 			hint: await page.getByTestId("interact-hint").boundingBox(),
 			nova: await page.getByTestId("nova-dialogue").boundingBox(),
+			controls: await page.getByTestId("controls-hint").boundingBox(),
+			oxygen: await page.getByTestId("hud-oxygen").boundingBox(),
+			room: await page.getByTestId("hud-room").boundingBox(),
 		};
 		for (const [name, box] of Object.entries(boxes)) {
 			expect(box, name).not.toBeNull();
 		}
-		const { objective, hint, nova } = boxes as Record<keyof typeof boxes, NonNullable<(typeof boxes)["hint"]>>;
+		const { objective, hint, nova, controls, oxygen, room } = boxes as Record<
+			keyof typeof boxes,
+			NonNullable<(typeof boxes)["hint"]>
+		>;
 		expect(overlaps(objective, hint), "目標面板與按 E 提示").toBe(false);
 		expect(overlaps(objective, nova), "目標面板與 NOVA 對話框").toBe(false);
 		expect(overlaps(hint, nova), "按 E 提示與 NOVA 對話框").toBe(false);
+		// 操作提示（M10-3）跟其他 HUD 元素都不能疊
+		for (const [name, box] of Object.entries({ objective, hint, nova, oxygen, room })) {
+			expect(overlaps(controls, box), `操作提示與 ${name}`).toBe(false);
+		}
 	});
 }

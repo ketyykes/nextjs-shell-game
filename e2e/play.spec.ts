@@ -91,7 +91,11 @@ test.describe("/play 地圖與終端機", () => {
 	});
 
 	test("cat wake_up.txt 過關：目標打勾、氧氣回滿、學會指令、NOVA 說話", async ({ page }) => {
+		// T1 過關前地圖上方常駐操作提示（M10-3）
+		await expect(page.getByTestId("controls-hint")).toHaveText("方向鍵移動 · E 互動 · Esc 選單");
 		await openCryoTerminal(page);
+		// 終端機開著時方向鍵與 Esc 是終端機的操作，提示先收起來
+		await expect(page.getByTestId("controls-hint")).toHaveCount(0);
 		const input = page.getByLabel("指令輸入");
 		// 先犯一次錯讓氧氣掉，過關後要回到 100
 		await input.fill("cat nope");
@@ -115,6 +119,8 @@ test.describe("/play 地圖與終端機", () => {
 		await expect(page.getByTestId("terminal-modal")).toBeHidden();
 		// 關閉後地圖上的 NOVA 對話框再說一次最後一句
 		await expect(page.getByRole("status").filter({ hasText: "NOVA" }).first()).toBeVisible();
+		// T1 過關後操作提示不再出現
+		await expect(page.getByTestId("controls-hint")).toHaveCount(0);
 	});
 
 	test("Esc 關閉終端機後可以繼續走動並再開一次", async ({ page }) => {
