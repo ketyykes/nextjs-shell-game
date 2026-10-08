@@ -73,6 +73,7 @@ const terminalSessionRecordSchema = z.looseObject({
 	shell: shellSessionStateSchema,
 	transcript: z.array(outputEntrySchema),
 	errorCount: z.number().optional(),
+	scriptHash: z.string().optional(),
 });
 
 /** 存檔裡的這筆 session 形狀對不對得上 `TerminalSessionRecord`，對得上才拿去還原 Shell。 */

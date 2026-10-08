@@ -98,6 +98,14 @@ describe("isTerminalSessionRecord", () => {
 		expect(isTerminalSessionRecord(record)).toBe(false);
 	});
 
+	it("劇本雜湊（v3）是字串才合法，沒有也合法", () => {
+		const record = cloneRecord();
+		record.scriptHash = "0123456789abcdef";
+		expect(isTerminalSessionRecord(record)).toBe(true);
+		record.scriptHash = 42;
+		expect(isTerminalSessionRecord(record)).toBe(false);
+	});
+
 	it("程序清單缺欄位不合法", () => {
 		const record = cloneRecord();
 		(record.shell as Record<string, unknown>).processes = [{ pid: 1 }];

@@ -140,6 +140,23 @@ describe("resolveShell", () => {
 		expect(useGameStore.getState().terminals[CRYO.id]?.transcript).toEqual(transcript);
 	});
 
+	it("劇本改版（存檔的雜湊對不上）：已過關的照存檔還原，還沒過關的用新版劇本重建（M12-4）", () => {
+		const played = resolveShell(new Map(), CRYO);
+		played.execute("cd ..");
+		const stale = { shell: played.toState(), transcript: [], scriptHash: "0000000000000000" };
+
+		useGameStore.getState().saveTerminalSession(CRYO.id, stale);
+		useGameStore.getState().markTerminalSolved(CRYO.id);
+		expect(resolveShell(new Map(), CRYO).cwd).toBe("/home");
+
+		useGameStore.setState({ progress: { ...useGameStore.getState().progress, solvedTerminals: [] } });
+		useGameStore.getState().saveTerminalSession(CRYO.id, stale);
+		const rebuilt = resolveShell(new Map(), CRYO);
+		expect(rebuilt.cwd).toBe(CRYO.initialCwd ?? "/home/tech");
+		expect(rebuilt.historyEntries).toEqual(["cd .."]);
+		expect(useGameStore.getState().terminals[CRYO.id]?.scriptHash).not.toBe("0000000000000000");
+	});
+
 	it("store 裡的 session 壞掉：丟掉重建並寫回一筆新的（M12-5）", () => {
 		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 		useGameStore.setState({
