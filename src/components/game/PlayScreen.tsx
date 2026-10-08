@@ -46,6 +46,7 @@ import {
 	type ChapterDefinition,
 	type TerminalDefinition,
 } from "@/game/story";
+import { currentObjectiveTerminal } from "@/game/story/currentObjective";
 import {
 	FLICKER_DURATION_MS,
 	novaErrorLine,
@@ -504,7 +505,11 @@ function PlayScreenReady() {
 	);
 
 	const character = progress.character ?? DEFAULT_CHARACTER;
-	const currentObjective = chapter.terminals.find((terminal) => !progress.solvedTerminals.includes(terminal.id));
+	// 目標跟著終端機走（M10-2）：開著的 > 附近的 > 第一台未過關的，已過關的不搶目標
+	const currentObjective = currentObjectiveTerminal(chapter.terminals, progress.solvedTerminals, {
+		openTerminalId: openTerminal?.definition.id ?? null,
+		nearbyTerminalId: nearbyTerminal?.id ?? null,
+	});
 	const justSolved = justSolvedId !== null ? findTerminal(justSolvedId) : undefined;
 	let objectiveTitle: string | null = null;
 	let objectiveDescription: string | undefined;

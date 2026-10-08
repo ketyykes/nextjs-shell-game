@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { ROOM_NAMES } from "@/game/phaser/events";
 import { VirtualFileSystem } from "@/game/shell/fs";
 import { Shell } from "@/game/shell/shell";
 import type { FsSnapshot, FsSnapshotEntry } from "@/game/shell/types";
@@ -262,6 +263,14 @@ describe("第一章文字", () => {
 	it("每台終端機都有 NOVA 過關台詞", () => {
 		for (const terminal of chapterOneLifeSupport.terminals) {
 			expect(terminal.nova?.onSolved?.length, terminal.id).toBeGreaterThan(0);
+		}
+	});
+
+	it("T3 到 T6 的目標說明寫出終端機所在的艙區，玩家看目標面板就知道要去哪", () => {
+		for (const id of ["ch1-t3", "ch1-t4", "ch1-t5", "ch1-t6"]) {
+			const terminal = findTerminal(id);
+			expect(terminal, id).toBeDefined();
+			expect(terminal?.objective.description ?? "", id).toContain(ROOM_NAMES[terminal!.roomId]);
 		}
 	});
 

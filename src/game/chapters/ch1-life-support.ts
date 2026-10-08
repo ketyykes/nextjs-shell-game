@@ -239,6 +239,7 @@ const quartersTerminal: TerminalDefinition = {
 	],
 	objective: {
 		title: "讀取阿彬最新的那份日誌",
+		description: "宿舍的共用終端機看得到每個人的家目錄。",
 		check: all(commandIs("cat"), catFile("/home/abin/day_900.txt")),
 	},
 	nova: {
@@ -337,6 +338,7 @@ const powerTerminal: TerminalDefinition = {
 	],
 	objective: {
 		title: "找到 B3 斷路器的重置碼",
+		description: "配電室的配電箱從家目錄開機，工單寫了文件在哪。",
 		check: catFile("/deck1/systems/power/breakers/B3/.override"),
 	},
 	// 讀到重置碼，燈一盞盞亮起，走廊盡頭人影站一幀（4.4 第 4 列）
@@ -440,6 +442,7 @@ const medbayTerminal: TerminalDefinition = {
 	],
 	objective: {
 		title: "找出 pod_06 的冷凍入艙表",
+		description: "醫療艙的病歷系統，索引對得出每份病歷是誰的。",
 		check: catFile(`/deck1/medbay/records/${POD_06_RECORD_ID}.txt`),
 	},
 	nova: {
@@ -535,6 +538,7 @@ const airlockTerminal: TerminalDefinition = {
 	],
 	objective: {
 		title: "用鑰匙檔打開主艙門",
+		description: "主艙門在走廊盡頭，門鎖檔寫著鑰匙檔的位置。",
 		check: catFile("/home/tech/pod_06/.key"),
 	},
 	// 門開，走廊燈亮向遠方（4.4 第 6 列）
