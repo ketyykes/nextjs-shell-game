@@ -22,12 +22,16 @@ export function createObjectiveDoneEntry(definition: TerminalDefinition): Output
 }
 
 /**
- * 過關當下要播的音效，重用 power（4.10 只有五種音效，不新增音檔）。
- * `powerRestored` 演出的終端機回傳 null：Station 在關掉終端機、燈亮起來時已經會播 power，
- * 這裡再播一次就變成同一次過關響兩聲，留給亮燈那一刻比較有戲。
+ * 過關當下要播的音效，重用 power（4.10 只有五種音效，不新增音檔）。兩種演出回傳 null：
+ * - `powerRestored`：Station 在關掉終端機、燈亮起來時已經會播 power，
+ *   這裡再播一次就變成同一次過關響兩聲，留給亮燈那一刻比較有戲。
+ * - `blackout`（第六章 kill NOVA）：Station 刻意不播音效，安靜地變黑；過關當下響「供電」的音效跟劇情相反。
+ *
+ * `openDoor` 照播：開門聲是關掉終端機後另一個音。`shadowFlash`、`flicker` 照播：Station 對這兩種不發音效。
  */
 export function solvedSoundFor(definition: TerminalDefinition): SfxName | null {
-	if (definition.effect?.kind === "powerRestored") {
+	const effectKind = definition.effect?.kind;
+	if (effectKind === "powerRestored" || effectKind === "blackout") {
 		return null;
 	}
 	return "power";

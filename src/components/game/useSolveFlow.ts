@@ -76,7 +76,7 @@ export function useSolveFlow({ pressure, onSolved }: UseSolveFlowOptions): UseSo
 			setJustSolvedId(definition.id);
 			window.setTimeout(() => setJustSolvedId(null), SOLVED_FLASH_MS);
 			emitGameEvent("puzzle:solved", { terminalId: definition.id });
-			// 過關音效（M10-1）：powerRestored 的那台交給 Station 亮燈時播，避免響兩次
+			// 過關音效（M10-1）：powerRestored 的那台交給 Station 亮燈時播，避免響兩次；blackout 的那台不播
 			const solvedSound = solvedSoundFor(definition);
 			if (solvedSound !== null) {
 				emitGameEvent("sfx:play", { sound: solvedSound });

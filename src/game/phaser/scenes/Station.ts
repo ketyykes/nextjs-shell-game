@@ -255,7 +255,8 @@ export class Station extends Phaser.Scene {
 	 * 依演出種類分派。只在場景執行中呼叫。
 	 * 沒宣告演出的終端機在地圖上沒有變化，過關回饋由 React 端的終端機畫面負責（「目標達成」行與過關當下的 power），
 	 * Phaser 這裡刻意不發音效，避免與終端機自己的過關提示疊在一起。
-	 * 例外是 `powerRestored`：React 端過關當下不播 power（`solvedFeedback.solvedSoundFor`），由亮燈這一刻播。
+	 * 例外是 `powerRestored`：React 端過關當下不播 power（`solvedFeedback.solvedSoundFor`），由亮燈這一刻播；
+	 * `blackout` 兩邊都不播。
 	 */
 	private runSolvedEffect(terminalId: string): void {
 		const effect = this.findEffect(terminalId);

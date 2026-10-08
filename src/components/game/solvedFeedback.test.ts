@@ -40,4 +40,13 @@ describe("solvedSoundFor", () => {
 		expect(solvedSoundFor(terminal("ch1-t4"))).toBeNull();
 		expect(solvedSoundFor(terminal("ch3-t4"))).toBeNull();
 	});
+
+	it("blackout 的終端機（第六章 T4）不播，Station 讓地圖安靜地變黑", () => {
+		expect(solvedSoundFor(terminal("ch6-t4"))).toBeNull();
+	});
+
+	it("閃燈與人影演出的終端機過關當下照常播 power（Station 對這兩種不發音效，不會重複）", () => {
+		expect(solvedSoundFor(terminal("ch2-t3"))).toBe("power");
+		expect(solvedSoundFor(terminal("ch2-t4"))).toBe("power");
+	});
 });
