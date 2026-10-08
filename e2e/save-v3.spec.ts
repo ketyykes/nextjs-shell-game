@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
-import { hold, seedSave, TERMINALS_PER_CHAPTER } from "./helpers/deck";
+import { enterPlay, seedSave, TERMINALS_PER_CHAPTER, walkToTerminal } from "./helpers/deck";
 
 /**
  * 存檔 v3：通關狀態與遊玩統計（M14-1）、存檔匯出匯入（M14-2）、劇本改版偵測（M12-4）。
@@ -149,16 +149,9 @@ test("存檔管理：匯入壞掉或版本太新的檔案會被拒絕，原本�
 	expect(await page.evaluate(() => window.localStorage.getItem("kepler9-save"))).toBe(before);
 });
 
-/** 走到第一章 T1 旁按 E；dev 伺服器剛編譯完會掉幀，看不到「按 E」就從角落重走。 */
+/** 閉環走到第一章 T1 前（以「按 E」提示為準）按 E 打開。 */
 async function openCryoTerminal(page: Page): Promise<void> {
-	const hint = page.getByTestId("interact-hint");
-	await page.waitForTimeout(500);
-	for (let attempt = 0; attempt < 3 && !(await hint.isVisible()); attempt += 1) {
-		await hold(page, ["ArrowUp", "ArrowLeft"], 2500);
-		await hold(page, ["ArrowRight"], 580);
-		await page.waitForTimeout(300);
-	}
-	await expect(hint).toBeVisible();
+	await walkToTerminal(page, 0, "冷凍艙控制台");
 	await page.keyboard.press("e");
 	await expect(page.getByTestId("terminal-modal")).toBeVisible();
 }
@@ -168,9 +161,7 @@ test("劇本改版：沒過關的終端機用新版劇本重建，輸出區多�
 	page.on("pageerror", (error) => pageErrors.push(error.message));
 
 	await seedSave(page, { chapter: 1, flags: ["ch1.introShown"] });
-	await page.goto("/play");
-	await expect(page.locator("main[data-scene-ready='true']")).toBeAttached({ timeout: 20000 });
-	await page.locator("canvas").click();
+	await enterPlay(page);
 	await openCryoTerminal(page);
 
 	const input = page.getByLabel("指令輸入");
@@ -186,9 +177,7 @@ test("劇本改版：沒過關的終端機用新版劇本重建，輸出區多�
 	await patchSave(page, (save) => {
 		(save.state.terminals as Record<string, { scriptHash: string }>)["ch1-t1"].scriptHash = "0000000000000000";
 	});
-	await page.goto("/play");
-	await expect(page.locator("main[data-scene-ready='true']")).toBeAttached({ timeout: 20000 });
-	await page.locator("canvas").click();
+	await enterPlay(page);
 	await openCryoTerminal(page);
 
 	await expect(page.getByText("這台終端機的資料已更新到新版本")).toBeVisible();
