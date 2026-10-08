@@ -24,6 +24,7 @@ interface HarnessProps {
 	initialEntries?: OutputEntry[];
 	learnedCommands?: string[];
 	textSpeed?: TextSpeed;
+	solved?: boolean;
 	onEntriesChange?: (next: OutputEntry[]) => void;
 	onExecuted?: (execution: ShellExecution) => void;
 	onClose?: () => void;
@@ -35,6 +36,7 @@ function Harness({
 	initialEntries = [],
 	learnedCommands = ["pwd", "ls"],
 	textSpeed = "instant",
+	solved,
 	onEntriesChange,
 	onExecuted,
 	onClose = () => {},
@@ -55,6 +57,7 @@ function Harness({
 			onClose={onClose}
 			learnedCommands={learnedCommands}
 			textSpeed={textSpeed}
+			solved={solved}
 		/>
 	);
 }
@@ -285,6 +288,19 @@ describe("Terminal", () => {
 	it("標題列顯示終端機名稱", () => {
 		render(<Harness />);
 		expect(screen.getByRole("heading", { name: "冷凍艙控制台" })).toBeDefined();
+	});
+
+	it("已過關的終端機在標題列標「已完成」，用青綠成功色", () => {
+		render(<Harness solved />);
+		const badge = screen.getByTestId("terminal-solved-badge");
+		expect(badge.textContent).toContain("已完成");
+		expect(badge.className).toContain("text-game-success");
+	});
+
+	it("還沒過關的終端機標題列沒有「已完成」", () => {
+		render(<Harness />);
+		expect(screen.queryByTestId("terminal-solved-badge")).toBeNull();
+		expect(screen.queryByText(/已完成/)).toBeNull();
 	});
 
 	it("點輸出區會把焦點放回輸入框", () => {

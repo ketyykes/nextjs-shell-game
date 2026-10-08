@@ -22,6 +22,7 @@ import { PauseMenu } from "@/components/game/PauseMenu";
 import { PhaserGameDynamic } from "@/components/game/PhaserGameDynamic";
 import { SceneCard, type SceneCardMessage } from "@/components/game/SceneCard";
 import { SidePanels } from "@/components/game/SidePanels";
+import { createObjectiveDoneEntry, solvedSoundFor } from "@/components/game/solvedFeedback";
 import { SettingsMenu } from "@/components/title/SettingsMenu";
 import { useNovaQueue } from "@/components/game/useNovaQueue";
 import { useScenePreload } from "@/components/game/useScenePreload";
@@ -480,10 +481,19 @@ function PlayScreenReady() {
 			setJustSolvedId(definition.id);
 			window.setTimeout(() => setJustSolvedId(null), SOLVED_FLASH_MS);
 			emitGameEvent("puzzle:solved", { terminalId: definition.id });
+			// 過關音效（M10-1）：powerRestored 的那台交給 Station 亮燈時播，避免響兩次
+			const solvedSound = solvedSoundFor(definition);
+			if (solvedSound !== null) {
+				emitGameEvent("sfx:play", { sound: solvedSound });
+			}
 
+			// 先插一行青綠的「目標達成」，再接 NOVA 的過關台詞
 			const solvedLines = definition.nova?.onSolved ?? [];
+			appendTranscript(definition.id, [
+				createObjectiveDoneEntry(definition),
+				...createDialogueEntries(`nova-solved-${definition.id}`, solvedLines),
+			]);
 			if (solvedLines.length > 0) {
-				appendTranscript(definition.id, createDialogueEntries(`nova-solved-${definition.id}`, solvedLines));
 				pendingSolvedLineRef.current = {
 					prefix: `solved-${definition.id}`,
 					text: solvedLines[solvedLines.length - 1],
@@ -614,6 +624,7 @@ interface TerminalModalProps {
 /** 蓋在地圖上的終端機彈窗：後面的地圖變暗但看得到（4.9）。 */
 function TerminalModal({ definition, shell, textSpeed, onClose, onExecuted }: TerminalModalProps) {
 	const record = useGameStore((state) => state.terminals[definition.id]);
+	const solved = useGameStore((state) => state.progress.solvedTerminals.includes(definition.id));
 	const saveTerminalSession = useGameStore((state) => state.saveTerminalSession);
 	const appendTranscript = useGameStore((state) => state.appendTranscript);
 	const entries = record?.transcript ?? [];
@@ -665,6 +676,7 @@ function TerminalModal({ definition, shell, textSpeed, onClose, onExecuted }: Te
 					onClose={onClose}
 					learnedCommands={shell.learnedCommands}
 					textSpeed={textSpeed}
+					solved={solved}
 				/>
 			</div>
 		</motion.div>

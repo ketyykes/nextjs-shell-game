@@ -103,6 +103,9 @@ test.describe("/play 地圖與終端機", () => {
 		await expect(page.getByText("O2 100%")).toBeVisible();
 		await expect(page.getByTestId("objective-checkbox")).toHaveText("☑");
 		await expect(page.getByTestId("objective-progress")).toHaveText("1/6");
+		// 終端機內先出現青綠的「目標達成」系統行，標題列標已完成（M10-1）
+		await expect(page.getByText("☑ 目標達成：讀取冷凍艙的喚醒排程")).toBeVisible();
+		await expect(page.getByTestId("terminal-solved-badge")).toHaveText("☑ 已完成");
 		// 終端機內嵌的 NOVA 過關台詞
 		await expect(page.getByText("第六個").first()).toBeVisible();
 		// 底部已學列更新

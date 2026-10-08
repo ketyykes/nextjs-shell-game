@@ -109,4 +109,17 @@ describe("OutputBlock", () => {
 		expect(block?.className).toContain("text-game-dim");
 		expect(block?.textContent).toBe("help  hint  history");
 	});
+
+	it("tone 為 success 的 system 區塊用青綠成功色，不用暗色", () => {
+		const { container } = render(
+			<OutputBlock
+				entry={{ kind: "system", id: "s-1", tone: "success", lines: ["☑ 目標達成：讀取冷凍艙的喚醒排程"] }}
+			/>,
+		);
+
+		const block = container.firstElementChild;
+		expect(block?.className).toContain("text-game-success");
+		expect(block?.className).not.toContain("text-game-dim");
+		expect(block?.textContent).toBe("☑ 目標達成：讀取冷凍艙的喚醒排程");
+	});
 });

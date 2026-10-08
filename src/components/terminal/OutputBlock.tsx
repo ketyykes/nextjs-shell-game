@@ -21,12 +21,16 @@ const LINE_CLASS = "break-all whitespace-pre-wrap";
 /**
  * 渲染一筆指令輸出或系統訊息。
  * - `command`：第一行是提示符加玩家輸入，接著每行輸出；錯誤輸出用琥珀色。
- * - `system`：不是玩家打的（歡迎行、Tab 候選列表），用暗色。
+ * - `system`：不是玩家打的（歡迎行、Tab 候選列表），用暗色；`tone: "success"`（過關的「目標達成」行）用青綠成功色。
  */
 export function OutputBlock({ entry }: OutputBlockProps) {
 	if (entry.kind === "system") {
+		let toneClass = "text-game-dim";
+		if (entry.tone === "success") {
+			toneClass = "text-game-success";
+		}
 		return (
-			<div className="text-game-dim" data-entry-kind="system">
+			<div className={toneClass} data-entry-kind="system">
 				{entry.lines.map((line, index) => (
 					<div key={index} className={LINE_CLASS}>
 						{displayLine(line)}

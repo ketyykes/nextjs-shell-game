@@ -27,6 +27,8 @@ export interface TerminalProps {
 	learnedCommands: string[];
 	/** NOVA 對話區塊的打字速度 */
 	textSpeed: TextSpeed;
+	/** 這台終端機已過關，標題列標「已完成」 */
+	solved?: boolean;
 }
 
 /** 距離底部多少 px 以內算「黏在底部」，打字動畫撐高內容時才跟著捲。 */
@@ -45,6 +47,7 @@ export function Terminal({
 	onClose,
 	learnedCommands,
 	textSpeed,
+	solved = false,
 }: TerminalProps) {
 	const inputRef = useRef<HTMLInputElement>(null);
 	const scrollRef = useRef<HTMLDivElement>(null);
@@ -117,7 +120,7 @@ export function Terminal({
 
 	return (
 		<div className="flex h-full w-full max-w-4xl" onClick={focusInput}>
-			<TerminalFrame title={title} learnedCommands={learnedCommands} onClose={onClose}>
+			<TerminalFrame title={title} learnedCommands={learnedCommands} onClose={onClose} solved={solved}>
 				<div ref={scrollRef} onScroll={handleScroll} className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
 					<div role="log" aria-label="終端機輸出">
 						{entries.map((entry) => {

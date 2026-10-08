@@ -115,6 +115,11 @@ export type OutputEntry =
 			id: string;
 			/** 不是玩家打的，例如開啟終端機時的歡迎行或 Tab 候選列表。 */
 			lines: string[];
+			/**
+			 * 選填的語氣，沒給就是一般系統訊息（暗色）；`success` 是過關的「目標達成」行（青綠，4.9）。
+			 * 選填是為了相容舊存檔：舊的 system 紀錄沒有這個欄位，照舊顯示暗色。
+			 */
+			tone?: "success";
 	  }
 	| {
 			kind: "dialogue";

@@ -14,6 +14,8 @@ export interface TerminalFrameProps {
 	onClose?: () => void;
 	/** 隱藏「已學／提示：輸入 hint」底部列（不能打字的過場畫面用，免得誤導）。 */
 	hideFooter?: boolean;
+	/** 這台終端機已過關時 true，標題列標「已完成」。 */
+	solved?: boolean;
 	children: ReactNode;
 }
 
@@ -24,7 +26,14 @@ const CRT_DURATION_SECONDS = 0.18;
  * 終端機彈窗外框：像素 9-slice 邊框、標題列、底部列與 CRT 開關機動畫。
  * 高度由父層決定，內容區是 flex column，子元素自己決定誰要 `flex-1`。
  */
-export function TerminalFrame({ title, learnedCommands, onClose, hideFooter = false, children }: TerminalFrameProps) {
+export function TerminalFrame({
+	title,
+	learnedCommands,
+	onClose,
+	hideFooter = false,
+	solved = false,
+	children,
+}: TerminalFrameProps) {
 	let learnedText = "（過關後記錄）";
 	if (learnedCommands.length > 0) {
 		learnedText = learnedCommands.join(" ");
@@ -44,7 +53,14 @@ export function TerminalFrame({ title, learnedCommands, onClose, hideFooter = fa
 			)}
 		>
 			<div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-game-holo/40 px-3 py-1">
-				<h2 className="truncate text-game-holo">{title}</h2>
+				<div className="flex min-w-0 items-baseline gap-3">
+					<h2 className="truncate text-game-holo">{title}</h2>
+					{solved && (
+						<span className="shrink-0 text-game-success" data-testid="terminal-solved-badge">
+							☑ 已完成
+						</span>
+					)}
+				</div>
 				{onClose !== undefined && (
 					<button
 						type="button"
