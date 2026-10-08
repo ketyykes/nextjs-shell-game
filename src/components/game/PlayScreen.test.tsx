@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import type { ComponentProps } from "react";
+import { Profiler, type ComponentProps } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { getChapter } from "@/game/chapters";
 import { emitGameEvent, onGameEvent } from "@/game/phaser/EventBus";
@@ -626,7 +626,7 @@ describe("PlayScreen 章節結束", () => {
 	});
 });
 
-describe("PlayScreen 訂閱穩定性（A4）", () => {
+describe("PlayScreen 訂閱穩定性（A4、A19）", () => {
 	it("Phaser 事件只在掛載時訂閱一次，之後的 render 不會拆掉重掛", () => {
 		seedSave({ storyFlags: {} });
 		render(<PlayScreen />);
@@ -643,5 +643,20 @@ describe("PlayScreen 訂閱穩定性（A4）", () => {
 		fireEvent.click(screen.getAllByText("NOVA 下一則")[0]);
 
 		expect(vi.mocked(onGameEvent)).toHaveBeenCalledTimes(5);
+	});
+
+	it("角色停下存位置不會讓整個畫面重新 render", () => {
+		const onRender = vi.fn();
+		render(
+			<Profiler id="play" onRender={onRender}>
+				<PlayScreen />
+			</Profiler>,
+		);
+		onRender.mockClear();
+
+		emit("player:stopped", { x: 10, y: 20, roomId: "cryo" });
+
+		expect(useGameStore.getState().progress.position).toEqual({ chapter: 1, x: 10, y: 20, roomId: "cryo" });
+		expect(onRender).not.toHaveBeenCalled();
 	});
 });

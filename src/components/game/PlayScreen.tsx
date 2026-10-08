@@ -15,6 +15,7 @@
 import { AnimatePresence } from "motion/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { ChapterEndScreen } from "@/components/game/ChapterEndScreen";
 import { shouldShowControlsHint } from "@/components/game/ControlsHint";
 import { CrtOverlay } from "@/components/game/CrtOverlay";
@@ -43,7 +44,7 @@ import { ENDING_LINES } from "@/game/chapters/ending";
 import { ROOM_NAMES, type GameEventMap, type RoomId } from "@/game/phaser/events";
 import { novaPortraitFor, type TerminalDefinition } from "@/game/story";
 import { endingImage, outroImageForChapter, sceneImageForRoom } from "@/game/story/scenes";
-import { selectOxygen, selectProgress, selectSettings, useGameStore, useStoreHydration } from "@/game/store";
+import { selectOxygen, selectSettings, useGameStore, useStoreHydration } from "@/game/store";
 import type { CharacterId } from "@/game/store/types";
 
 export function PlayScreen() {
@@ -74,13 +75,18 @@ interface PlayScreenReadyProps {
 
 /** 讀檔完成後才掛載，所以這裡的 store 讀寫都安全。 */
 function PlayScreenReady({ character }: PlayScreenReadyProps) {
-	const progress = useGameStore(selectProgress);
-	const { chapter: chapterNumber, solvedTerminals, learnedCommands } = progress;
+	// 只訂閱用得到的欄位：角色停下存位置、存檔時間這些 progress 變動不會讓整頁重新 render（A4）
+	const { chapterNumber, solvedTerminals, learnedCommands } = useGameStore(
+		useShallow((state) => ({
+			chapterNumber: state.progress.chapter,
+			solvedTerminals: state.progress.solvedTerminals,
+			learnedCommands: state.progress.learnedCommands,
+		})),
+	);
 	const settings = useGameStore(selectSettings);
 	const oxygen = useGameStore(selectOxygen);
-	const storyFlags = useGameStore((state) => state.storyFlags);
 	const updateSettings = useGameStore((state) => state.updateSettings);
-	const novaPortrait = novaPortraitFor(chapterNumber, storyFlags);
+	const novaPortrait = useGameStore((state) => novaPortraitFor(chapterNumber, state.storyFlags));
 	const router = useRouter();
 
 	// 目前章節：劇本、地圖、演出都從它來；換章是整頁重載（#31），所以掛載期間不會變
