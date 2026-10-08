@@ -25,6 +25,7 @@ import { PhaserGameDynamic } from "@/components/game/PhaserGameDynamic";
 import { SceneCard, type SceneCardMessage } from "@/components/game/SceneCard";
 import { SidePanels } from "@/components/game/SidePanels";
 import { createObjectiveDoneEntry, solvedSoundFor } from "@/components/game/solvedFeedback";
+import { createTerminalSession } from "@/components/game/terminalSession";
 import { SettingsMenu } from "@/components/title/SettingsMenu";
 import { useNovaQueue } from "@/components/game/useNovaQueue";
 import { useScenePreload } from "@/components/game/useScenePreload";
@@ -35,8 +36,7 @@ import { chapterTeaches, findTerminal, getChapter, getNextChapter, isChapterComp
 import { ENDING_LINES } from "@/game/chapters/ending";
 import { emitGameEvent, onGameEvent } from "@/game/phaser/EventBus";
 import { ROOM_NAMES, type RoomId, type SolvedEffect } from "@/game/phaser/events";
-import { VirtualFileSystem } from "@/game/shell/fs";
-import { Shell } from "@/game/shell/shell";
+import type { Shell } from "@/game/shell/shell";
 import type { ShellExecution } from "@/game/shell/types";
 import {
 	createObjectiveContext,
@@ -58,7 +58,7 @@ import {
 } from "@/game/story/pressure";
 import { endingImage, outroImageForChapter, sceneImageForRoom } from "@/game/story/scenes";
 import { selectOxygen, selectProgress, selectSettings, useGameStore, useStoreHydration } from "@/game/store";
-import type { CharacterId, OutputEntry, SettingsState, TerminalSessionRecord } from "@/game/store/types";
+import type { CharacterId, OutputEntry, SettingsState } from "@/game/store/types";
 
 /** 還沒做選角（M7-2）之前的預設外觀。 */
 const DEFAULT_CHARACTER: CharacterId = "a";
@@ -69,34 +69,6 @@ const SOLVED_FLASH_MS = 3000;
 /** `teaches` 可能是 `ls -a` 這種帶參數的字串，shell 的已學清單只認指令名。 */
 function toCommandName(teach: string): string {
 	return teach.split(/\s+/)[0] ?? teach;
-}
-
-/**
- * 依存檔建立或還原 Shell。
- * 有存過就從 `record.shell` 還原（含修改過的檔案系統），沒有就用劇本的初始快照。
- */
-function createShellForTerminal(
-	definition: TerminalDefinition,
-	learnedCommands: string[],
-	record: TerminalSessionRecord | undefined,
-): Shell {
-	const commandNames = learnedCommands.map(toCommandName);
-	if (record !== undefined) {
-		const shell = Shell.fromState(record.shell, VirtualFileSystem.fromSerialized(record.shell.fs), definition.hints);
-		for (const name of commandNames) {
-			shell.learn(name);
-		}
-		return shell;
-	}
-	return new Shell({
-		fs: VirtualFileSystem.fromSnapshot(definition.fs),
-		terminalId: definition.id,
-		hints: definition.hints,
-		learnedCommands: commandNames,
-		cwd: definition.initialCwd,
-		env: definition.env,
-		processes: definition.processes,
-	});
 }
 
 /** 這一章有演出的終端機 → 演出種類，經 registry 交給 Station。 */
@@ -110,14 +82,6 @@ function collectTerminalEffects(chapter: ChapterDefinition): Record<string, Solv
 	return effects;
 }
 
-/** 開啟終端機時的歡迎行，來自劇本的 `banner`。 */
-function createBannerEntries(definition: TerminalDefinition): OutputEntry[] {
-	if (definition.banner === undefined || definition.banner.length === 0) {
-		return [];
-	}
-	return [{ kind: "system", id: `banner-${definition.id}`, lines: definition.banner }];
-}
-
 /** 把 NOVA 的一串台詞變成終端機內嵌的對話區塊。id 前綴跟 Terminal 自己產的 `entry-` 區隔。 */
 function createDialogueEntries(prefix: string, lines: string[]): OutputEntry[] {
 	return lines.map((text, index) => ({ kind: "dialogue", id: `${prefix}-${index}`, speaker: "NOVA", text }));
@@ -129,7 +93,7 @@ interface OpenTerminal {
 }
 
 /**
- * 取得某台終端機的 Shell，沒有就建一個並記進快取，第一次開時寫第一筆 session 進 store。
+ * 取得某台終端機的 Shell，沒有就建一個並記進快取；第一次開或存檔壞掉重建時寫一筆新的 session 進 store。
  */
 function resolveShell(cache: Map<string, Shell>, definition: TerminalDefinition): Shell {
 	const existing = cache.get(definition.id);
@@ -137,10 +101,10 @@ function resolveShell(cache: Map<string, Shell>, definition: TerminalDefinition)
 		return existing;
 	}
 	const store = useGameStore.getState();
-	const record = store.terminals[definition.id];
-	const shell = createShellForTerminal(definition, store.progress.learnedCommands, record);
-	if (record === undefined) {
-		store.saveTerminalSession(definition.id, { shell: shell.toState(), transcript: createBannerEntries(definition) });
+	const commandNames = store.progress.learnedCommands.map(toCommandName);
+	const { shell, freshRecord } = createTerminalSession(definition, commandNames, store.terminals[definition.id]);
+	if (freshRecord !== null) {
+		store.saveTerminalSession(definition.id, freshRecord);
 	}
 	cache.set(definition.id, shell);
 	return shell;

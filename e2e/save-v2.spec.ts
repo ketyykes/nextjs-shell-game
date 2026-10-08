@@ -148,3 +148,45 @@ for (const viewport of [
 		}
 	});
 }
+
+test("某台終端機的存檔壞掉時，按 E 仍打得開，那台用劇本初始狀態重建", async ({ page }) => {
+	const errors: string[] = [];
+	page.on("pageerror", (error) => errors.push(error.message));
+
+	await seedSave(page, { chapter: 1, flags: ["ch1.introShown"] });
+	// JSON 合法，但 ch1-t1 的檔案系統少了 root（以前會在 terminal:open 裡丟例外，按 E 沒反應、Phaser 卡死）
+	await page.evaluate(() => {
+		const save = JSON.parse(window.localStorage.getItem("kepler9-save") as string);
+		save.state.terminals["ch1-t1"] = {
+			shell: { terminalId: "ch1-t1", cwd: "/home/tech", history: [], hintCount: 0, learnedCommands: [], fs: { version: 1 } },
+			transcript: [],
+		};
+		window.localStorage.setItem("kepler9-save", JSON.stringify(save));
+	});
+	await enterPlay(page);
+
+	// 貼左上角再往右到控制台下方；dev 伺服器第一次編譯時會掉幀走不夠，看不到「按 E」就從角落重走（只修正位置）
+	const hint = page.getByTestId("interact-hint");
+	for (let attempt = 0; attempt < 3 && !(await hint.isVisible()); attempt += 1) {
+		await hold(page, ["ArrowUp", "ArrowLeft"], 2500);
+		await hold(page, ["ArrowRight"], 580);
+		await page.waitForTimeout(300);
+	}
+	await expect(hint).toBeVisible();
+	await page.keyboard.press("e");
+
+	await expect(page.getByTestId("terminal-modal")).toBeVisible();
+	await expect(page.getByText("KEPLER-9 冷凍艙控制台 v2.3")).toBeVisible();
+	const input = page.getByLabel("指令輸入");
+	await input.fill("ls");
+	await input.press("Enter");
+	await expect(page.getByText("wake_up.txt", { exact: true })).toBeVisible();
+
+	// 重建的 session 已寫回存檔，檔案系統是完整的
+	const rootType = await page.evaluate(() => {
+		const save = JSON.parse(window.localStorage.getItem("kepler9-save") as string);
+		return save.state.terminals["ch1-t1"].shell.fs.root?.type ?? null;
+	});
+	expect(rootType).toBe("dir");
+	expect(errors).toEqual([]);
+});
