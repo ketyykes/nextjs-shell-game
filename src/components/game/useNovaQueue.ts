@@ -126,5 +126,9 @@ export function useNovaQueue(): UseNovaQueueResult {
 
 	const history = useMemo(() => state.tracked.filter(isSettled), [state.tracked]);
 
-	return { queue: state.queue, history, enqueue, dismiss, dropStaleRoomMessages, clear };
+	// 回傳值用 useMemo 固定：只有佇列或紀錄變了才換新物件，呼叫端放進 effect 依賴不會每次 render 都重跑（A19）
+	return useMemo(
+		() => ({ queue: state.queue, history, enqueue, dismiss, dropStaleRoomMessages, clear }),
+		[state.queue, history, enqueue, dismiss, dropStaleRoomMessages, clear],
+	);
 }

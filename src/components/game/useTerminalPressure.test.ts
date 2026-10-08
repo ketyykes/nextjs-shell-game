@@ -270,4 +270,13 @@ describe("useTerminalPressure", () => {
 		expect(onReaction).not.toHaveBeenCalled();
 		expect(vi.getTimerCount()).toBe(0);
 	});
+
+	it("重新 render（換初始次數或終端機）都回傳同一個物件（A19）", () => {
+		const { result, rerender } = setup({ terminalId: "ch1-t1", initialErrorCount: 0 });
+		const first = result.current;
+		rerender({ terminalId: "ch1-t1", initialErrorCount: 2 });
+		expect(result.current).toBe(first);
+		rerender({ terminalId: null, initialErrorCount: 0 });
+		expect(result.current).toBe(first);
+	});
 });

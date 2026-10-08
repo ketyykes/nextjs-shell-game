@@ -195,4 +195,23 @@ describe("history（對話紀錄）", () => {
 			{ id: "room-corridor-0", text: "走廊的台詞", status: "shown" },
 		]);
 	});
+
+	it("佇列與紀錄沒變時重新 render 回傳同一個物件，放進 effect 依賴不會每次重跑（A19）", () => {
+		const { result, rerender } = renderHook(() => useNovaQueue());
+		const first = result.current;
+		rerender();
+		expect(result.current).toBe(first);
+	});
+
+	it("佇列變動時回傳新物件，但函式本身維持同一個", () => {
+		const { result } = renderHook(() => useNovaQueue());
+		const first = result.current;
+		act(() => {
+			result.current.enqueue("intro", ["第一句"]);
+		});
+		expect(result.current).not.toBe(first);
+		expect(result.current.enqueue).toBe(first.enqueue);
+		expect(result.current.dismiss).toBe(first.dismiss);
+		expect(result.current.dropStaleRoomMessages).toBe(first.dropStaleRoomMessages);
+	});
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
 	checkIdle,
 	createPressureState,
@@ -42,6 +42,7 @@ export interface UseTerminalPressureResult {
  *   之後只會是重複提醒（`repeat: true`）；過關（`reset`）才清掉。
  * - 終端機開著時每 `IDLE_CHECK_INTERVAL_MS` 跑一次 `checkIdle`，關著或卸載時清掉 interval。
  * - callback 用 ref 保存最新的版本，interval 與回傳的函式都不會讀到舊的 closure。
+ * - 回傳的物件在 hook 存活期間都是同一個。
  */
 export function useTerminalPressure(options: UseTerminalPressureOptions): UseTerminalPressureResult {
 	const { terminalId, initialErrorCount, onReaction, onErrorCountChange } = options;
@@ -122,5 +123,6 @@ export function useTerminalPressure(options: UseTerminalPressureOptions): UseTer
 		onErrorCountChangeRef.current(0);
 	}, []);
 
-	return { recordExecution, reset };
+	// 兩個函式都不會變，回傳物件也固定成同一個，呼叫端的 useCallback 依賴它不會被打斷（A19）
+	return useMemo(() => ({ recordExecution, reset }), [recordExecution, reset]);
 }
