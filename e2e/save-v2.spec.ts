@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { enterPlay, hold, holdUntilRoom, seedSave } from "./helpers/deck";
+import { enterPlay, seedSave, walkToCorridor, walkToTerminal } from "./helpers/deck";
 
 /**
  * 存檔 v2 與第一版之後的小尾巴：角色位置存檔、選章、第六章 NOVA 立繪、關閉閃爍時的演出。
@@ -19,13 +19,8 @@ test("角色停下後位置寫進存檔，重新整理後從同一個艙區出�
 	await enterPlay(page);
 	await expect(page.getByTestId("hud-room")).toHaveText("冷凍艙");
 
-	// 跟 playChapter 同一條路：先貼左上角、往右到控制台下方，再貼上牆往右滑出門
-	await hold(page, ["ArrowUp", "ArrowLeft"], 2500);
-	await hold(page, ["ArrowRight"], 580);
-	await holdUntilRoom(page, ["ArrowUp", "ArrowRight"], "主走廊", 8000);
-	await page.keyboard.down("ArrowRight");
-	await page.waitForTimeout(400);
-	await page.keyboard.up("ArrowRight");
+	// 出冷凍艙的門到走廊中線，再往右走一段停下
+	await walkToCorridor(page, 320);
 
 	await expect.poll(async () => (await readProgress(page)).position, { timeout: 5000 }).toMatchObject({
 		chapter: 1,
@@ -118,9 +113,7 @@ for (const viewport of [
 		await seedSave(page, { chapter: 1 });
 		await enterPlay(page);
 		// 走到 T1 旁讓「按 E」出現；開場 NOVA 台詞還在說，對話框也在；T1 還沒過關，操作提示也在
-		await hold(page, ["ArrowUp", "ArrowLeft"], 2500);
-		await hold(page, ["ArrowRight"], 580);
-		await expect(page.getByTestId("interact-hint")).toBeVisible();
+		await walkToTerminal(page, 0, "冷凍艙控制台");
 		await expect(page.getByTestId("nova-dialogue")).toBeVisible();
 		await expect(page.getByTestId("controls-hint")).toBeVisible();
 

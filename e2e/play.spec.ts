@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { seedSave } from "./helpers/deck";
+import { seedSave, walkToTerminal } from "./helpers/deck";
 
 /**
  * M2 完成定義：瀏覽器可玩 M1 的指令，重新整理後歷史與進度還在。
@@ -8,7 +8,7 @@ import { seedSave } from "./helpers/deck";
 
 /**
  * 走到 T1 冷凍艙控制台並按 E 開啟終端機。出生點在冷凍艙中央，T1 在房間左上方。
- * 存檔 v2 起會還原角色位置，已經站在 T1 旁（提示已出現）就不走。
+ * 存檔 v2 起會還原角色位置，走路工具是讀座標的閉環，從哪裡出發都走得到。
  */
 async function openCryoTerminal(page: Page): Promise<void> {
 	// 等 Phaser 畫布出現，而且 Station 場景已建立（Preloader 還在載資源時按鍵會被吃掉）
@@ -18,31 +18,8 @@ async function openCryoTerminal(page: Page): Promise<void> {
 	// 場景剛就緒的第一幀鍵盤可能還沒接上，稍等再按
 	await page.waitForTimeout(300);
 
-	// 角色若已站在終端機旁（reload 還原位置），等 nearby 偵測跟上就好，不要再走路走離它
-	let reached = await page
-		.getByTestId("interact-hint")
-		.waitFor({ timeout: 1500 })
-		.then(() => true)
-		.catch(() => false);
-	// 往左走再往上走，直到 HUD 出現「按 E」提示；走偏就往下退回去重走一次
-	for (let attempt = 0; attempt < 3 && !reached; attempt += 1) {
-		await page.keyboard.down("ArrowLeft");
-		await page.waitForTimeout(700);
-		await page.keyboard.up("ArrowLeft");
-		await page.keyboard.down("ArrowUp");
-		reached = await page
-			.getByTestId("interact-hint")
-			.waitFor({ timeout: 3000 })
-			.then(() => true)
-			.catch(() => false);
-		await page.keyboard.up("ArrowUp");
-		if (!reached) {
-			await page.keyboard.down("ArrowDown");
-			await page.waitForTimeout(900);
-			await page.keyboard.up("ArrowDown");
-		}
-	}
-	await expect(page.getByTestId("interact-hint")).toBeVisible();
+	// 閉環走路：存檔 v2 會還原位置，已經站在終端機旁（例如 reload 後）就不會動
+	await walkToTerminal(page, 0, "冷凍艙控制台");
 
 	await page.keyboard.press("e");
 	await expect(page.getByTestId("terminal-modal")).toBeVisible();
