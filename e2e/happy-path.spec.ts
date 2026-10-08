@@ -39,7 +39,8 @@ test.describe("第一章 happy path", () => {
 		await page.keyboard.press("Enter");
 		await expect(page.getByText("查無此人").first()).toBeVisible();
 		await page.keyboard.press("Enter");
-		await expect(page).toHaveURL(/\/play$/);
+		// boot log 之後先播 3 秒的開場插圖卡（決策 #17）才導頁，機器忙時預設 5 秒的逾時不夠
+		await expect(page).toHaveURL(/\/play$/, { timeout: 20000 });
 		await expect(page.locator("main[data-scene-ready='true']")).toBeAttached({ timeout: 20000 });
 		await page.locator("canvas").click();
 		await page.waitForTimeout(300);
