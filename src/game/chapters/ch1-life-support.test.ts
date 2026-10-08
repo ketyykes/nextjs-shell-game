@@ -10,6 +10,7 @@ import { createObjectiveContext, evaluateObjective } from "@/game/story/objectiv
 import { validateChapter } from "@/game/story/schema";
 import { chapterOneLifeSupport } from "./ch1-life-support";
 import { findTerminal } from "./index";
+import { SOLUTIONS } from "./solutions";
 import type { TerminalDefinition } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -73,23 +74,6 @@ function runStep(shell: Shell, terminal: TerminalDefinition, input: string): { s
 	const context = createObjectiveContext(terminal.id, execution, shell.fs, shell.home);
 	return { solved: evaluateObjective(terminal, context), lines: execution.lines };
 }
-
-/** 每台終端機的正解序列，最後一步才過關。 */
-const SOLUTIONS: Record<string, string[]> = {
-	"ch1-t1": ["pwd", "ls", "cat wake_up.txt"],
-	"ch1-t2": ["ls", "cd oxygen", "cat status.txt", "cd ..", "cd power", "cat status.txt"],
-	"ch1-t3": ["ls", "cat roster.txt", "cd ~", "ls /home", "ls -l /home/abin", "cat /home/abin/day_900.txt"],
-	"ch1-t4": [
-		"cat work_order.txt",
-		"cat /deck1/systems/power/README.txt",
-		"cd /deck1/systems/power/breakers/B3",
-		"ls",
-		"ls -a",
-		"cat .override",
-	],
-	"ch1-t5": ["ls", "cat index.txt", "ls records", "history", "clear", "cat records/PT-2028-0601-QN0606.txt"],
-	"ch1-t6": ["cat lock.txt", "cd /home/tech/pod_06", "ls", "ls -a", "cat .key"],
-};
 
 /** 正解最後一步的輸出要包含的關鍵字，確認讀到的是對的檔案。 */
 const SOLUTION_OUTPUT: Record<string, string> = {

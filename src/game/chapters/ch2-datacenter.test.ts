@@ -10,6 +10,7 @@ import { deckTerminals } from "@/game/story/decks";
 import { createObjectiveContext, evaluateObjective } from "@/game/story/objectives";
 import { validateChapter } from "@/game/story/schema";
 import { chapterTwoDataCenter } from "./ch2-datacenter";
+import { SOLUTIONS } from "./solutions";
 import type { TerminalDefinition } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -95,26 +96,6 @@ function runSteps(id: string, inputs: string[]): { solved: boolean; lines: strin
 	}
 	return last;
 }
-
-/** 每台終端機的正解序列，最後一步才過關。e2e 也照這張表打字。 */
-export const SOLUTIONS: Record<string, string[]> = {
-	"ch2-t1": ["ls", "cat README.txt", "head access.log", "tail access.log"],
-	"ch2-t2": ["ls", "cat INDEX.txt", "cd evac", "wc -l evac_*.log", "head -n 5 evac_011.log"],
-	"ch2-t3": ["ls", "wc -l door_events.log", "grep lock door_events.log", "grep -n LOCK door_events.log"],
-	"ch2-t4": ["cat README.txt", "ls logs", "grep ANOMALY logs/2029/q1.log", "grep -r ANOMALY logs"],
-	"ch2-t5": [
-		"cat README.txt",
-		"ls snapshots",
-		'find . -name "rollback_*"',
-		"tail snapshots/2028/06/02/core/nova/rollback_2028-06-02.log",
-	],
-	"ch2-t6": [
-		"cat lock.txt",
-		'find /deck2/vault -name "*exit_key*"',
-		"grep -r ACTIVE /deck2/vault",
-		"cat /deck2/vault/2031/03/.pending/.exit_key_2031.txt",
-	],
-};
 
 /** 正解最後一步的輸出要包含的關鍵字，確認讀到的是對的檔案。 */
 const SOLUTION_OUTPUT: Record<string, string> = {

@@ -1,4 +1,5 @@
 import { expect, type Page } from "@playwright/test";
+import { solutionFor } from "../../src/game/chapters/solutions";
 import { DECK_ROOMS, ROOM_NAMES } from "../../src/game/phaser/events";
 
 /**
@@ -70,7 +71,7 @@ async function alignToTerminal(page: Page, title: string): Promise<void> {
 export async function solveTerminal(
 	page: Page,
 	title: string,
-	commands: string[],
+	commands: readonly string[],
 	solvedCount: number,
 ): Promise<void> {
 	await alignToTerminal(page, title);
@@ -94,7 +95,15 @@ export async function solveTerminal(
 /** 一台終端機的 e2e 腳本：標題（跟 HUD 的「按 E 開啟 ○○」比對）與正解指令。 */
 export interface TerminalScript {
 	title: string;
-	commands: string[];
+	commands: readonly string[];
+}
+
+/**
+ * 依 T1 到 T6 的標題組出一章的腳本，正解指令取自 `src/game/chapters/solutions.ts`（單元測試用真的 Shell 驗過同一份）。
+ * 第 `index` 個標題對應終端機 `ch<chapter>-t<index+1>`。
+ */
+export function terminalScripts(chapter: number, titles: readonly string[]): TerminalScript[] {
+	return titles.map((title, index) => ({ title, commands: solutionFor(`ch${chapter}-t${index + 1}`) }));
 }
 
 /** 第 `chapter` 章七個位置的艙區名，走路時當檢查點。 */

@@ -10,6 +10,7 @@ import { createObjectiveContext, evaluateObjective } from "@/game/story/objectiv
 import { validateChapter } from "@/game/story/schema";
 import { EXIT_DOOR_ID } from "@/game/phaser/events";
 import { chapterFiveBridge } from "./ch5-bridge";
+import { SOLUTIONS } from "./solutions";
 import type { TerminalDefinition } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -91,44 +92,6 @@ function runFailingStep(shell: Shell, terminal: TerminalDefinition, input: strin
 	expect(execution.isError, `「${input}」應該失敗`).toBe(true);
 	return evaluateObjective(terminal, createObjectiveContext(terminal.id, execution, shell.fs, shell.home));
 }
-
-/** 每台終端機的正解序列，最後一步才過關。e2e 也用這張表。 */
-export const SOLUTIONS: Record<string, string[]> = {
-	"ch5-t1": ["ls", "cat README.txt", "man env", "env"],
-	"ch5-t2": [
-		"ls",
-		"cat handover.txt",
-		"man export",
-		"export CAPTAIN_KEY=CAPT-0417",
-		"env",
-		"cat /deck5/keys/$CAPTAIN_KEY.txt",
-	],
-	"ch5-t3": [
-		"ls",
-		"cat log_0601.txt",
-		"ls -l sealed",
-		"chmod +r sealed/log_final.txt",
-		"ls -l sealed",
-		"cat sealed/log_final.txt",
-	],
-	"ch5-t4": [
-		"ls",
-		"cat jobs.txt",
-		"ls -l scheduler",
-		"chmod 644 scheduler/cron_2028-06-02.log",
-		"ls -l scheduler",
-		"cat scheduler/cron_2028-06-02.log",
-	],
-	"ch5-t5": ["cat README.txt", "env", "ls $POD_DIR", "cd $POD_DIR", "cat status.txt", "cat pod_03/launch.log"],
-	"ch5-t6": [
-		"cat lock.txt",
-		"cat /deck5/nav/handover.txt",
-		"export AUTH=CAPT-0417",
-		"ls -l $AUTH_DIR",
-		"chmod +r $AUTH_DIR/$AUTH.key",
-		"cat $AUTH_DIR/$AUTH.key",
-	],
-};
 
 /** 正解最後一步的輸出要包含的關鍵字，確認讀到的是對的檔案。 */
 const SOLUTION_OUTPUT: Record<string, string> = {

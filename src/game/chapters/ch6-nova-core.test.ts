@@ -9,6 +9,7 @@ import { deckTerminals } from "@/game/story/decks";
 import { createObjectiveContext, evaluateObjective } from "@/game/story/objectives";
 import { validateChapter } from "@/game/story/schema";
 import { chapterSixNovaCore } from "./ch6-nova-core";
+import { SOLUTIONS } from "./solutions";
 import type { TerminalDefinition } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -91,40 +92,6 @@ function runFailingStep(shell: Shell, terminal: TerminalDefinition, input: strin
 	const context = createObjectiveContext(terminal.id, execution, shell.fs, shell.home);
 	return { solved: evaluateObjective(terminal, context), lines: execution.lines };
 }
-
-/** 每台終端機的正解序列，最後一步才過關（e2e 也用這張表）。 */
-export const SOLUTIONS: Record<string, string[]> = {
-	"ch6-t1": ["ls", "cat welcome.txt", "cat access_log.txt", "ps"],
-	"ch6-t2": ["ls", "cat screens.txt", "cat mem_usage.log", "ps", "top"],
-	"ch6-t3": [
-		"cat README.txt",
-		"ps | grep nova",
-		"ls rollback",
-		"cat rollback/progress.txt",
-		'find /deck6/memory -name "nova_*"',
-		"cat core/self/nova_identity.txt",
-	],
-	"ch6-t4": ["cat core_status.txt", "ps", "kill -9 1207"],
-	"ch6-t5": [
-		"cat README.txt",
-		"ls crontab",
-		"grep -r pod_06 crontab",
-		"cat crontab/cron_2028-06-02",
-		"ps | grep scheduler",
-		"kill -9 1208",
-	],
-	"ch6-t6": [
-		"cat launch_procedure.txt",
-		"ls -l sealed",
-		"chmod +r sealed/launch_code.txt",
-		"cat sealed/launch_code.txt",
-		"echo EP-0606-ARGO > launch.txt",
-		"export PASSENGERS=1",
-		"env",
-		"ps",
-		"kill 47731",
-	],
-};
 
 /** 正解最後一步的輸出要包含的關鍵字，確認讀到的是對的東西。 */
 const SOLUTION_OUTPUT: Record<string, string> = {

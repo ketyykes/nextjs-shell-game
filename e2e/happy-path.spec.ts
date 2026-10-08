@@ -1,20 +1,21 @@
 import { expect, test } from "@playwright/test";
-import { passChapterEnd, playChapter, type TerminalScript } from "./helpers/deck";
+import { passChapterEnd, playChapter, terminalScripts, type TerminalScript } from "./helpers/deck";
 
 /**
  * 第一章 happy path：標題 → 新遊戲 → 選角 → boot log → 地圖，照劇本順序走到六台終端機各解一關，
  * 看到章節結束畫面，按「進入第 2 章」後地圖換成資料中心，回標題後存檔還在，整段沒有任何頁面錯誤。
  * 走路與解謎的共用工具在 `helpers/deck.ts`，第二章以後的 happy path 在 `chapters.spec.ts`。
+ * 每台打的是 `src/game/chapters/solutions.ts` 的完整正解序列，跟單元測試共用同一份。
  */
 
-const CHAPTER_ONE: TerminalScript[] = [
-	{ title: "冷凍艙控制台", commands: ["cat wake_up.txt"] },
-	{ title: "維生系統監控台", commands: ["cd power", "cat status.txt"] },
-	{ title: "宿舍終端機", commands: ["cat /home/abin/day_900.txt"] },
-	{ title: "配電箱", commands: ["cat /deck1/systems/power/breakers/B3/.override"] },
-	{ title: "醫療艙終端機", commands: ["cat records/PT-2028-0601-QN0606.txt"] },
-	{ title: "艙門控制台", commands: ["cat /home/tech/pod_06/.key"] },
-];
+const CHAPTER_ONE: TerminalScript[] = terminalScripts(1, [
+	"冷凍艙控制台",
+	"維生系統監控台",
+	"宿舍終端機",
+	"配電箱",
+	"醫療艙終端機",
+	"艙門控制台",
+]);
 
 test.describe("第一章 happy path", () => {
 	test.setTimeout(180_000);

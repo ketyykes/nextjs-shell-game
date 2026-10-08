@@ -10,6 +10,7 @@ import { createObjectiveContext, evaluateObjective } from "@/game/story/objectiv
 import { validateChapter } from "@/game/story/schema";
 import { EXIT_DOOR_ID } from "@/game/phaser/events";
 import { chapterFourComms } from "./ch4-comms";
+import { SOLUTIONS } from "./solutions";
 import type { TerminalDefinition } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -91,26 +92,6 @@ function runAll(terminal: TerminalDefinition, inputs: string[]): { shell: Shell;
 	const solved = inputs.map((input) => runStep(shell, terminal, input).solved);
 	return { shell, solved };
 }
-
-/** 每台終端機的正解序列，最後一步才過關；e2e 也用這張表。 */
-export const SOLUTIONS: Record<string, string[]> = {
-	"ch4-t1": ["ls", "cat register.txt", "echo KEPLER-9", "echo KEPLER-9 > callsign.txt"],
-	"ch4-t2": ["ls", "cat README.txt", "ls stations | wc -l", "grep 回應 ping.log", "grep 回應 ping.log | tail -n 1"],
-	"ch4-t3": ["ls", "cat README.txt", "cat pointing.log", "sort pointing.log | tail -n 1"],
-	"ch4-t4": [
-		"ls fragments",
-		"cat fragments/part_01.txt",
-		"sort fragments/*",
-		"sort fragments/* | uniq -c",
-		"sort fragments/* | uniq > signal.txt",
-	],
-	"ch4-t5": ["ls", "cat README.txt", "cat outbox.txt", "cat signal.txt >> outbox.txt", "cat tx.log"],
-	"ch4-t6": [
-		"cat lock.txt",
-		"ls /deck4/comms",
-		"cat /deck4/comms/callsign.txt /deck4/comms/signal.txt > manifest.txt",
-	],
-};
 
 /** 正解最後一步之後，用這一行確認結果（輸出要含 `SOLUTION_OUTPUT`）。沒寫就看最後一步本身的輸出。 */
 const SOLUTION_CHECK: Record<string, string> = {

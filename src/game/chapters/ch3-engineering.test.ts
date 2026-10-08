@@ -10,6 +10,7 @@ import { deckTerminals } from "@/game/story/decks";
 import { createObjectiveContext, evaluateObjective } from "@/game/story/objectives";
 import { validateChapter } from "@/game/story/schema";
 import { chapterThreeEngineering } from "./ch3-engineering";
+import { SOLUTIONS } from "./solutions";
 import type { TerminalDefinition } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -90,44 +91,6 @@ function runSteps(terminal: TerminalDefinition, inputs: string[]): boolean[] {
 	const shell = openTerminal(terminal);
 	return inputs.map((input) => runStep(shell, terminal, input).solved);
 }
-
-/** 每台終端機的正解序列，最後一步才過關（e2e 也用這張表）。 */
-export const SOLUTIONS: Record<string, string[]> = {
-	"ch3-t1": ["ls", "ls -a", "cat work_order.txt", "mkdir repair"],
-	"ch3-t2": [
-		"ls",
-		"cat README.txt",
-		"ls backup",
-		"cat backup/core.cfg",
-		"cp backup/core.cfg ~/repair/",
-		"touch ~/repair/NOTES.txt",
-	],
-	"ch3-t3": ["cat README.txt", "ls", "ls -la", "cat .bash_history", "mv .parts_list.txt inventory/parts_list.txt"],
-	"ch3-t4": [
-		"cat status.txt",
-		"ls",
-		"rm startup.lock",
-		"rm -r config.corrupt",
-		"mkdir config",
-		"cp ~/repair/core.cfg config/",
-	],
-	"ch3-t5": [
-		"ls",
-		"cat backup_policy.txt",
-		"cat rollback.log",
-		"cd /deck3/reactor",
-		"ls",
-		"cp -r config config.bak",
-	],
-	"ch3-t6": [
-		"cat door_lock.txt",
-		"ls /deck3/reactor/config",
-		"ls -a /deck3/reactor/config",
-		"cat /deck3/reactor/config/.moved_by_nova",
-		"mkdir -p auth/keys",
-		"cp /var/nova/hold/launch_key auth/keys/",
-	],
-};
 
 /** 正解最後一步執行後，要在檔案系統裡看到的結果：[路徑, 內容要包含的字]。 */
 const SOLUTION_RESULT: Record<string, [string, string]> = {
