@@ -18,11 +18,11 @@
 
 | 項目 | 內容 |
 |---|---|
-| 更新日期 | 2026-10-08 |
-| 最新 commit | 見 `git log --oneline -12`：第十一場補引號外反斜線跳脫與 grep `-w`、`-o`；第十二場（自主迭代）做門面（README、OG、icon、robots/sitemap、CI）、場景圖壓縮、UX 訊息修正與十一處劇情時間線修正 |
-| 目前階段 | **M0 到 M9 全部完成**；第十三場依審計結果排出 **M10 到 M14**（優化路線，見第 3 節，證據在 [`audit-2026-10-08.md`](./audit-2026-10-08.md)），都還沒動工；第九場用 playwright-cli 從標題一路真玩到片尾（六章 36 台終端機、零頁面錯誤），抓到四個 bug 並全部修掉（見第 7 節第九場與第 8 節 #37 到 #39）。Danny 本人還沒玩過第二章以後 |
-| 程式碼狀態 | 標題 → 選角 → boot log → 六章地圖 → 片尾。`pnpm test --run` 88 個測試檔 1861 個測試全綠，`npx tsc --noEmit` 與 `pnpm lint` 乾淨；`PORT=3001 pnpm test:e2e` 26 個全綠（M9 新增 `save-v2.spec.ts` 7 個）。六章插圖 44 張全部到齊，場景 PNG 已 256 色量化（18.8MB → 8.3MB） |
-| 下一步 | **M10 玩家體驗與引導**（Danny 指定先做這批）。M10 到 M14 的順序是 Danny 定的第一批加我排的後續，動工時每批先對照 `audit-2026-10-08.md` 重新核對行號。Danny 的試玩與潤稿照舊並行（標題「繼續」或 `e2e/helpers/deck.ts` 的 `seedSave` 可直接種到第 N 章） |
+| 更新日期 | 2026-10-09 |
+| 最新 commit | 見 `git log --oneline -20`：第十四場（`/loop` 自主實作）從 `ef64bd3` 起約 120 個 commit，做完 M10 到 M14 全部 26 項，再用三個整合審查 agent 找出 12 個跨組 bug 並修掉 |
+| 目前階段 | **M0 到 M14 全部完成**。M10 到 M14 是第十三場審計排出的優化路線（證據在 [`audit-2026-10-08.md`](./audit-2026-10-08.md)），第十四場由十幾個 agent 平行實作、我逐組合併驗證；這次的自主決策在第 8 節 #62 到 #100，**等 Danny 確認**。Danny 本人還沒玩過第二章以後，也還沒看過 M10 到 M14 的新東西 |
+| 程式碼狀態 | 標題（含觸控提示、練習模式、存檔管理、通關紀錄）→ 選角 → boot log → 六章地圖 → 片尾。`pnpm test --run` 148 個測試檔 2811 個測試全綠，`npx tsc --noEmit`、`pnpm lint`、`pnpm build` 乾淨；`PORT=3300 pnpm test:e2e` 48 個全綠、沒有 flaky（e2e 走路改成讀座標的閉環，本機 4 個 worker）。存檔格式 v3 |
+| 下一步 | 第 9 節的候選工作：Danny 試玩（特別是 M10 的引導、M13 的新指令、沙盒、存檔管理與通關紀錄）、確認第 8 節 #62 到 #100、第 4 節的試聽與潤稿、部署。審計末尾「這次沒選的項目」仍可挑 |
 | 遠端 | `origin` 是 HTTPS 網址 `https://github.com/ketyykes/nextjs-shell-game.git`，2026-10-08 Danny 親自 push 到 `ef64bd3`；之後的 commit push 前先問 Danny |
 
 ## 2. 里程碑總覽
@@ -282,7 +282,7 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 - **Phaser 鍵盤的三個坑**：（1）`createCursorKeys()` 會連 SPACE、SHIFT 一起 capture，而且 capture 是整個 window 共用，終端機輸入框會打不出空白，所以 Player 用 `addKeys` 分開註冊、WASD 不 capture；（2）`JustDown` 靠 `Key.onUp` 會清掉的旗標，keydown 與 keyup 同一幀時（自動化測試的 `press`）會漏掉，要用 `key.on("down")` 事件；（3）`game.destroy()` 是排到下一個 step 才拆 canvas，React StrictMode 同步建立再立刻 destroy 會留下兩層 canvas，`PhaserGame` 改成 `requestAnimationFrame` 延後一幀建立。
 - **地圖契約**：圖層與物件命名在 `src/game/phaser/constants.ts`，腳本 `scripts/build-map.mjs` 與 `Station.ts` 兩邊都照它；`map.test.ts` 會檢查 `deck1.json` 跟 `buildMap(DEFAULT_LAYOUT)` 一致，所以用 Tiled 手改地圖後要同步更新腳本或改測試。Tiled 1.9 以後的 `class` 欄位 Phaser 不讀，物件要用 `type`。警示條邊框是「地板的邊緣」放 `floor` 層可走，真正的牆是深色片放 `walls` 層。
 - **store 的使用規則**：`@/game/store` 的 index 帶 React hook，只能在 client component import，純邏輯或 server component 用 `@/game/store/types`。**讀檔完成前不要呼叫任何 action**（每次 `set` 都會寫 localStorage，會把預設值蓋掉存檔），依賴存檔的畫面都要先等 `useStoreHydration()` 回 true。selector 不要回傳新組的物件，多欄位用 `useShallow`。
-- **Terminal 元件的整合規則**：`shell` 必須是同一個實例（`useState` 保住），每次 render 都 `new Shell` 會重置 cwd 與歷史。`entries` 由父層持有並整批替換，`clear` 會傳空陣列。掛載當下就在 `entries` 裡的 dialogue 不重播打字動畫，要播的 NOVA 台詞得在掛載後才 push。Esc 有 `preventDefault` 也有 `stopPropagation`（原因見下一條）。
+- **Terminal 元件的整合規則**：`shell` 必須是同一個實例（`useState` 保住），每次 render 都 `new Shell` 會重置 cwd 與歷史。`entries` 由父層持有並整批替換，`clear` 會傳空陣列。掛載當下就在 `entries` 裡的 dialogue 不重播打字動畫，要播的 NOVA 台詞得在掛載後才 push。Esc 有 `preventDefault` 也有 `stopPropagation`（原因見下一條）。 less 分頁器開著時輸出區與輸入列藏起來（不卸載），點終端機任何地方焦點回到分頁器，搜尋模式時回到搜尋框；分頁器只攔它認得的鍵，F5、F12、Tab 照常給瀏覽器。
 - **window 的 keydown 監聽會接到「讓它掛上去的那個事件」**：暫停選單的 Esc 監聽（M11-2 起在 `usePauseMenu`）掛在 window，而且在終端機關閉（state 變更）的同一個 keydown 事件裡由 effect 重新掛回去。React 對離散事件會同步 flush effect，而 DOM 規範只禁止「同一個 target 在派送中新增的監聽」被觸發，window 是上層的另一個 target，所以同一下 Esc 關了終端機又打開暫停選單。2026-10-01 第七場踩到，修法是終端機的 Escape handler 加 `stopPropagation`。同類結構（元件 A 處理某鍵後卸載、元件 B 在 window 聽同一個鍵）都會中招，先懷疑這個。之前 e2e 的回標題測試用重試迴圈「按到暫停選單開為止」，剛好把這個 bug 蓋掉了，e2e 裡的重試迴圈要小心。
 - **暫停選單開著時 Phaser 場景沒暫停**：`game:pause` 只關角色輸入，場景照跑（燈光脈動、NOVA 對話不受影響），所以 Phaser 這邊聽的鍵（E 開終端機）要自己擋。`TerminalZones.setInteractEnabled` 由 Station 在 `game:pause`／`game:resume` 切換；之後新增 Phaser 端的按鍵都要走同一條路。
 - **e2e 走路是讀座標的閉環（M11-6）**：開發模式下 Station 把角色狀態掛在 `window.__kepler9Player.read()`（`{x, y, roomId, inputEnabled}`，sprite 中心座標；正式 build 不掛；刻意不併進 `__kepler9`，因為 `usePhaserBridge` 會整個指定再整個 delete 那個物件）。`e2e/helpers/deck.ts` 的 `walkToTerminal(page, index, title)`、`walkToCorridor(page, x)` 從任何位置規劃路徑點（房間 → 門口內側 → 走廊中線 y 352 → 目標門口 → 終端機前），在頁面裡逐幀讀座標，到放開點就放開，並量放開後滑多遠修正下一次，最後以「按 E 開啟 ○○」為準。不要再寫 `waitForTimeout` 計時走路。幾個坑：（1）門一格寬、碰撞盒 20，中心要在門中心 ±6 px 內，所以穿門那段 x 容錯是 6，同時按水平鍵讓角色沿牆滑進門；（2）橫越走廊一律沿中線，貼著上下牆走會被同一欄的對面門吸進去（門都在 x 208、592、976）；（3）keydown 和 keyup 落在同一幀時 Phaser 讀不到按下，「點一下」可能完全沒動，閉環要求至少動 0.5 px 才算到；（4）改平面圖（`build-map.mjs`）要同步改 `deck.ts` 的 `SLOT_GEOMETRY`；（5）查 flaky 時加 `E2E_WALK_DEBUG=1`，會印出每段的輪數、卡住次數和滑行估計值。脫困邏輯（對準另一軸、往反方向退）約 900 段路都沒觸發過，實戰沒驗到。
@@ -294,7 +294,7 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
   - 快照的 key 不可含 `/`、空字串、`.`、`..`；目錄裡不要放名叫 `$type` 的子項，那是型別標記。
   - 路徑的 `..` 是純字串化簡，`wake_up.txt/..` 不會報 ENOTDIR；對檔案加結尾斜線會報 ENOTDIR。`~user` 不支援。
   - 解析器對整行掃全形字元，包括引號內；彎引號 `“”‘’` 也算全形（中文輸入法按 `"` 會打出來）。反斜線跳脫過的 word 整個不做萬用字元展開（跟引號同一個簡化，bash 只讓被跳脫的那個字元失效），例如 `\*.log*` 的結尾 `*` 也不展開。
-  - 補全只處理游標在結尾，用空白切 token 不走 tokenizer；`cd ..` 與 `cd ~` 不帶斜線按 Tab 沒有候選。
+  - 補全只處理游標在結尾，用空白與 `;`、`|`、`&` 切 token 不走 tokenizer；`cd ..` 與 `cd ~` 不帶斜線按 Tab 沒有候選。
   - `ls -l` 的日期固定用 UTC 顯示，劇本寫 mtime 時要自己算好想給玩家看的時間。
   - `messages.notADirectory` 的文案偏向 `cd`，`ls wake_up.txt/inner` 這種路徑中間是檔案的情況語意稍偏，之後可讓它帶指令名。
   - grep 不支援 `[.ch.]`、`[=e=]`、`-G`、`-P`、`-x`；`-i [[:upper:]]` 不跟 glibc 一樣配到中文。
@@ -312,6 +312,16 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 ## 7. 工作日誌
 
 每次 session 收工加一筆，最新在最上面。格式：日期、做了什麼、commit 範圍、下一步。
+
+### 2026-10-09（第十四場，`/loop` 自主實作 M10 到 M14）
+
+- Danny 下 `/loop`：「到 10/9 上午十點前，依照 `audit-2026-10-08.md` 的計畫開始實作，允許多開 subagent 加速，做完必須自我驗證」，之後離線。照記憶裡的自主規則，不確定的自己拍板、記進第 8 節。
+- 做法：每個 agent 在自己的 git worktree 實作一組任務（TDD、各自跑單元測試／lint／tsc，只跑指定的短 e2e），我逐組 cherry-pick 或 fast-forward 進 main、解衝突、重切字型子集、在 main 上重跑全部驗證。後半段讓 agent 收尾前自己 `git rebase main`，合併幾乎沒有衝突。共開 17 個實作／修正 agent、3 個唯讀審查 agent。
+- 第一波（M10 三組、M13-1/2、標題與預載、存檔容錯與瘦身）六個 agent 同時跑時機器 load 衝到 120 以上，計時走路的 e2e 大量失敗、單元測試的地圖測試逾時；確認是負載造成後照常合併，M11-6 改成閉環走路後 load 61、8 個 worker 也全綠。
+- 坑：（1）Agent 的 worktree 是從 `origin/main` 開的，不是本機 main，後開的 agent 要先 `git reset --hard main`；（2）`eslint .` 會掃進 `.claude/worktrees/` 與 Playwright 的 trace 資產，已加進 globalIgnores；（3）有個 agent 用 `pkill -f "next dev"` 關 server，可能誤殺別的 agent 的 dev server，之後一律用埠號找 PID；（4）每個 agent 各自重切字型子集，二進位檔必衝突，合併時一律略過它們的字型 commit、在 main 重切一次。
+- 全部合併後開三個唯讀審查 agent（遊玩流程、shell 與沙盒、標題與存檔），每條疑點要求先自己反證。推不翻的 12 條全部用 TDD 修掉（#93 到 #100），其中最嚴重的是「進下一章時下一章開場台詞在重載前就被標成說過」，ef64bd3 之前就存在，整章 e2e 先種旗標所以一直沒抓到，happy-path 補了斷言。審查順帶發現的分頁器頁數 bug 我自己修。
+- 結果：`ef64bd3..HEAD` 約 120 個 commit、252 個檔案；單元測試 1861 → 2811；e2e 26 → 48；PlayScreen 746 行拆成 285 行加十幾個 hook／元件；Phaser chunk 少 33KB gz；存檔升 v3。
+- 沒做：審計「這次沒選的項目」；地圖層閒置偵測；沙盒的 `man hint` 措辭；shell 的 `cd -`、`#`、`( )`／`{ }`、`!`；diff 等長選法與 GNU 約 1% 不同（見 #81）。push 照規則沒做，本機領先 origin。
 
 ### 2026-10-08（第十三場，優化方向審計與 M10 到 M14 規劃）
 
@@ -567,7 +577,7 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 | 69 | `clear ; pwd` 清掉 clear 之前的輸出、保留之後的 | 照 bash | `shell.combineSegments`、`useTerminalKeyboard` 的 submit |
 | 70 | 面板快捷鍵 Alt+C（已學指令）、Alt+L（NOVA 對話紀錄），地圖與終端機共用，比對 `event.code`；兩個面板合成 `SidePanels` 同時只開一個，z-41 疊在終端機上、不透明、最高 60vh，擋 mousedown 保住輸入框焦點（代價：面板文字不能選取；1024 寬時蓋住終端機右上的「[Esc] 關閉」字樣） | shell 與地圖都沒用 Alt；Ctrl 多為瀏覽器保留、F 鍵在 Mac 要 fn；避開 Firefox 選單加速鍵與 Mac Option 死鍵 | `useSidePanelShortcuts.ts`、`SidePanels.tsx`、4.6 按鍵表 |
 | 71 | NOVA 對話紀錄只放記憶體，重整就清空；被換房丟掉的台詞照順序列出並標「未播出」 | 不動存檔格式 | `useNovaQueue` 的 `history`、`NovaLogPanel` |
-| 72 | 過關系統行用 ☑（不是 ✓），青綠 `tone: "success"`；powerRestored 那台過關當下不播 power（關終端機亮燈時 Station 會播），其他台過關當下播一次 power | Fusion Pixel 與 VT323 沒有 U+2713；避免同一次過關響兩聲 | `solvedFeedback.ts`、`OutputBlock`、`TerminalFrame` 的已完成徽章 |
+| 72 | 過關系統行用 ☑（不是 ✓），青綠 `tone: "success"`；powerRestored 與 blackout 的終端機過關當下不播 power（前者關終端機亮燈時 Station 會播；後者 Station 刻意安靜變黑，審查後補上），其他台過關當下播一次 power | Fusion Pixel 與 VT323 沒有 U+2713；避免同一次過關響兩聲 | `solvedFeedback.ts`、`OutputBlock`、`TerminalFrame` 的已完成徽章 |
 | 73 | 目標面板：開著且未過關的那台 > 附近且未過關的那台 > 第一台未過關；已過關的不搶目標 | 審計驗證段建議不加「附近」，但任務列寫要加；排除已過關後跳動很少 | `story/currentObjective.ts` |
 | 74 | 第一章 T1 過關前在畫面上方常駐「方向鍵移動 · E 互動 · Esc 選單」，終端機開著時隱藏；扣氧時 O2 數字閃琥珀並浮出 -1（0.9 秒），終端機開著時 O2 讀數拉到黑幕上（z-41），減少動態效果時只變色 | 方向鍵與 Esc 在終端機裡另有意義；錯誤只在終端機裡發生 | `ControlsHint.tsx`、`OxygenReadout.tsx` |
 | 75 | `/play` 沒選角就 `router.replace("/")`，sitemap 拿掉 `/play`、加 noindex，但 robots.txt 不擋 `/play` | robots 擋了爬蟲就讀不到 noindex | `PlayScreen`、`sitemap.ts`、`play/page.tsx` |
@@ -588,10 +598,18 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 | 90 | 存檔匯出匯入只放標題的「存檔管理」：匯出下載 `kepler9-save-YYYYMMDD-HHmm.json`，匯入選檔後走 migrate 與完整 zod 驗證（任一台壞掉就整個拒絕），覆蓋前確認、預設取消，成功後重載；版本較新時匯出原始字串 | 匯入要整頁重載，暫停選單不適合；zod 用動態載入不進標題 bundle | `SaveManager.tsx`、`saveImport.ts` |
 | 91 | registry 維持一個 key 一個值，加型別化的 `writeRegistryValues`／`readRegistryValue`，九個 key 的執行期驗證集中在 `REGISTRY_PARSERS`（壞值比原本更嚴格地退回預設，character 不合法直接丟錯）；不採審計建議的單一 bootConfig 加 zod | spawnPoint 要地圖載完才能驗範圍，各欄位壞值的退回方式不同 | `src/game/phaser/registry.ts` |
 | 92 | 指令選項切分抽成 `commands/options.ts` 的 `splitOptionsAndOperands`（`endOfOptions`、`loneDashIsOperand`、`takesValue` 判斷函式三個參數保留各指令差異）與 `parseFlagArgs`；`story/objectives.ts` 也改用它；`export` 維持自己的迴圈；六章終端機身分全部改用 `deckTerminalIdentity`，`lines()` 抽到 `chapters/helpers.ts`，36 台的 id／標題／艙區由 `identities.test.ts` 寫死守門 | `export = -n` 的錯誤順序跟共用切分不同；沙盒的 `lines()` 不綁劇本所以沒共用 | `options.ts`、`export.ts`、`chapters/helpers.ts` |
+| 93 | 審查修正：`PlayScreenReady` 的章節只在掛載當下讀一次，不訂閱 store | 換章是整頁重載（#31），按下「進入下一章」到頁面真正卸載之間 store 已經是下一章，intro effect 會提前把 `chN+1.introShown` 寫掉，第 2 到 6 章開場台詞永遠不出現（ef64bd3 之前就有的 bug，整章 e2e 先種旗標所以沒抓到） | `PlayScreen.tsx` 的 `chapterNumber` |
+| 94 | 章節結束畫面開著時 Esc 不開暫停選單 | 兩個 dialog 的 Enter 都掛在 window，會同時觸發（按「繼續遊戲」卻進了下一章） | `usePauseMenu` 的 `chapterEndOpen` |
+| 95 | 終端機的 NOVA 開場白改用 `ch<n>.terminal.<id>.opened` 旗標去重；舊存檔在開啟當下若 transcript 已有 `nova-open-` 前綴就視為說過並補旗標，不升存檔版本 | `clear` 或 transcript 超過上限被截掉時，舊做法會重說開場白 | `TerminalModal.tsx`、`story/flags.ts` |
+| 96 | 結束碼跟「算不算錯」分開：`CommandResult.exitStatus` 選填，grep 沒選到、diff 有差異、which 找不到回 `ok: true, exitStatus: 1`，`&&` 看結束碼（管線取最後一個指令），扣氧與 `;` 的整行算錯照舊看 `ok` | 教學說「左邊成功了才做右邊」，`grep NOPE f && echo 找到了` 原本會印「找到了」；同時延續 #28、#81 不扣氧 | `shell/types.ts`、`shell.ts` 的 `exitStatusOf`、三個指令 |
+| 97 | 「看輸出」的過關判定也看 less 分頁內容（`objectives.visibleOutputLines`），11 台受影響，`solutions.test.ts` 守住「正解最後一步接 `\| less` 也過關」 | 玩家確實在畫面上看到答案，`man less` 自己也教 `\| less` | `objectives.ts`、ch4 的 `lastOutputLineContains` |
+| 98 | `which /usr/bin/ls` 認得指令的安裝路徑；但照抄完整路徑執行不開放，回說明「直接打 ls」並算錯誤 | 開放執行的話目標判定的指令名會變成 `/usr/bin/cat`，判定全都要改；3.3 原則是不支援的寫法說清楚並給替代 | `which.commandAtInstallPath`、`messages.fullPathCommand` |
+| 99 | less 的 `/`、`?` 搜尋在狀態列放真的輸入框（接輸入法與貼上），Esc 只取消搜尋、組字中的 Enter／Esc 交給輸入法；分頁器列高改量 `offsetHeight` | 原本打不進中文；開場 scaleY 動畫中量 rect 會把一頁算成 30 列 | `Pager.tsx` |
+| 100 | 瀏覽器整個封鎖網站資料（讀取就丟 SecurityError）時當成沒有存檔、回報 `unavailable` 讓讀檔完成；存檔提示移到 `top-16`（讓開上方 HUD）、`/sandbox` 不顯示；素材提示移到 `top-28` | 原本標題、`/play`、沙盒都卡在讀取中且沒有提示；提示條蓋住操作提示與沙盒標題列 | `gameStore.safeLocalStorage`、`saveStatus.ts`、`SaveStatusNotice` |
 
 ## 9. 第一版之後的候選工作
 
-沒有排定順序，Danny 決定要不要做。第十三場審計出的項目已排進第 3 節的 M10 到 M14，沒選的列在 `audit-2026-10-08.md` 末尾。
+沒有排定順序，Danny 決定要不要做。第十三場審計出的項目已排進第 3 節的 M10 到 M14 並在第十四場全部完成，沒選的列在 `audit-2026-10-08.md` 末尾。
 
 - **真人試玩與調整**：第 4 節的試玩、試聽、潤稿（含第二到六章）。
 - **部署**：`pnpm build` 已過、三個路由都是靜態，可直接上 Vercel 或任何靜態主機；CI 已在第十二場設好（`.github/workflows/ci.yml`），部署後記得設 `NEXT_PUBLIC_SITE_URL`（sitemap 與 OG 圖的網域都吃它）。
