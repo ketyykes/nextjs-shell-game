@@ -649,6 +649,23 @@ describe("PlayScreen 章節結束", () => {
 		expect(screen.getByRole("main").getAttribute("data-chapter")).toBe("1");
 	});
 
+	it("章節結束畫面開著時 Esc 不開暫停選單，Enter 只觸發結束畫面的主要按鈕", () => {
+		seedSave({
+			progress: { solvedTerminals: ALL_CHAPTER_ONE },
+			storyFlags: { [introShownFlag(1)]: true, [outroShownFlag(1)]: true },
+		});
+		render(<PlayScreen />);
+		fireEvent.click(screen.getByText("繼續"));
+		expect(screen.getByTestId("chapter-end-done")).toBeDefined();
+
+		fireEvent.keyDown(window, { key: "Escape" });
+		expect(screen.queryByTestId("pause-menu")).toBeNull();
+
+		fireEvent.keyDown(window, { key: "Enter" });
+		expect(reloadPage).toHaveBeenCalledTimes(1);
+		expect(screen.queryByTestId("pause-menu")).toBeNull();
+	});
+
 	it("還差一台就不顯示", () => {
 		seedSave({ progress: { solvedTerminals: ALL_CHAPTER_ONE.slice(0, 5) } });
 		render(<PlayScreen />);

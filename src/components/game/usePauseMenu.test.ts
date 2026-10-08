@@ -6,8 +6,14 @@ import { usePauseMenu } from "./usePauseMenu";
 const events: string[] = [];
 const unsubscribers: (() => void)[] = [];
 
-function setup(terminalOpen = false) {
-	return renderHook((props: { terminalOpen: boolean }) => usePauseMenu(props), { initialProps: { terminalOpen } });
+interface HookProps {
+	terminalOpen: boolean;
+	chapterEndOpen: boolean;
+}
+
+function setup(props: Partial<HookProps> = {}) {
+	const initialProps: HookProps = { terminalOpen: false, chapterEndOpen: false, ...props };
+	return renderHook((hookProps: HookProps) => usePauseMenu(hookProps), { initialProps });
 }
 
 function pressEscape(init: KeyboardEventInit = {}): void {
@@ -56,13 +62,20 @@ describe("usePauseMenu", () => {
 	});
 
 	it("終端機開著時不接 Esc，關掉後恢復", () => {
-		const { result, rerender } = setup(true);
+		const { result, rerender } = setup({ terminalOpen: true });
 		pressEscape();
 		expect(result.current.paused).toBe(false);
 
-		rerender({ terminalOpen: false });
+		rerender({ terminalOpen: false, chapterEndOpen: false });
 		pressEscape();
 		expect(result.current.paused).toBe(true);
+	});
+
+	it("章節結束畫面開著時不接 Esc，結束畫面的 Enter 不會跟暫停選單撞鍵", () => {
+		const { result } = setup({ chapterEndOpen: true });
+		pressEscape();
+		expect(result.current.paused).toBe(false);
+		expect(events).toEqual([]);
 	});
 
 	it("從暫停開設定：設定開著時 Phaser 仍停住、不再重發 pause；關設定回到暫停選單", () => {

@@ -124,8 +124,8 @@ function PlayScreenReady({ character }: PlayScreenReadyProps) {
 		solvedTerminals,
 	});
 	const { handleExecuted, justSolvedId } = useSolveFlow({ pressure, onSolved: nova.deferSolvedLine });
-	const pauseMenu = usePauseMenu({ terminalOpen });
 	const chapterNavigation = useChapterNavigation({ chapter, solvedTerminals, terminalOpen });
+	const pauseMenu = usePauseMenu({ terminalOpen, chapterEndOpen: chapterNavigation.showChapterEnd });
 	// 遊玩統計（M14-1）：這章還沒全解、選單沒開、分頁在前景時計時；章節結束畫面顯示本章紀錄
 	usePlayTime(chapter.chapter, !isChapterComplete(chapter, solvedTerminals) && !pauseMenu.menuOpen);
 	const chapterStats = useGameStore((state) => state.stats[String(chapter.chapter)]);

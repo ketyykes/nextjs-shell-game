@@ -6,6 +6,11 @@ import { emitGameEvent } from "@/game/phaser/EventBus";
 export interface UsePauseMenuOptions {
 	/** 終端機開著時 true：Esc 是終端機自己的（關閉終端機），暫停選單不接。 */
 	terminalOpen: boolean;
+	/**
+	 * 章節結束畫面開著時 true：結束畫面蓋住整個地圖，Esc 不開暫停選單。
+	 * 否則兩個 dialog 疊在一起，兩邊的 Enter 都掛在 window，一下 Enter 會同時觸發。
+	 */
+	chapterEndOpen: boolean;
 }
 
 export interface UsePauseMenuResult {
@@ -22,16 +27,16 @@ export interface UsePauseMenuResult {
 /**
  * 暫停選單（設計文件 4.7）的開關：地圖上按 Esc 開啟，選單開著時發 `game:pause`、關掉時發 `game:resume`。
  *
- * - 終端機或設定選單開著時不掛 Esc 監聽（它們各自處理 Esc）；終端機的 Esc 另外有 `stopPropagation`，
+ * - 終端機、設定選單或章節結束畫面開著時不掛 Esc 監聽（前兩者各自處理 Esc，結束畫面不給暫停）；終端機的 Esc 另外有 `stopPropagation`，
  *   因為這個監聽會在終端機關閉的同一個 keydown 裡重新掛回 window（progress.md 第 5 節）。
  * - 按住 Esc 的重複事件不算。
  * - Phaser 場景本身不暫停，只停角色輸入（#22）。
  */
-export function usePauseMenu({ terminalOpen }: UsePauseMenuOptions): UsePauseMenuResult {
+export function usePauseMenu({ terminalOpen, chapterEndOpen }: UsePauseMenuOptions): UsePauseMenuResult {
 	const [paused, setPaused] = useState(false);
 	const [settingsOpen, setSettingsOpen] = useState(false);
 
-	const pauseBlocked = terminalOpen || settingsOpen;
+	const pauseBlocked = terminalOpen || settingsOpen || chapterEndOpen;
 	useEffect(() => {
 		if (paused || pauseBlocked) {
 			return;
