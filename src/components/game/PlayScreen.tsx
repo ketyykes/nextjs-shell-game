@@ -24,6 +24,7 @@ import { SceneCard, type SceneCardMessage } from "@/components/game/SceneCard";
 import { SidePanels } from "@/components/game/SidePanels";
 import { SettingsMenu } from "@/components/title/SettingsMenu";
 import { useNovaQueue } from "@/components/game/useNovaQueue";
+import { useScenePreload } from "@/components/game/useScenePreload";
 import { isAppleUserAgent, useSidePanelShortcuts, type SidePanelId } from "@/components/game/useSidePanelShortcuts";
 import { useTerminalPressure } from "@/components/game/useTerminalPressure";
 import { Terminal } from "@/components/terminal";
@@ -173,6 +174,7 @@ function PlayScreenReady() {
 
 	// 目前章節：劇本、地圖、演出都從它來；章節結束按「進入下一章」會換
 	const chapter = getChapter(progress.chapter);
+	useScenePreload(chapter.chapter);
 	const [terminalEffects] = useState(() => collectTerminalEffects(chapter));
 	const chapterSolvedCount = chapter.terminals.filter((terminal) => progress.solvedTerminals.includes(terminal.id)).length;
 	// 存檔裡這一章的角色位置（存檔 v2）：只在掛載當下讀一次，Phaser 建角色時用；之後的移動由 player:stopped 寫回

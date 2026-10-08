@@ -3,7 +3,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { DECK_ROOMS } from "@/game/phaser/events";
-import { AVAILABLE_SCENES, endingImage, outroImageForChapter, sceneImageForRoom } from "./scenes";
+import {
+	AVAILABLE_SCENES,
+	chapterSceneImages,
+	endingImage,
+	INTRO_SCENE_IMAGE,
+	openingSceneImages,
+	outroImageForChapter,
+	sceneImageForRoom,
+} from "./scenes";
 
 const SCENES_DIR = path.resolve(process.cwd(), "public/scenes");
 
@@ -36,5 +44,36 @@ describe("場景插圖", () => {
 		expect(chapterTwo === undefined || chapterTwo === "/scenes/scene-ch2_outro.png").toBe(true);
 		const ending = endingImage();
 		expect(ending === undefined || ending === "/scenes/scene-ending.png").toBe(true);
+	});
+
+	it("本章預載清單：依 T1 到 T6 的艙區順序，最後是結尾過場", () => {
+		expect(chapterSceneImages(1)).toEqual([
+			"/scenes/scene-cryo.png",
+			"/scenes/scene-lifesupport.png",
+			"/scenes/scene-quarters.png",
+			"/scenes/scene-power.png",
+			"/scenes/scene-medbay.png",
+			"/scenes/scene-airlock.png",
+			"/scenes/scene-outro.png",
+		]);
+		expect(chapterSceneImages(2)[0]).toBe("/scenes/scene-dc_entry.png");
+		expect(chapterSceneImages(2).at(-1)).toBe("/scenes/scene-ch2_outro.png");
+	});
+
+	it("本章預載清單不含走廊、只列真的存在的圖", () => {
+		for (const chapter of [1, 2, 3, 4, 5, 6]) {
+			const images = chapterSceneImages(chapter);
+			expect(images.length, `第 ${chapter} 章`).toBeGreaterThan(0);
+			expect(images).not.toContain(`/scenes/scene-${DECK_ROOMS[chapter].corridor}.png`);
+			for (const src of images) {
+				const name = src.slice("/scenes/scene-".length, -".png".length);
+				expect(AVAILABLE_SCENES.has(name), src).toBe(true);
+			}
+		}
+	});
+
+	it("從標題進第一章時先載開場插圖（boot log 一結束就要顯示），其他章跟本章清單一樣", () => {
+		expect(openingSceneImages(1)).toEqual([INTRO_SCENE_IMAGE, ...chapterSceneImages(1)]);
+		expect(openingSceneImages(3)).toEqual(chapterSceneImages(3));
 	});
 });

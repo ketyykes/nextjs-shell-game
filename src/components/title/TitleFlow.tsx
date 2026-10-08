@@ -82,8 +82,8 @@ function TitleFlowReady() {
 	const [stage, setStage] = useState<TitleStage>("title");
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const touchWarning = useTouchWarning();
-	// 標題、選角、boot log 的空檔先把 /play 與 Phaser 引擎抓進快取
-	usePlayPrefetch();
+	// 標題、選角、boot log 的空檔先把 /play、Phaser 引擎與要進的那一章插圖抓進快取
+	usePlayPrefetch(progress.chapter);
 
 	const handleNewGame = useCallback(() => {
 		// 覆蓋確認已在 TitleScreen 內做過，這裡直接清進度（設定保留）

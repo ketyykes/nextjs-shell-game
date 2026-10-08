@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { preloadOnce, scheduleIdle } from "./preload";
+import { createImagePreloader, preloadOnce, scheduleIdle } from "./preload";
 
 beforeEach(() => {
 	vi.useFakeTimers();
@@ -108,3 +108,60 @@ describe("preloadOnce", () => {
 		expect(load).toHaveBeenCalledTimes(2);
 	});
 });
+
+/** 假的 HTMLImageElement：記下設定，測試自己決定什麼時候載完。 */
+interface FakeImage {
+	src: string;
+	fetchPriority: string;
+	decoding: string;
+	onload: (() => void) | null;
+	onerror: (() => void) | null;
+}
+
+function createFakeImages() {
+	const images: FakeImage[] = [];
+	function createImage(): HTMLImageElement {
+		const image: FakeImage = { src: "", fetchPriority: "auto", decoding: "auto", onload: null, onerror: null };
+		images.push(image);
+		return image as unknown as HTMLImageElement;
+	}
+	return { images, createImage };
+}
+
+describe("createImagePreloader", () => {
+	it("依清單順序一次只下載一張，前一張載完或失敗才換下一張", () => {
+		const { images, createImage } = createFakeImages();
+		const preloader = createImagePreloader(createImage);
+
+		preloader.preload(["/a.png", "/b.png", "/c.png"]);
+		expect(images.map((image) => image.src)).toEqual(["/a.png"]);
+
+		images[0].onload?.();
+		expect(images.map((image) => image.src)).toEqual(["/a.png", "/b.png"]);
+
+		// 失敗也要繼續載下一張，不能卡住佇列
+		images[1].onerror?.();
+		expect(images.map((image) => image.src)).toEqual(["/a.png", "/b.png", "/c.png"]);
+	});
+
+	it("同一張圖只載一次，排隊中的也不重複排", () => {
+		const { images, createImage } = createFakeImages();
+		const preloader = createImagePreloader(createImage);
+
+		preloader.preload(["/a.png", "/b.png"]);
+		preloader.preload(["/b.png", "/a.png", "/c.png"]);
+		images[0].onload?.();
+		images[1].onload?.();
+		images[2].onload?.();
+		preloader.preload(["/c.png"]);
+		expect(images.map((image) => image.src)).toEqual(["/a.png", "/b.png", "/c.png"]);
+	});
+
+	it("設成低優先、非同步解碼，不跟主要資源搶頻寬", () => {
+		const { images, createImage } = createFakeImages();
+		createImagePreloader(createImage).preload(["/a.png"]);
+		expect(images[0].fetchPriority).toBe("low");
+		expect(images[0].decoding).toBe("async");
+	});
+});
+
