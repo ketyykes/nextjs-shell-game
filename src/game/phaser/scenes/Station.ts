@@ -7,7 +7,6 @@ import {
 	airlockTilePosition,
 	effectSafety,
 	findCorridorRoomId,
-	parseTerminalEffects,
 	powerOnOrder,
 	resolveSolvedState,
 	shadowFlashPosition,
@@ -19,7 +18,8 @@ import { PositionReporter, resolveSpawnPoint } from "../objects/position";
 import { RoomTracker } from "../objects/RoomTracker";
 import { ShadowFigure } from "../objects/ShadowFigure";
 import { TerminalZones } from "../objects/TerminalZone";
-import { REGISTRY_KEYS, SCENE_KEYS } from "./keys";
+import { readRegistryValue } from "../registry";
+import { SCENE_KEYS } from "./keys";
 import {
 	parseMapMarkers,
 	type DoorMarker,
@@ -124,9 +124,8 @@ export class Station extends Phaser.Scene {
 
 		this.createLayers(map, tileset);
 		this.readMarkers(map);
-		this.terminalEffects = parseTerminalEffects(this.registry.get(REGISTRY_KEYS.terminalEffects));
-		// 只有明確的 false 才關（registry 沒有型別保證）
-		this.flickerEnabled = this.registry.get(REGISTRY_KEYS.flickerEnabled) !== false;
+		this.terminalEffects = readRegistryValue(this.registry, "terminalEffects");
+		this.flickerEnabled = readRegistryValue(this.registry, "flickerEnabled");
 
 		this.physics.world.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
 
@@ -143,14 +142,14 @@ export class Station extends Phaser.Scene {
 		this.positionReporter = new PositionReporter();
 		this.lightMask = new LightMask(this, map.widthInPixels, map.heightInPixels, this.terminals);
 		// 只有劇本要求開場斷電的章節才摸黑，其餘一開始就全亮（不播淡出）
-		if (!this.readStartDarkFromRegistry()) {
+		if (!readRegistryValue(this.registry, "startDark")) {
 			this.lightMask.setPowered(true, true);
 		}
 		this.shadowFigure = new ShadowFigure(this);
 
 		// 音量與靜音由 PlayScreen 經 registry 給初始值，之後的變動走 audio:settings 事件
-		const volume = (this.registry.get(REGISTRY_KEYS.volume) as number | undefined) ?? 1;
-		const muted = (this.registry.get(REGISTRY_KEYS.muted) as boolean | undefined) ?? false;
+		const volume = readRegistryValue(this.registry, "volume");
+		const muted = readRegistryValue(this.registry, "muted");
 		this.audio = new AudioManager(this, { volume, muted });
 		const detachAudio = attachAudioEvents(this, this.audio);
 		this.audio.play("ambient");
@@ -179,7 +178,7 @@ export class Station extends Phaser.Scene {
 		this.appliedEffects = new Set();
 		this.pendingEffects = [];
 		this.pendingFlickerMs = null;
-		this.applySolvedState(this.readSolvedTerminalsFromRegistry());
+		this.applySolvedState(readRegistryValue(this.registry, "solvedTerminals"));
 
 		this.subscribeEvents();
 
@@ -406,23 +405,9 @@ export class Station extends Phaser.Scene {
 		}));
 	}
 
-	/** 讀 registry 的開場斷電旗標，只有明確的 `true` 才摸黑（registry 沒有型別保證）。 */
-	private readStartDarkFromRegistry(): boolean {
-		return this.registry.get(REGISTRY_KEYS.startDark) === true;
-	}
-
-	/** 讀 registry 的已過關清單，型別不對就當空陣列（registry 沒有型別保證）。 */
-	private readSolvedTerminalsFromRegistry(): string[] {
-		const value: unknown = this.registry.get(REGISTRY_KEYS.solvedTerminals);
-		if (!Array.isArray(value)) {
-			return [];
-		}
-		return value.filter((item): item is string => typeof item === "string");
-	}
-
 	/** 在存檔位置（沒有就地圖出生點）建立玩家，對三個碰撞圖層加 collider，鏡頭平滑跟隨。 */
 	private createPlayer(mapWidth: number, mapHeight: number): void {
-		const spawn = resolveSpawnPoint(this.registry.get(REGISTRY_KEYS.spawnPoint), this.spawnPoint, {
+		const spawn = resolveSpawnPoint(readRegistryValue(this.registry, "spawnPoint"), this.spawnPoint, {
 			width: mapWidth,
 			height: mapHeight,
 		});

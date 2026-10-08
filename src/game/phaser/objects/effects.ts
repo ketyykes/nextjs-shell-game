@@ -1,7 +1,7 @@
 /**
  * 過關演出用的純函式（M4-3）：亮燈順序、人影閃現位置、主艙門格座標；
  * 環境反應階梯「燈閃一下」的播法判斷與時間切分（M5-4）；
- * 以及六個甲板共用的過關演出對照表解析與重整還原的最終狀態計算。
+ * 以及六個甲板共用的重整還原最終狀態計算。
  *
  * 刻意不 import Phaser，讓 Vitest 在 node 環境直接測。
  * Station 場景把地圖資料傳進來，拿算好的結果去驅動 LightMask、ShadowFigure 與 tile 圖層。
@@ -192,55 +192,8 @@ export function flickerLegDuration(durationMs: number, pulses = FLICKER_PULSES):
 }
 
 // ---------------------------------------------------------------------------
-// 過關演出對照表（registry 的 `terminalEffects`）與重整還原
+// 重整還原（演出對照表的解析在 `../registry.ts`）
 // ---------------------------------------------------------------------------
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-/** 單一演出的格式檢查，合法就回傳只含必要欄位的新物件，不合法回傳 null。 */
-function parseSolvedEffect(value: unknown): SolvedEffect | null {
-	if (!isPlainObject(value)) {
-		return null;
-	}
-	switch (value.kind) {
-		case "powerRestored":
-			return { kind: "powerRestored" };
-		case "shadowFlash":
-			return { kind: "shadowFlash" };
-		case "flicker":
-			return { kind: "flicker" };
-		case "blackout":
-			return { kind: "blackout" };
-		case "openDoor":
-			if (typeof value.doorId !== "string" || value.doorId.length === 0) {
-				return null;
-			}
-			return { kind: "openDoor", doorId: value.doorId };
-		default:
-			return null;
-	}
-}
-
-/**
- * 解析 registry 的 `terminalEffects`（registry 沒有型別保證）。
- * 不是物件就當空表；格式不對的項目直接丟掉，其餘拷貝一份回傳。
- */
-export function parseTerminalEffects(value: unknown): Record<string, SolvedEffect> {
-	const result: Record<string, SolvedEffect> = {};
-	if (!isPlainObject(value)) {
-		return result;
-	}
-	for (const [terminalId, raw] of Object.entries(value)) {
-		const effect = parseSolvedEffect(raw);
-		if (effect === null) {
-			continue;
-		}
-		result[terminalId] = effect;
-	}
-	return result;
-}
 
 /**
  * 重整還原後的最終狀態：

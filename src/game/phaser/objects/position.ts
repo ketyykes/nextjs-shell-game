@@ -70,23 +70,16 @@ export class PositionReporter {
 	}
 }
 
-function isFiniteNumber(value: unknown): value is number {
-	return typeof value === "number" && Number.isFinite(value);
-}
-
 /**
- * 存的位置（registry 讀出來，沒有型別保證）合法且在地圖範圍內就用它，否則用地圖出生點。
- * 右、下邊界不算在地圖內。
+ * 存的位置（registry 讀出來，格式已由 `readRegistryValue` 驗過）在地圖範圍內就用它，否則用地圖出生點。
+ * 右、下邊界不算在地圖內；地圖大小要等 Station 載完地圖才知道，所以範圍檢查留在這裡。
  */
-export function resolveSpawnPoint(saved: unknown, fallback: Point, bounds: { width: number; height: number }): Point {
-	if (typeof saved !== "object" || saved === null) {
+export function resolveSpawnPoint(saved: Point | null, fallback: Point, bounds: { width: number; height: number }): Point {
+	if (saved === null) {
 		return fallback;
 	}
 
-	const { x, y } = saved as Record<string, unknown>;
-	if (!isFiniteNumber(x) || !isFiniteNumber(y)) {
-		return fallback;
-	}
+	const { x, y } = saved;
 	if (x < 0 || y < 0 || x >= bounds.width || y >= bounds.height) {
 		return fallback;
 	}

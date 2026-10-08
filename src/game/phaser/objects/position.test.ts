@@ -104,7 +104,6 @@ describe("resolveSpawnPoint", () => {
 	const bounds = { width: 1280, height: 768 };
 
 	it("沒有存位置時用地圖出生點", () => {
-		expect(resolveSpawnPoint(undefined, fallback, bounds)).toEqual(fallback);
 		expect(resolveSpawnPoint(null, fallback, bounds)).toEqual(fallback);
 	});
 
@@ -112,9 +111,7 @@ describe("resolveSpawnPoint", () => {
 		expect(resolveSpawnPoint({ x: 640, y: 352 }, fallback, bounds)).toEqual({ x: 640, y: 352 });
 	});
 
-	it("座標不是有限數字或超出地圖就退回出生點", () => {
-		expect(resolveSpawnPoint({ x: Number.NaN, y: 10 }, fallback, bounds)).toEqual(fallback);
-		expect(resolveSpawnPoint({ x: "10", y: 10 }, fallback, bounds)).toEqual(fallback);
+	it("超出地圖就退回出生點", () => {
 		expect(resolveSpawnPoint({ x: -1, y: 10 }, fallback, bounds)).toEqual(fallback);
 		expect(resolveSpawnPoint({ x: 10, y: 768 }, fallback, bounds)).toEqual(fallback);
 	});

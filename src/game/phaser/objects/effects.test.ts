@@ -8,7 +8,6 @@ import {
 	FLICKER_PULSES,
 	flickerLegDuration,
 	flickerMode,
-	parseTerminalEffects,
 	POWER_ON_ORDER,
 	powerOnOrder,
 	resolveSolvedState,
@@ -90,44 +89,6 @@ describe("findCorridorRoomId", () => {
 
 	it("沒有走廊時回傳 undefined", () => {
 		expect(findCorridorRoomId(["cryo", "power"])).toBeUndefined();
-	});
-});
-
-describe("parseTerminalEffects", () => {
-	it("合法的對照表原樣（拷貝）回傳", () => {
-		const input = {
-			"ch1-t4": { kind: "powerRestored" },
-			"ch1-t6": { kind: "openDoor", doorId: "airlock" },
-			"ch2-t3": { kind: "shadowFlash" },
-			"ch2-t5": { kind: "flicker" },
-			"ch6-t4": { kind: "blackout" },
-		};
-		const result = parseTerminalEffects(input);
-		expect(result).toEqual(input);
-		expect(result).not.toBe(input);
-	});
-
-	it("不是物件（undefined、null、陣列、字串）時回傳空物件", () => {
-		expect(parseTerminalEffects(undefined)).toEqual({});
-		expect(parseTerminalEffects(null)).toEqual({});
-		expect(parseTerminalEffects([{ kind: "flicker" }])).toEqual({});
-		expect(parseTerminalEffects("powerRestored")).toEqual({});
-	});
-
-	it("丟掉格式不對的項目：未知 kind、openDoor 缺 doorId、值不是物件", () => {
-		const result = parseTerminalEffects({
-			"ch1-t1": { kind: "explode" },
-			"ch1-t2": { kind: "openDoor" },
-			"ch1-t3": { kind: "openDoor", doorId: "" },
-			"ch1-t4": "powerRestored",
-			"ch1-t5": null,
-			"ch1-t6": { kind: "openDoor", doorId: "airlock" },
-		});
-		expect(result).toEqual({ "ch1-t6": { kind: "openDoor", doorId: "airlock" } });
-	});
-
-	it("只保留需要的欄位", () => {
-		expect(parseTerminalEffects({ a: { kind: "flicker", extra: 1 } })).toEqual({ a: { kind: "flicker" } });
 	});
 });
 

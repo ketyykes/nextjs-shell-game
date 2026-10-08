@@ -1,5 +1,4 @@
 import Phaser from "phaser";
-import type { CharacterId } from "@/game/store/types";
 import type { SfxName } from "../events";
 import {
 	ASSET_KEYS,
@@ -12,9 +11,9 @@ import {
 } from "../constants";
 import { AUDIO_KEYS, AUDIO_PATHS } from "../audio";
 import { emitGameEvent } from "../EventBus";
+import { readRegistryValue } from "../registry";
 import { summarizeAssetFailure } from "./assetCheck";
-import { REGISTRY_KEYS, SCENE_KEYS } from "./keys";
-import { parseChapter } from "./mapObjects";
+import { SCENE_KEYS } from "./keys";
 
 /** 載入條配色：全息藍。 */
 const PROGRESS_BAR_COLOR = 0x5fb3e8;
@@ -58,9 +57,10 @@ export class Preloader extends Phaser.Scene {
 		this.createProgressBar();
 		this.trackLoadErrors();
 
-		const character = this.readCharacter();
+		// 選角讀不到代表沒透過 startGame 啟動，readRegistryValue 會直接丟錯
+		const character = readRegistryValue(this.registry, "character");
 		// 六個甲板共用 `ASSET_KEYS.map` 這個 key；換章時 React 會銷毀重建整個遊戲，cache 不會殘留上一章的圖
-		const chapter = parseChapter(this.registry.get(REGISTRY_KEYS.chapter));
+		const chapter = readRegistryValue(this.registry, "chapter");
 		this.mapUrl = toPublicUrl(ASSET_PATHS.map(chapter));
 		this.playerSpriteUrl = toPublicUrl(ASSET_PATHS.playerSprite(character));
 
@@ -106,15 +106,6 @@ export class Preloader extends Phaser.Scene {
 		for (const name of names) {
 			this.load.audio(AUDIO_KEYS[name], AUDIO_PATHS[name]);
 		}
-	}
-
-	/** 從 registry 讀選角，`startGame` 一定會寫入，讀不到代表呼叫端漏傳。 */
-	private readCharacter(): CharacterId {
-		const character = this.registry.get(REGISTRY_KEYS.character) as CharacterId | undefined;
-		if (!character) {
-			throw new Error("[Preloader] registry 裡沒有 character，請透過 startGame 啟動遊戲");
-		}
-		return character;
 	}
 
 	/** 畫面中央的簡單載入條，載完自動清掉。 */
