@@ -133,9 +133,11 @@ export interface ChapterDefinition {
 
 /**
  * 劇情旗標，存在 store 的 `storyFlags`，只有 true 才存。
- * 每章一組：`ch<n>.introShown`、`ch<n>.outroShown`、`ch<n>.room.<艙區>.entered`，用 `flags.ts` 的函式產生。
+ * 每章一組：`ch<n>.introShown`、`ch<n>.outroShown`、`ch<n>.room.<艙區>.entered`、`ch<n>.terminal.<終端機 id>.opened`，
+ * 用 `flags.ts` 的函式產生。
  */
 export type StoryFlag =
 	| `ch${number}.introShown`
 	| `ch${number}.outroShown`
-	| `ch${number}.room.${RoomId}.entered`;
+	| `ch${number}.room.${RoomId}.entered`
+	| `ch${number}.terminal.${string}.opened`;

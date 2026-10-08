@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getChapter } from "@/game/chapters";
 import type { Shell } from "@/game/shell/shell";
 import type { ShellExecution } from "@/game/shell/types";
-import type { TerminalDefinition } from "@/game/story";
+import { terminalOpenedFlag, type TerminalDefinition } from "@/game/story";
 import { createInitialSaveData, useGameStore } from "@/game/store";
 import { resolveShell } from "./useTerminalSessions";
 import { TerminalModal } from "./TerminalModal";
@@ -72,6 +72,34 @@ describe("TerminalModal", () => {
 		const shell = resolveShell(new Map(), CRYO);
 		render(<TerminalModal definition={CRYO} shell={shell} textSpeed="instant" onClose={vi.fn()} onExecuted={vi.fn()} />);
 		expect(onOpenEntries()).toHaveLength(ON_OPEN.length);
+	});
+
+	it("clear 清掉輸出紀錄後關掉再開，NOVA 開場白不重說", () => {
+		renderModal();
+		runCommand("clear");
+		expect(onOpenEntries()).toEqual([]);
+		cleanup();
+
+		renderModal();
+		expect(onOpenEntries()).toEqual([]);
+	});
+
+	it("第一次開時立「開場白說過」的劇情旗標", () => {
+		renderModal();
+		expect(useGameStore.getState().storyFlags[terminalOpenedFlag(CRYO.id)]).toBe(true);
+	});
+
+	it("舊存檔：輸出紀錄裡已有開場白但沒有旗標，視為說過、不重說並補上旗標", () => {
+		renderModal();
+		// 模擬旗標出現之前的存檔：輸出紀錄有開場白，旗標沒有
+		const flagsWithoutOpened = { ...useGameStore.getState().storyFlags };
+		delete flagsWithoutOpened[terminalOpenedFlag(CRYO.id)];
+		useGameStore.setState({ storyFlags: flagsWithoutOpened });
+		cleanup();
+
+		renderModal();
+		expect(onOpenEntries()).toHaveLength(ON_OPEN.length);
+		expect(useGameStore.getState().storyFlags[terminalOpenedFlag(CRYO.id)]).toBe(true);
 	});
 
 	it("沒有 onOpen 台詞的終端機不寫", () => {

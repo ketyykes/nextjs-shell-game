@@ -1,7 +1,7 @@
 /**
  * 劇情旗標的產生函式與型別守衛。
  *
- * 旗標存在 store 的 `storyFlags`，只有 true 才存；每章一組，都以 `ch<n>.` 開頭，
+ * 旗標存在 store 的 `storyFlags`，只有 true 才存；每章一組，都以 `ch<n>.` 開頭（終端機旗標也是），
  * 所以「重玩本章」只要刪掉同前綴的旗標。從存檔讀回來的是任意字串，要先過 `isStoryFlag` 才能當 `StoryFlag` 用。
  */
 
@@ -29,8 +29,19 @@ export function roomEnteredFlag(chapter: number, roomId: RoomId): StoryFlag {
 	return `ch${chapter}.room.${roomId}.entered`;
 }
 
-/** 旗標的格式：`ch<n>.introShown`、`ch<n>.outroShown`、`ch<n>.room.<艙區>.entered`。 */
-const FLAG_PATTERN = /^ch\d+\.(?:introShown|outroShown|room\.([a-z_]+)\.entered)$/;
+/**
+ * 「這台終端機的 NOVA 開場白說過了」的旗標，例如 `ch2.terminal.ch2-t3.opened`。
+ * 章節前綴取自終端機 id（劇本 schema 保證是 `ch<n>-t<k>`），所以重玩本章時跟著清掉。
+ * 不用輸出紀錄裡有沒有開場白來判斷：`clear` 或輸出紀錄超過上限被截掉後就看不到了。
+ */
+export function terminalOpenedFlag(terminalId: string): StoryFlag {
+	// `ch2-t3` 的 `ch2` 就是章節前綴
+	const [chapterPart] = terminalId.split("-");
+	return `${chapterPart}.terminal.${terminalId}.opened` as StoryFlag;
+}
+
+/** 旗標的格式：`ch<n>.introShown`、`ch<n>.outroShown`、`ch<n>.room.<艙區>.entered`、`ch<n>.terminal.ch<n>-t<k>.opened`。 */
+const FLAG_PATTERN = /^ch(\d+)\.(?:introShown|outroShown|room\.([a-z_]+)\.entered|terminal\.ch(\d+)-t\d+\.opened)$/;
 
 /** 字串是否為合法的劇情旗標；艙區旗標的 roomId 必須是已知艙區。 */
 export function isStoryFlag(value: string): value is StoryFlag {
@@ -38,7 +49,11 @@ export function isStoryFlag(value: string): value is StoryFlag {
 	if (match === null) {
 		return false;
 	}
-	const roomId = match[1];
+	const [, chapter, roomId, terminalChapter] = match;
+	if (terminalChapter !== undefined) {
+		// 終端機旗標的章節前綴要跟終端機 id 的章節一致，重玩本章才清得到
+		return Number(terminalChapter) === Number(chapter);
+	}
 	if (roomId === undefined) {
 		return true;
 	}

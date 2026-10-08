@@ -5,7 +5,7 @@ import { useCallback, useEffect } from "react";
 import { Terminal } from "@/components/terminal";
 import type { Shell } from "@/game/shell/shell";
 import type { ShellExecution } from "@/game/shell/types";
-import type { TerminalDefinition } from "@/game/story";
+import { terminalOpenedFlag, type TerminalDefinition } from "@/game/story";
 import { useGameStore } from "@/game/store";
 import type { OutputEntry, SettingsState } from "@/game/store/types";
 import { createDialogueEntries } from "./terminalSession";
@@ -29,14 +29,22 @@ export function TerminalModal({ definition, shell, textSpeed, onClose, onExecute
 	const appendTranscript = useGameStore((state) => state.appendTranscript);
 	const entries = record?.transcript ?? [];
 
-	// 第一次開這台時 NOVA 的開場白：掛載後才 push，Terminal 才會播打字動畫；用 id 前綴去重，跨重整也不重說
+	// 第一次開這台時 NOVA 的開場白：掛載後才 push，Terminal 才會播打字動畫。
+	// 用劇情旗標去重，跨重整也不重說；不看輸出紀錄，因為 clear 或超過上限被截掉後開場白就不在裡面了
 	useEffect(() => {
 		const lines = definition.nova?.onOpen ?? [];
 		if (lines.length === 0) {
 			return;
 		}
+		const store = useGameStore.getState();
+		const flag = terminalOpenedFlag(definition.id);
+		if (store.storyFlags[flag] === true) {
+			return;
+		}
+		store.setFlag(flag);
+		// 旗標出現之前的舊存檔：輸出紀錄裡已有開場白就當作說過，只補旗標
 		const prefix = `nova-open-${definition.id}`;
-		const transcript = useGameStore.getState().terminals[definition.id]?.transcript ?? [];
+		const transcript = store.terminals[definition.id]?.transcript ?? [];
 		if (transcript.some((entry) => entry.id.startsWith(prefix))) {
 			return;
 		}

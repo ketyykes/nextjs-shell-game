@@ -349,6 +349,7 @@ describe("章節", () => {
 		state.setFlag("ch1.outroShown");
 		state.setFlag("ch2.introShown");
 		state.setFlag("ch2.room.dc_entry.entered");
+		state.setFlag("ch2.terminal.ch2-t1.opened");
 		state.loseOxygen();
 
 		useGameStore.getState().resetChapter(2);
