@@ -117,21 +117,24 @@ for (const viewport of [
 		await expect(page.getByTestId("nova-dialogue")).toBeVisible();
 		await expect(page.getByTestId("controls-hint")).toBeVisible();
 
-		const boxes = {
-			objective: await page.getByTestId("objective-panel").boundingBox(),
-			hint: await page.getByTestId("interact-hint").boundingBox(),
-			nova: await page.getByTestId("nova-dialogue").boundingBox(),
-			controls: await page.getByTestId("controls-hint").boundingBox(),
-			oxygen: await page.getByTestId("hud-oxygen").boundingBox(),
-			room: await page.getByTestId("hud-room").boundingBox(),
-		};
-		for (const [name, box] of Object.entries(boxes)) {
-			expect(box, name).not.toBeNull();
-		}
-		const { objective, hint, nova, controls, oxygen, room } = boxes as Record<
-			keyof typeof boxes,
-			NonNullable<(typeof boxes)["hint"]>
-		>;
+		type Box = NonNullable<Awaited<ReturnType<ReturnType<typeof page.getByTestId>["boundingBox"]>>>;
+		// NOVA 對話框在兩句台詞之間會短暫卸載，量到 null 就整組重量，直到六個元件同時在畫面上
+		let measured: Record<"objective" | "hint" | "nova" | "controls" | "oxygen" | "room", Box> | null = null;
+		await expect(async () => {
+			const boxes = {
+				objective: await page.getByTestId("objective-panel").boundingBox(),
+				hint: await page.getByTestId("interact-hint").boundingBox(),
+				nova: await page.getByTestId("nova-dialogue").boundingBox(),
+				controls: await page.getByTestId("controls-hint").boundingBox(),
+				oxygen: await page.getByTestId("hud-oxygen").boundingBox(),
+				room: await page.getByTestId("hud-room").boundingBox(),
+			};
+			for (const [name, box] of Object.entries(boxes)) {
+				expect(box, name).not.toBeNull();
+			}
+			measured = boxes as NonNullable<typeof measured>;
+		}).toPass({ timeout: 10_000 });
+		const { objective, hint, nova, controls, oxygen, room } = measured as unknown as NonNullable<typeof measured>;
 		expect(overlaps(objective, hint), "目標面板與按 E 提示").toBe(false);
 		expect(overlaps(objective, nova), "目標面板與 NOVA 對話框").toBe(false);
 		expect(overlaps(hint, nova), "按 E 提示與 NOVA 對話框").toBe(false);
