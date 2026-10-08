@@ -285,9 +285,9 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 - **Terminal 元件的整合規則**：`shell` 必須是同一個實例（`useState` 保住），每次 render 都 `new Shell` 會重置 cwd 與歷史。`entries` 由父層持有並整批替換，`clear` 會傳空陣列。掛載當下就在 `entries` 裡的 dialogue 不重播打字動畫，要播的 NOVA 台詞得在掛載後才 push。Esc 有 `preventDefault` 也有 `stopPropagation`（原因見下一條）。
 - **window 的 keydown 監聽會接到「讓它掛上去的那個事件」**：暫停選單的 Esc 監聽（M11-2 起在 `usePauseMenu`）掛在 window，而且在終端機關閉（state 變更）的同一個 keydown 事件裡由 effect 重新掛回去。React 對離散事件會同步 flush effect，而 DOM 規範只禁止「同一個 target 在派送中新增的監聽」被觸發，window 是上層的另一個 target，所以同一下 Esc 關了終端機又打開暫停選單。2026-10-01 第七場踩到，修法是終端機的 Escape handler 加 `stopPropagation`。同類結構（元件 A 處理某鍵後卸載、元件 B 在 window 聽同一個鍵）都會中招，先懷疑這個。之前 e2e 的回標題測試用重試迴圈「按到暫停選單開為止」，剛好把這個 bug 蓋掉了，e2e 裡的重試迴圈要小心。
 - **暫停選單開著時 Phaser 場景沒暫停**：`game:pause` 只關角色輸入，場景照跑（燈光脈動、NOVA 對話不受影響），所以 Phaser 這邊聽的鍵（E 開終端機）要自己擋。`TerminalZones.setInteractEnabled` 由 Station 在 `game:pause`／`game:resume` 切換；之後新增 Phaser 端的按鍵都要走同一條路。
-- **e2e 在地圖上走路用「貼牆滑行」**：角色碰撞盒 20x14、速度 120 px/s、門只有一格寬（容錯 ±6 px），純計時走會偏。同時按住兩個方向鍵，被牆擋住的軸停住、另一軸沿牆滑，滑到門口自動進去；進門後用 `hud-room` 的艙區名當檢查點（`holdUntilRoom`），只有最後對齊終端機那段用計時（互動半徑 40 px，容錯 ±30 px）。兩個坑：（1）走廊上下兩排的門在同一欄（x=6、18、30），進走廊後要先橫移一段再貼牆，不然會從對面的門鑽回去；（2）離開房間要「先直走到牆再貼牆」，斜著走會在碰到牆之前就越過門口。範例在 `e2e/happy-path.spec.ts`。
+- **e2e 走路是讀座標的閉環（M11-6）**：開發模式下 Station 把角色狀態掛在 `window.__kepler9Player.read()`（`{x, y, roomId, inputEnabled}`，sprite 中心座標；正式 build 不掛；刻意不併進 `__kepler9`，因為 `usePhaserBridge` 會整個指定再整個 delete 那個物件）。`e2e/helpers/deck.ts` 的 `walkToTerminal(page, index, title)`、`walkToCorridor(page, x)` 從任何位置規劃路徑點（房間 → 門口內側 → 走廊中線 y 352 → 目標門口 → 終端機前），在頁面裡逐幀讀座標，到放開點就放開，並量放開後滑多遠修正下一次，最後以「按 E 開啟 ○○」為準。不要再寫 `waitForTimeout` 計時走路。幾個坑：（1）門一格寬、碰撞盒 20，中心要在門中心 ±6 px 內，所以穿門那段 x 容錯是 6，同時按水平鍵讓角色沿牆滑進門；（2）橫越走廊一律沿中線，貼著上下牆走會被同一欄的對面門吸進去（門都在 x 208、592、976）；（3）keydown 和 keyup 落在同一幀時 Phaser 讀不到按下，「點一下」可能完全沒動，閉環要求至少動 0.5 px 才算到；（4）改平面圖（`build-map.mjs`）要同步改 `deck.ts` 的 `SLOT_GEOMETRY`；（5）查 flaky 時加 `E2E_WALK_DEBUG=1`，會印出每段的輪數、卡住次數和滑行估計值。脫困邏輯（對準另一軸、往反方向退）約 900 段路都沒觸發過，實戰沒驗到。
 - **劇本的三個坑（第八場）**：（1）`deckTerminal()` 回傳的物件多一個 `slot`，`terminalDefinitionSchema` 是 strictObject，直接 `...deckTerminal(n, i)` 展開會驗證失敗，用 `deckTerminalIdentity(n, i)`；（2）性別檢查的正規表示式 `/[他她]|…/` 連「其他」「他們」都擋，劇本文字要改寫成「別的」「那些」；（3）每台終端機的 FS 會序列化進 localStorage，單台控制在 40 個檔案、20 KB，各章測試有檢查。前一台的成果要「預先放進」後一台的快照（每台 FS 獨立）。
-- **e2e 的平行度**：整章走完的測試靠計時貼牆滑行，六個 worker 同時跑會讓瀏覽器掉幀、角色滑過門口（第二章在 T5 進了隔壁房）。`playwright.config.ts` 本機 workers 固定 2；單跑某章用 `-g "第 2 章"`。
+- **e2e 的平行度**：閉環後走路不怕掉幀，本機 workers 是 4（8 個 worker、load 61 下也全綠，只是整章測試會拉長到 2 分鐘以上、逼近 180 秒逾時）。Playwright 本機 retry 1、CI 2，重跑才過的測試會在 list 報告標成 flaky；判讀看報告裡的 flaky 數。html 報告不自動開，失敗時用 `pnpm exec playwright show-report`。單跑某章用 `-g "第 2 章"`。導頁與動畫的固定 5 秒等待（例如選章後的 `toHaveURL`）在機器很忙時理論上仍可能逾時。
 - **Vitest 與 CSS Module**：`postcss.config.mjs` 用字串宣告 `@tailwindcss/postcss`，Vite 解析不了，所以 `vitest.config.mts` 設了 `css.postcss: { plugins: [] }`，單元測試不跑 Tailwind。vitest 沒開 globals，Testing Library 不會自動 cleanup，元件測試要手動 `afterEach(cleanup)`。
 - **字型尺寸**：VT323 的 x-height 偏小，終端機字級不要低於 20px；Fusion Pixel 用 12 的整數倍最清楚。Next dev 模式左下角有 Next.js 的圓形工具按鈕，會蓋住 `/play` 的設定列，正式 build 沒有。
 - **Shell 引擎的已知邊界**（M9 補完之後仍刻意不做，之後章節需要再補）：
@@ -299,8 +299,8 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
   - `messages.notADirectory` 的文案偏向 `cd`，`ls wake_up.txt/inner` 這種路徑中間是檔案的情況語意稍偏，之後可讓它帶指令名。
   - grep 不支援 `[.ch.]`、`[=e=]`、`-G`、`-P`、`-x`；`-i [[:upper:]]` 不跟 glibc 一樣配到中文。
   - `chmod` 的 `u+`、一兩位數字、五位數以上判為不合法；沒有 umask，不寫類別的 `+`、`-` 三組都改；四位數的第一位（setuid 等）接受但忽略。`sort` 沒有 `-f`。
-- **存檔 v2 與 e2e**：`seedSave` 刻意寫 v1 讓 migrate 在真瀏覽器跑一次。角色停下就存位置，所以「回標題再繼續」會出現在剛才停下的地方；e2e 的走路工具不能再假設角色一定在出生點（`play.spec.ts` 的 `openCryoTerminal` 先看提示是否已經出現）。
-- **e2e 的 `textContent()` 會無限等待**：元素不存在時 Playwright 的 `locator.textContent()` 預設沒有逾時，`alignToTerminal` 曾因此卡到整個測試 180 秒逾時、微調重試根本沒機會跑；查詢可能不存在的元素要給 `{ timeout }`。
+- **存檔 v2 與 e2e**：`seedSave` 刻意寫 v1 讓 migrate 在真瀏覽器跑一次。角色停下就存位置，所以「回標題再繼續」會出現在剛才停下的地方；走路工具是閉環，從任何位置出發都走得到。
+- **e2e 的 `textContent()` 會無限等待**：元素不存在時 Playwright 的 `locator.textContent()` 預設沒有逾時，舊的 `alignToTerminal` 曾因此卡到整個測試 180 秒逾時、微調重試根本沒機會跑；查詢可能不存在的元素要給 `{ timeout }`（`walkToTerminal` 確認「按 E」提示時給 2 秒）。
 
 ## 6. 協作慣例
 

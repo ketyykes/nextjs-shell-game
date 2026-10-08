@@ -60,7 +60,7 @@ pnpm font:subset
 ## 測試
 
 - **Vitest** (`vitest.config.mts`)：環境 jsdom，`@/` 別名已對應 `src/`，只掃 `src/**/*.{test,spec}.{ts,tsx}`，所以 `e2e/` 不會被撿到。純邏輯測試（例如 shell 引擎）在檔案頂端加 `// @vitest-environment node` 可省掉 jsdom 開銷。
-- **Playwright** (`playwright.config.ts`)：測試放 `e2e/`，只跑 chromium，`baseURL` 是 `http://localhost:${PORT ?? 3000}`，報告用 html reporter。`happy-path.spec.ts` 從標題一路解完第一章再進第二章（約 80 秒），`chapters.spec.ts` 用 `seedSave` 直接種「已到第 N 章」的存檔逐章走完；走路與解謎的共用工具在 `e2e/helpers/deck.ts`，六個甲板平面圖相同所以路線共用。地圖上走路用「貼牆滑行」而不是純計時，原因與坑見 `docs/progress.md` 第 5 節。
+- **Playwright** (`playwright.config.ts`)：測試放 `e2e/`，只跑 chromium，`baseURL` 是 `http://localhost:${PORT ?? 3000}`，本機 4 個 worker、retry 1（CI 2），報告用 list 加 html（不自動開）。`happy-path.spec.ts` 從標題一路解完第一章再進第二章（約 80 秒），`chapters.spec.ts` 用 `seedSave` 直接種「已到第 N 章」的存檔逐章走完；走路與解謎的共用工具在 `e2e/helpers/deck.ts`，六個甲板平面圖相同所以路線共用。地圖上走路是讀角色座標（開發模式的 `window.__kepler9Player`）的閉環，不要寫計時走路，原因與坑見 `docs/progress.md` 第 5 節。
 
 ### TDD 流程
 
