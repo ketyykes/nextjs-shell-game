@@ -93,6 +93,39 @@ describe("Pager", () => {
 		expect(firstRow?.textContent).toBe("      1 event 1");
 	});
 
+	it("q 離開時也不冒泡到 window", () => {
+		const windowListener = vi.fn();
+		window.addEventListener("keydown", windowListener);
+		render(<Pager request={createRequest()} onQuit={() => {}} />);
+		press("q");
+		window.removeEventListener("keydown", windowListener);
+
+		expect(windowListener).not.toHaveBeenCalled();
+	});
+
+	it("不認得的鍵（F5、F11、F12、Tab）交給瀏覽器：不 preventDefault、照常冒泡", () => {
+		const windowListener = vi.fn();
+		window.addEventListener("keydown", windowListener);
+		render(<Pager request={createRequest()} onQuit={() => {}} />);
+		const events = ["F5", "F11", "F12", "Tab"].map((name) => {
+			const event = new KeyboardEvent("keydown", { key: name, bubbles: true, cancelable: true });
+			getPager().dispatchEvent(event);
+			return event;
+		});
+		window.removeEventListener("keydown", windowListener);
+
+		expect(events.map((event) => event.defaultPrevented)).toEqual([false, false, false, false]);
+		expect(windowListener).toHaveBeenCalledTimes(4);
+	});
+
+	it("翻頁鍵有 preventDefault（空白不捲動頁面）", () => {
+		render(<Pager request={createRequest()} onQuit={() => {}} />);
+		const event = new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true });
+		getPager().dispatchEvent(event);
+
+		expect(event.defaultPrevented).toBe(true);
+	});
+
 	it("Ctrl 加其他鍵交給瀏覽器（例如 Ctrl+R 重新整理），不吃掉", () => {
 		render(<Pager request={createRequest()} onQuit={() => {}} />);
 		const event = new KeyboardEvent("keydown", { key: "r", ctrlKey: true, bubbles: true, cancelable: true });

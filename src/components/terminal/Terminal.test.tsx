@@ -357,6 +357,19 @@ describe("Terminal 的 less 分頁模式（M13-3）", () => {
 		]);
 	});
 
+	it("分頁中點標題列或底部列，焦點放回分頁器，q 照樣離開", () => {
+		render(<Harness />);
+		runCommand("less wake_up.txt");
+
+		fireEvent.click(screen.getByRole("heading"));
+		expect(document.activeElement).toBe(getPager());
+		fireEvent.click(screen.getByText(/^已學：/));
+		expect(document.activeElement).toBe(getPager());
+
+		fireEvent.keyDown(document.activeElement ?? document.body, { key: "q" });
+		expect(queryPager()).toBeNull();
+	});
+
 	it("分頁中按 Esc 只離開分頁，不關終端機", () => {
 		const onClose = vi.fn();
 		render(<Harness onClose={onClose} />);

@@ -117,6 +117,17 @@ describe("handlePagerKey 翻頁", () => {
 		}
 		expect(press(view, [" "]).quit).toBe(false);
 	});
+
+	it("認得的鍵回報有處理，不認得的鍵（F5、F12、Tab、單按 Shift）回報沒處理、狀態不變", () => {
+		for (const name of [" ", "j", "G", "/", ":", "q", "Escape"]) {
+			expect(handlePagerKey(createPagerState(), key(name), view).handled).toBe(true);
+		}
+		const start = { ...createPagerState(), top: 5, message: PAGER_MESSAGES.notFound };
+		for (const name of ["F5", "F12", "Tab", "Shift"]) {
+			expect(handlePagerKey(start, key(name), view)).toEqual({ state: start, quit: false, handled: false });
+		}
+		expect(handlePagerKey(start, key("r", true), view).handled).toBe(false);
+	});
 });
 
 describe("handlePagerKey 搜尋", () => {
@@ -188,6 +199,14 @@ describe("handlePagerKey 搜尋", () => {
 		expect(cancelled).toMatchObject({ quit: false, state: { mode: "normal", input: "" } });
 	});
 
+	it("輸入中 Tab、F5 這類不是字的鍵回報沒處理，Esc 與字元有處理", () => {
+		const typing = press(view, ["/", "a"]).state;
+		expect(handlePagerKey(typing, key("Tab"), view)).toMatchObject({ handled: false, state: { input: "a" } });
+		expect(handlePagerKey(typing, key("F5"), view).handled).toBe(false);
+		expect(handlePagerKey(typing, key("Escape"), view).handled).toBe(true);
+		expect(handlePagerKey(typing, key("q"), view).handled).toBe(true);
+	});
+
 	it("輸入中的 q 是字不是離開", () => {
 		const result = press(view, ["/", "q"]);
 		expect(result).toMatchObject({ quit: false, state: { input: "q" } });
@@ -212,6 +231,12 @@ describe("handlePagerKey 多個檔案", () => {
 		expect(press(view, [":", "p"]).state.message).toBe(PAGER_MESSAGES.noPreviousFile);
 		const last = press(view, [":", "n", ":", "n", ":", "n"]);
 		expect(last.state).toMatchObject({ fileIndex: 2, message: PAGER_MESSAGES.noNextFile });
+	});
+
+	it(": 後面接 F5 這類不是字的鍵回報沒處理，仍在等下一個鍵", () => {
+		const colon = press(view, [":"]).state;
+		expect(handlePagerKey(colon, key("F5"), view)).toMatchObject({ handled: false, state: { mode: "colon" } });
+		expect(handlePagerKey(colon, key("Escape"), view)).toMatchObject({ handled: true, quit: false, state: { mode: "normal" } });
 	});
 
 	it(":q 也是離開，: 後面接別的鍵就取消", () => {

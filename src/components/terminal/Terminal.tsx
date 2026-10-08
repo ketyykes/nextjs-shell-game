@@ -9,7 +9,7 @@ import { TEXT_SPEED_MS } from "@/game/store/types";
 import type { OutputEntry, TextSpeed } from "@/game/store/types";
 import { DialogueBlock } from "./DialogueBlock";
 import { OutputBlock } from "./OutputBlock";
-import { Pager } from "./Pager";
+import { Pager, type PagerHandle } from "./Pager";
 import { PromptInput } from "./PromptInput";
 import { TerminalFrame } from "./TerminalFrame";
 import { useTerminalKeyboard } from "./useTerminalKeyboard";
@@ -53,6 +53,7 @@ export function Terminal({
 }: TerminalProps) {
 	const inputRef = useRef<HTMLInputElement>(null);
 	const scrollRef = useRef<HTMLDivElement>(null);
+	const pagerRef = useRef<PagerHandle>(null);
 	const stickToBottomRef = useRef(true);
 
 	// 掛載時就已存在的對話（例如重新打開終端機還原的紀錄）不重播打字動畫
@@ -129,10 +130,15 @@ export function Terminal({
 		stickToBottomRef.current = distanceToBottom <= STICK_TO_BOTTOM_THRESHOLD_PX;
 	};
 
-	// 點終端機任何地方都把焦點放回輸入框；正在選取文字（想複製輸出）時不搶焦點
+	// 點終端機任何地方都把焦點放回輸入框；分頁中放回分頁器（輸入框藏起來了，焦點會掉到 body，q、Esc 就沒反應）。
+	// 正在選取文字（想複製輸出）時不搶焦點
 	const focusInput = () => {
 		const selection = typeof window === "undefined" ? null : window.getSelection();
 		if (selection !== null && selection.toString() !== "") {
+			return;
+		}
+		if (activePager !== null) {
+			pagerRef.current?.focus();
 			return;
 		}
 		inputRef.current?.focus();
@@ -152,6 +158,7 @@ export function Terminal({
 				{activePager !== null && (
 					<Pager
 						key={`pager-${pagerQueue.length}`}
+						ref={pagerRef}
 						request={activePager}
 						onQuit={() => setPagerQueue((queue) => queue.slice(1))}
 					/>

@@ -68,6 +68,19 @@ export interface PagerKeyResult {
 	state: PagerState;
 	/** true 代表離開分頁器。 */
 	quit: boolean;
+	/**
+	 * 分頁器認不認得這個鍵。false 時狀態不變，元件不攔這個鍵（不 preventDefault、照常冒泡），
+	 * F5、F12、Tab 這類鍵交給瀏覽器。
+	 */
+	handled: boolean;
+}
+
+/** 各模式內部的處理結果；null 代表不認得這個鍵。 */
+type KeyOutcome = Omit<PagerKeyResult, "handled"> | null;
+
+/** 是不是一個可以打進搜尋列的字（單一字元，F5、Tab、Shift 這類鍵名不算）。 */
+function isCharacterKey(input: PagerKeyInput): boolean {
+	return Array.from(input.key).length === 1 && !input.ctrlKey;
 }
 
 /** 狀態列的訊息。 */
@@ -257,8 +270,8 @@ function repeatSearch(state: PagerState, view: PagerView, reverse: boolean): Pag
 	return { ...next, lastDirection: state.lastDirection };
 }
 
-/** 搜尋輸入模式的按鍵。 */
-function handleSearchKey(state: PagerState, input: PagerKeyInput, view: PagerView): PagerState {
+/** 搜尋輸入模式的按鍵；不認得的鍵回傳 null。 */
+function handleSearchKey(state: PagerState, input: PagerKeyInput, view: PagerView): PagerState | null {
 	if (input.key === "Escape") {
 		return { ...state, mode: "normal", input: "" };
 	}
@@ -276,14 +289,14 @@ function handleSearchKey(state: PagerState, input: PagerKeyInput, view: PagerVie
 		}
 		return startSearch(state, view, pattern, state.searchDirection);
 	}
-	if (Array.from(input.key).length === 1 && !input.ctrlKey) {
+	if (isCharacterKey(input)) {
 		return { ...state, input: state.input + input.key };
 	}
-	return state;
+	return null;
 }
 
-/** 按了 `:` 之後的下一個鍵。 */
-function handleColonKey(state: PagerState, input: PagerKeyInput, view: PagerView): PagerKeyResult {
+/** 按了 `:` 之後的下一個鍵；F5 這類不是字的鍵不認得（回傳 null），仍在等下一個鍵。 */
+function handleColonKey(state: PagerState, input: PagerKeyInput, view: PagerView): KeyOutcome {
 	const normal: PagerState = { ...state, mode: "normal" };
 	if (input.key === "q" || input.key === "Q") {
 		return { state: normal, quit: true };
@@ -300,14 +313,18 @@ function handleColonKey(state: PagerState, input: PagerKeyInput, view: PagerView
 		}
 		return { state: { ...normal, fileIndex: state.fileIndex - 1, top: 0, targetLine: null }, quit: false };
 	}
-	return { state: normal, quit: false };
+	// 接別的字或 Esc 就取消
+	if (input.key === "Escape" || isCharacterKey(input)) {
+		return { state: normal, quit: false };
+	}
+	return null;
 }
 
-/** 一般模式的按鍵：照 less 的預設鍵。 */
-function handleNormalKey(state: PagerState, input: PagerKeyInput, view: PagerView): PagerKeyResult {
+/** 一般模式的按鍵：照 less 的預設鍵；不認得的鍵回傳 null。 */
+function handleNormalKey(state: PagerState, input: PagerKeyInput, view: PagerView): KeyOutcome {
 	const top = effectiveTop(state, view);
 	const half = Math.max(1, Math.floor(view.pageSize / 2));
-	const scrollTo = (next: number): PagerKeyResult => ({ state: { ...state, top: clampTop(next, view) }, quit: false });
+	const scrollTo = (next: number): KeyOutcome => ({ state: { ...state, top: clampTop(next, view) }, quit: false });
 	const { key, ctrlKey } = input;
 
 	if (ctrlKey) {
@@ -321,7 +338,7 @@ function handleNormalKey(state: PagerState, input: PagerKeyInput, view: PagerVie
 			case "u":
 				return scrollTo(top - half);
 			default:
-				return { state, quit: false };
+				return null;
 		}
 	}
 
@@ -369,20 +386,26 @@ function handleNormalKey(state: PagerState, input: PagerKeyInput, view: PagerVie
 		case ":":
 			return { state: { ...state, mode: "colon" }, quit: false };
 		default:
-			return { state, quit: false };
+			return null;
 	}
 }
 
-/** 處理一個按鍵。每按一個鍵都先清掉上一個訊息。 */
+/** 處理一個按鍵。認得的鍵先清掉上一個訊息；不認得的鍵狀態原封不動，回報 `handled: false`。 */
 export function handlePagerKey(state: PagerState, input: PagerKeyInput, view: PagerView): PagerKeyResult {
 	const cleared: PagerState = { ...state, message: null };
+	let outcome: KeyOutcome;
 	if (state.mode === "search") {
-		return { state: handleSearchKey(cleared, input, view), quit: false };
+		const next = handleSearchKey(cleared, input, view);
+		outcome = next === null ? null : { state: next, quit: false };
+	} else if (state.mode === "colon") {
+		outcome = handleColonKey(cleared, input, view);
+	} else {
+		outcome = handleNormalKey(cleared, input, view);
 	}
-	if (state.mode === "colon") {
-		return handleColonKey(cleared, input, view);
+	if (outcome === null) {
+		return { state, quit: false, handled: false };
 	}
-	return handleNormalKey(cleared, input, view);
+	return { ...outcome, handled: true };
 }
 
 /** 狀態列文字：輸入中顯示輸入列，有訊息顯示訊息，否則照 less -M 顯示位置。 */
