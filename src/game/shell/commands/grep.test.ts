@@ -47,13 +47,13 @@ describe("grep 基本比對", () => {
 	it("基本正規表示式裡的 | 是字面字元", () => {
 		const result = grepCommand.run(["ERROR|WARN", EVAC], createFilterContext());
 
-		expect(result).toEqual({ ok: true, lines: [] });
+		expect(result).toEqual({ ok: true, lines: [], exitStatus: 1 });
 	});
 
-	it("沒有任何符合不算錯誤：ok 為 true、沒有輸出", () => {
+	it("沒有任何符合不算錯誤：ok 為 true、沒有輸出、結束碼 1", () => {
 		const result = grepCommand.run(["NOTHING", "nova_core.log"], createFilterContext());
 
-		expect(result).toEqual({ ok: true, lines: [] });
+		expect(result).toEqual({ ok: true, lines: [], exitStatus: 1 });
 	});
 });
 
@@ -76,10 +76,10 @@ describe("grep 選項", () => {
 		expect(result).toEqual({ ok: true, lines: ["2"] });
 	});
 
-	it("-c 沒有符合時印 0，ok 仍為 true", () => {
+	it("-c 沒有符合時印 0，ok 仍為 true、結束碼 1", () => {
 		const result = grepCommand.run(["-c", "NOTHING", EVAC], createFilterContext());
 
-		expect(result).toEqual({ ok: true, lines: ["0"] });
+		expect(result).toEqual({ ok: true, lines: ["0"], exitStatus: 1 });
 	});
 
 	it("-v 反向，印出不含字串的行", () => {
@@ -234,7 +234,7 @@ describe("grep -w 與 -o", () => {
 	it("-ov 沒有片段可印，沒有輸出也不算錯誤", () => {
 		const result = grepCommand.run(["-ov", "foo"], createFilterContext({ stdin: WORD_LINES }));
 
-		expect(result).toEqual({ ok: true, lines: [] });
+		expect(result).toEqual({ ok: true, lines: [], exitStatus: 1 });
 	});
 
 	it("-o 不印空字串的符合", () => {
@@ -379,7 +379,7 @@ describe("grep 目錄與 -r", () => {
 	it("-r 沒有任何符合時 ok 為 true", () => {
 		const result = grepCommand.run(["-r", "NOTHING", "archive"], createFilterContext());
 
-		expect(result).toEqual({ ok: true, lines: [] });
+		expect(result).toEqual({ ok: true, lines: [], exitStatus: 1 });
 	});
 });
 

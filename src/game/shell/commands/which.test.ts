@@ -54,7 +54,7 @@ describe("which 找指令的路徑", () => {
 		const onlyOpt = createContext({ env: { HOME: HOME_DIR, PATH: "/opt/nova/bin" } });
 
 		expect(whichCommand.run(["ls"], onlyBin).lines).toEqual(["/bin/ls"]);
-		expect(whichCommand.run(["ls"], onlyOpt)).toEqual({ ok: true, lines: whichNotFound("ls", "/opt/nova/bin", true) });
+		expect(whichCommand.run(["ls"], onlyOpt)).toEqual({ ok: true, lines: whichNotFound("ls", "/opt/nova/bin", true), exitStatus: 1 });
 	});
 
 	it("PATH 目錄結尾多一個 / 也認得", () => {
@@ -65,16 +65,17 @@ describe("which 找指令的路徑", () => {
 });
 
 describe("which 找不到", () => {
-	it("沒有這個指令時說明找不到，不算錯誤（跟 grep 沒符合一樣）", () => {
+	it("沒有這個指令時說明找不到，不算錯誤但結束碼是 1（跟 grep 沒符合一樣）", () => {
 		expect(whichCommand.run(["vim"], createContext())).toEqual({
 			ok: true,
 			lines: whichNotFound("vim", DEFAULT_PATH, false),
+			exitStatus: 1,
 		});
 	});
 
 	it("shell 內建指令沒有程式檔，說明它照樣能用", () => {
 		for (const name of ["cd", "export", "help", "history"]) {
-			expect(whichCommand.run([name], createContext())).toEqual({ ok: true, lines: whichBuiltin(name) });
+			expect(whichCommand.run([name], createContext())).toEqual({ ok: true, lines: whichBuiltin(name), exitStatus: 1 });
 		}
 	});
 

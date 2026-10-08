@@ -392,13 +392,13 @@ export const diffCommand: CommandDefinition = {
 			return { ok: true, lines: [] };
 		}
 
-		// 有差異不算錯誤（決策 #28 的延伸：跟 grep 沒符合一樣，避免懲罰探索）
+		// 有差異不算錯誤（決策 #28 的延伸：跟 grep 沒符合一樣，避免懲罰探索），但結束碼照 GNU diff 是 1，`&&` 會跳過右邊
 		if (flags.has("q")) {
-			return { ok: true, lines: [`Files ${left.side.label} and ${right.side.label} differ`] };
+			return { ok: true, lines: [`Files ${left.side.label} and ${right.side.label} differ`], exitStatus: 1 };
 		}
 		if (flags.has("u")) {
-			return { ok: true, lines: formatUnified(left.side, right.side, ops, blocks) };
+			return { ok: true, lines: formatUnified(left.side, right.side, ops, blocks), exitStatus: 1 };
 		}
-		return { ok: true, lines: formatNormal(left.side.lines, right.side.lines, ops, blocks) };
+		return { ok: true, lines: formatNormal(left.side.lines, right.side.lines, ops, blocks), exitStatus: 1 };
 	},
 };

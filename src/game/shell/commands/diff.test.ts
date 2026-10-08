@@ -46,12 +46,13 @@ describe("diff 預設格式（GNU normal）", () => {
 		expect(diffCommand.run(["old.cfg", "copy.cfg"], createContext())).toEqual({ ok: true, lines: [] });
 	});
 
-	it("改、刪、加三種差異照 GNU diff 的寫法，有差異不算錯誤", () => {
+	it("改、刪、加三種差異照 GNU diff 的寫法，有差異不算錯誤但結束碼是 1", () => {
 		const result = diffCommand.run(["old.cfg", "new.cfg"], createContext());
 
 		expect(result).toEqual({
 			ok: true,
 			lines: ["2c2", "< b", "---", "> B", "4d3", "< d", "5a5,6", "> f", "> g"],
+			exitStatus: 1,
 		});
 	});
 
@@ -110,6 +111,7 @@ describe("diff -u（unified）", () => {
 				"+f",
 				"+g",
 			],
+			exitStatus: 1,
 		});
 	});
 
@@ -160,6 +162,7 @@ describe("diff -q", () => {
 		expect(diffCommand.run(["-q", "old.cfg", "new.cfg"], createContext())).toEqual({
 			ok: true,
 			lines: ["Files old.cfg and new.cfg differ"],
+			exitStatus: 1,
 		});
 		expect(diffCommand.run(["-q", "old.cfg", "copy.cfg"], createContext())).toEqual({ ok: true, lines: [] });
 	});

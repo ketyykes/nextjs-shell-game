@@ -14,6 +14,7 @@
  * 多個檔案或 `-r` 時每行前面加 `檔案路徑:`，路徑用玩家的寫法接相對子路徑（例如 `logs/2028/a.log:`），跟真的 grep 一樣。
  *
  * 沒有任何符合不算錯誤（`ok: true`、沒有輸出），避免懲罰探索；只有讀不到檔案、用法錯誤、樣式不合法才算錯誤。
+ * 不過結束碼照 GNU grep 是 1（一行都沒選到，`-c` 印 0 也一樣），所以 `grep X f && echo 找到了` 不會印「找到了」。
  */
 
 import type { CommandContext, CommandDefinition, CommandResult } from "../types";
@@ -146,11 +147,17 @@ function isSelected(line: string, tester: LineTester, options: GrepOptions): boo
 	return found;
 }
 
+/** 一組行比對完的結果：要印的行與選到幾行（決定結束碼）。 */
+interface MatchResult {
+	lines: string[];
+	selected: number;
+}
+
 /**
  * 對一組行做比對並格式化。
  * `label` 不是 null 時每行（或 `-c` 的計數）前面加 `label:`。
  */
-function matchLines(lines: string[], tester: LineTester, options: GrepOptions, label: string | null): string[] {
+function matchLines(lines: string[], tester: LineTester, options: GrepOptions, label: string | null): MatchResult {
 	let prefix = "";
 
 	if (label !== null) {
@@ -189,10 +196,10 @@ function matchLines(lines: string[], tester: LineTester, options: GrepOptions, l
 	});
 
 	if (options.count) {
-		return [`${prefix}${matched}`];
+		return { lines: [`${prefix}${matched}`], selected: matched };
 	}
 
-	return output;
+	return { lines: output, selected: matched };
 }
 
 // ---------------------------------------------------------------------------
@@ -203,6 +210,8 @@ function matchLines(lines: string[], tester: LineTester, options: GrepOptions, l
 interface SearchOutput {
 	ok: boolean;
 	lines: string[];
+	/** 所有檔案加起來選到幾行，0 時結束碼是 1。 */
+	selected: number;
 }
 
 /** 搜尋需要的共用參數。 */
@@ -264,7 +273,9 @@ function searchFile(settings: SearchSettings, path: string, output: SearchOutput
 		label = path;
 	}
 
-	output.lines.push(...matchLines(splitContentLines(content), tester, options, label));
+	const matched = matchLines(splitContentLines(content), tester, options, label);
+	output.lines.push(...matched.lines);
+	output.selected += matched.selected;
 }
 
 /** 遞迴搜尋一個路徑：檔案直接搜，目錄依名稱排序逐一往下（隱藏檔也搜）。 */
@@ -299,6 +310,14 @@ function searchRecursive(settings: SearchSettings, path: string, output: SearchO
 // 指令本體
 // ---------------------------------------------------------------------------
 
+/** 搜尋結果轉成指令結果：成功但一行都沒選到時結束碼 1（不算錯誤）。 */
+function toResult(output: SearchOutput): CommandResult {
+	if (output.ok && output.selected === 0) {
+		return { ok: true, lines: output.lines, exitStatus: 1 };
+	}
+	return { ok: output.ok, lines: output.lines };
+}
+
 export const grepCommand: CommandDefinition = {
 	name: "grep",
 	run(args, context): CommandResult {
@@ -322,7 +341,8 @@ export const grepCommand: CommandDefinition = {
 		// 沒給檔名：有 stdin 就讀 stdin；-r 時搜目前目錄（GNU grep 的行為）；否則沒東西可讀
 		if (paths.length === 0) {
 			if (context.stdin !== null) {
-				return { ok: true, lines: matchLines(context.stdin, tester, options, null) };
+				const matched = matchLines(context.stdin, tester, options, null);
+				return toResult({ ok: true, lines: matched.lines, selected: matched.selected });
 			}
 
 			if (!options.recursive) {
@@ -339,7 +359,7 @@ export const grepCommand: CommandDefinition = {
 			pattern,
 			showLabel: options.recursive || paths.length > 1,
 		};
-		const output: SearchOutput = { ok: true, lines: [] };
+		const output: SearchOutput = { ok: true, lines: [], selected: 0 };
 
 		for (const path of paths) {
 			if (options.recursive) {
@@ -349,6 +369,6 @@ export const grepCommand: CommandDefinition = {
 			}
 		}
 
-		return output;
+		return toResult(output);
 	},
 };

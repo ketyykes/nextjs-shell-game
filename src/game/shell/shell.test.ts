@@ -1023,3 +1023,56 @@ describe("Shell 分頁 less（M13-3）", () => {
 		expect(shell.execute("pwd ; ls").pagers).toBeUndefined();
 	});
 });
+
+describe("Shell && 看結束碼，不算錯誤的失敗也會跳過右邊", () => {
+	it("grep 沒符合時 && 右邊不執行，整行不算錯誤", () => {
+		const shell = createShell();
+		const result = shell.execute("grep NOPE wake_up.txt && echo 找到了");
+		expect(result).toMatchObject({ isError: false, lines: [] });
+		expect(result.segments?.map((segment) => segment.input)).toEqual(["grep NOPE wake_up.txt"]);
+	});
+
+	it("grep 有符合時 && 右邊照常執行", () => {
+		const shell = createShell();
+		const result = shell.execute("grep 喚醒 wake_up.txt && echo 找到了");
+		expect(result).toMatchObject({ isError: false, lines: ["喚醒排程：三年後", "找到了"] });
+	});
+
+	it("grep -c 沒符合時印 0，&& 右邊照樣不執行", () => {
+		const shell = createShell();
+		expect(shell.execute("grep -c NOPE wake_up.txt && echo 找到了").lines).toEqual(["0"]);
+	});
+
+	it("diff 有差異時 && 右邊不執行，相同時照常執行", () => {
+		const shell = createShell();
+		shell.execute("echo a > a.txt ; echo b > b.txt ; echo a > c.txt");
+		const differ = shell.execute("diff -q a.txt b.txt && echo 一樣");
+		expect(differ).toMatchObject({ isError: false, lines: ["Files a.txt and b.txt differ"] });
+		expect(shell.execute("diff a.txt c.txt && echo 一樣").lines).toEqual(["一樣"]);
+	});
+
+	it("which 找不到時 && 右邊不執行，找得到時照常執行", () => {
+		const shell = createShell();
+		const missing = shell.execute("which nope && echo 有");
+		expect(missing.isError).toBe(false);
+		expect(missing.lines).not.toContain("有");
+		expect(shell.execute("which ls && echo 有").lines).toEqual(["/usr/bin/ls", "有"]);
+	});
+
+	it("管線的結束碼取最後一個指令：grep 在中間沒符合不影響，在最後就跳過", () => {
+		const shell = createShell();
+		expect(shell.execute("grep NOPE wake_up.txt | wc -l && echo 下一步").lines).toEqual(["0", "下一步"]);
+		expect(shell.execute("cat wake_up.txt | grep NOPE && echo 下一步").lines).toEqual([]);
+	});
+
+	it("有重導向時也看指令的結束碼", () => {
+		const shell = createShell();
+		const result = shell.execute("grep NOPE wake_up.txt > found.txt && echo 寫好了");
+		expect(result).toMatchObject({ isError: false, lines: [] });
+	});
+
+	it("; 不看結束碼，grep 沒符合之後照樣執行", () => {
+		const shell = createShell();
+		expect(shell.execute("grep NOPE wake_up.txt ; echo 下一段").lines).toEqual(["下一段"]);
+	});
+});

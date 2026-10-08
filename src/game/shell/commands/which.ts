@@ -11,7 +11,8 @@
  * 環境變數裡沒有 `PATH` 時用 `DEFAULT_PATH`。`PATH` 只影響 which，不影響指令能不能執行（玩家改壞 PATH 不會讓 ls 消失）。
  * 名稱含 `/` 時直接看那個檔案存不存在、能不能執行（擁有者看前三碼的 x，其他人看最後三碼）。
  *
- * 找不到時真的 which 不印東西、回傳 1；這裡改成印一段說明，而且跟 `grep` 沒符合一樣**不算錯誤**，避免懲罰探索。
+ * 找不到時真的 which 不印東西、回傳 1；這裡改成印一段說明，而且跟 `grep` 沒符合一樣**不算錯誤**，避免懲罰探索，
+ * 結束碼照樣是 1（`which vim && vim` 不會往下跑）。
  */
 
 import type { CommandContext, CommandDefinition, CommandResult, FsNode } from "../types";
@@ -77,22 +78,33 @@ function isExecutableFile(name: string, context: CommandContext): boolean {
 	}
 }
 
+/** 查一個名稱的結果：要印的行，以及找不找得到（決定結束碼）。 */
+interface LocateResult {
+	lines: string[];
+	found: boolean;
+}
+
+/** 找不到：印說明。 */
+function notFound(lines: string[]): LocateResult {
+	return { lines, found: false };
+}
+
 /** 查一個名稱，回傳要印的行。 */
-function locate(name: string, path: string, all: boolean, context: CommandContext): string[] {
+function locate(name: string, path: string, all: boolean, context: CommandContext): LocateResult {
 	if (name.includes("/")) {
 		if (isExecutableFile(name, context)) {
-			return [name];
+			return { lines: [name], found: true };
 		}
-		return whichNotFound(name, path, false);
+		return notFound(whichNotFound(name, path, false));
 	}
 
 	if (SHELL_BUILTINS.has(name)) {
-		return whichBuiltin(name);
+		return notFound(whichBuiltin(name));
 	}
 
 	const install = installDir(name, context);
 	if (install === null) {
-		return whichNotFound(name, path, false);
+		return notFound(whichNotFound(name, path, false));
 	}
 
 	const found: string[] = [];
@@ -112,9 +124,9 @@ function locate(name: string, path: string, all: boolean, context: CommandContex
 	}
 
 	if (found.length === 0) {
-		return whichNotFound(name, path, true);
+		return notFound(whichNotFound(name, path, true));
 	}
-	return found;
+	return { lines: found, found: true };
 }
 
 export const whichCommand: CommandDefinition = {
@@ -130,8 +142,12 @@ export const whichCommand: CommandDefinition = {
 
 		const path = context.env.PATH ?? DEFAULT_PATH;
 		const all = parsed.flags.has("a");
-		const lines = parsed.operands.flatMap((name) => locate(name, path, all, context));
-		// 找不到也不算錯誤，跟 grep 沒符合一樣（決策 #28 的延伸）
+		const results = parsed.operands.map((name) => locate(name, path, all, context));
+		const lines = results.flatMap((result) => result.lines);
+		// 找不到也不算錯誤，跟 grep 沒符合一樣（決策 #28 的延伸）；但任一個找不到時結束碼照 which 是 1，`&&` 會跳過右邊
+		if (results.some((result) => !result.found)) {
+			return { ok: true, lines, exitStatus: 1 };
+		}
 		return { ok: true, lines };
 	},
 };

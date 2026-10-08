@@ -52,6 +52,23 @@ export interface ShellSessionState {
 /** 重導向開檔的結果：成功時帶這次新建的目標檔絕對路徑（原本就存在為 null），失敗時帶錯誤訊息。 */
 type RedirectOpenResult = { ok: true; createdPath: string | null } | { ok: false; lines: string[] };
 
+/**
+ * 一段管線的執行結果加上結束碼。結束碼只給 `&&` 決定要不要跳過右邊，不放進 `ShellExecution`：
+ * UI 與目標判定只看 `isError`（`grep` 沒符合這類「不算錯誤的失敗」結束碼是 1，但 `isError` 仍是 false）。
+ */
+interface PipelineRun {
+	execution: ShellExecution;
+	exitStatus: number;
+}
+
+/** 指令的結束碼：有給 `exitStatus` 就用它，否則 ok 是 0、失敗是 1。 */
+function exitStatusOf(result: CommandResult): number {
+	if (result.exitStatus !== undefined) {
+		return result.exitStatus;
+	}
+	return result.ok ? 0 : 1;
+}
+
 /** 萬用字元：沒被引號包住而且含這兩個字元的參數才展開。 */
 const GLOB_CHAR_PATTERN = /[*?]/;
 
@@ -166,8 +183,8 @@ export class Shell {
 	 * 不管成功或失敗都會記進歷史（跟 bash 一樣，打錯的也能用 ↑ 叫回來修），整行只記一筆。
 	 *
 	 * 一行可以用 `;`、`&&` 串成好幾段（M13-2）。跟 bash 一樣先解析整行，任一段有語法錯誤就一段都不執行；
-	 * 接著依序執行每一段：`;` 後面的段落一定執行，`&&` 後面的段落只在前一段成功時執行（被跳過時維持失敗，
-	 * 所以 `fail && a && b` 的 `b` 也跳過）。每一段執行到時才展開變數與萬用字元，看得到前面段落的副作用。
+	 * 接著依序執行每一段：`;` 後面的段落一定執行，`&&` 後面的段落只在前一段的結束碼是 0 時執行（被跳過時維持失敗，
+	 * 所以 `fail && a && b` 的 `b` 也跳過）。結束碼跟「算不算錯誤」分開：`grep` 沒符合不算錯誤，但 `&&` 照樣跳過右邊。每一段執行到時才展開變數與萬用字元，看得到前面段落的副作用。
 	 * 任一段失敗整行就算一次錯誤，輸出依序接起來；每一段的結果放在 `segments` 給目標判定逐段看。
 	 */
 	execute(input: string): ShellExecution {
@@ -183,14 +200,14 @@ export class Shell {
 		}
 
 		const segments: ShellExecution[] = [];
-		let previousOk = true;
+		let previousStatus = 0;
 		for (const item of list.items) {
-			if (item.connector === "&&" && !previousOk) {
+			if (item.connector === "&&" && previousStatus !== 0) {
 				continue;
 			}
-			const segment = this.executePipeline(item.source, previousHistory);
-			segments.push(segment);
-			previousOk = !segment.isError;
+			const run = this.executePipeline(item.source, previousHistory);
+			segments.push(run.execution);
+			previousStatus = run.exitStatus;
 		}
 
 		if (list.items.length <= 1) {
@@ -214,14 +231,15 @@ export class Shell {
 	 * 所以指令失敗（例如 `cat missing.txt > out.txt`）也會留下空的目標檔；目標本身不合法（父目錄不存在、是目錄）
 	 * 時只回報目標的錯誤，管線一個指令都不執行。最後一個指令成功時輸出寫進檔案，畫面上不印。
 	 * 不管哪一種失敗，這一段都只算一次錯誤。
+	 * 回傳時附上這一段的結束碼（最後一個指令的），`&&` 用它決定要不要跳過下一段。
 	 */
-	private executePipeline(input: string, previousHistory: string[]): ShellExecution {
+	private executePipeline(input: string, previousHistory: string[]): PipelineRun {
 		const parsed = parseCommandLineDetailed(input, { env: this.currentEnv, home: this.home });
 		if (!parsed.ok) {
-			return this.finish(input, false, parseError(parsed.error), false);
+			return this.failRun(input, parseError(parsed.error), false);
 		}
 		if (parsed.pipeline === null) {
-			return this.finish(input, true, [], false);
+			return { execution: this.finish(input, true, [], false), exitStatus: 0 };
 		}
 
 		const redirect = parsed.pipeline.redirect;
@@ -231,7 +249,7 @@ export class Shell {
 			const opened = this.openRedirect(redirect);
 
 			if (!opened.ok) {
-				return this.finish(input, false, opened.lines, false);
+				return this.failRun(input, opened.lines, false);
 			}
 
 			createdTarget = opened.createdPath;
@@ -239,13 +257,15 @@ export class Shell {
 
 		let stdin: string[] | null = null;
 		let clearScreen = false;
+		// 管線的結束碼是最後一個指令的（bash 沒開 pipefail 時的行為），中間的 grep 沒符合不影響
+		let exitStatus = 0;
 		const commands = parsed.pipeline.commands;
 
 		for (const [index, parsedCommand] of commands.entries()) {
 			const name = parsedCommand.name.value;
 			const command = this.commands.get(name);
 			if (command === undefined) {
-				return this.finish(input, false, this.describeUnknownCommand(name), clearScreen);
+				return this.failRun(input, this.describeUnknownCommand(name), clearScreen);
 			}
 
 			const args = this.expandGlobs(parsedCommand.args, createdTarget);
@@ -257,24 +277,26 @@ export class Shell {
 			// less 只有在管線最後、輸出直接到畫面時才分頁；其他位置照真的 less 把內容當一般輸出
 			const isLast = index === commands.length - 1;
 			if (isLast && redirect === null && result.pager !== undefined) {
-				return { ...this.finish(input, result.ok, result.pager.lines, clearScreen), pagers: [result.pager.request] };
+				const execution = this.finish(input, result.ok, result.pager.lines, clearScreen);
+				return { execution: { ...execution, pagers: [result.pager.request] }, exitStatus: exitStatusOf(result) };
 			}
 			if (!result.ok) {
-				return this.finish(input, false, result.lines, clearScreen);
+				return this.failRun(input, result.lines, clearScreen);
 			}
 			stdin = result.lines;
+			exitStatus = exitStatusOf(result);
 		}
 
 		const output = stdin ?? [];
 		if (redirect === null) {
-			return this.finish(input, true, output, clearScreen);
+			return { execution: this.finish(input, true, output, clearScreen), exitStatus };
 		}
 
 		const redirectError = this.writeRedirect(redirect, output);
 		if (redirectError !== null) {
-			return this.finish(input, false, redirectError, clearScreen);
+			return this.failRun(input, redirectError, clearScreen);
 		}
-		return this.finish(input, true, [], clearScreen);
+		return { execution: this.finish(input, true, [], clearScreen), exitStatus };
 	}
 
 	/**
@@ -488,6 +510,11 @@ export class Shell {
 		if (result.nextProcesses !== undefined) {
 			this.currentProcesses = copyProcesses(result.nextProcesses);
 		}
+	}
+
+	/** 這一段失敗（算錯誤）：印錯誤訊息，結束碼 1。 */
+	private failRun(input: string, lines: string[], clearScreen: boolean): PipelineRun {
+		return { execution: this.finish(input, false, lines, clearScreen), exitStatus: 1 };
 	}
 
 	/** 組成給 UI 的執行結果，env 與程序清單都給拷貝。 */

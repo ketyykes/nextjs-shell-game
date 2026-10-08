@@ -448,6 +448,12 @@ export interface CommandResult {
 	nextProcesses?: ProcessInfo[];
 	/** `less` 用：要求進分頁模式，見 `PagerOutput`。 */
 	pager?: PagerOutput;
+	/**
+	 * 結束碼，只有「不算錯誤的失敗」才需要給：`grep` 沒符合、`diff` 有差異、`which` 找不到回 1。
+	 * 沒給時由 `ok` 決定（true 是 0、false 是 1）。`&&` 看結束碼決定要不要跳過右邊（照 bash），
+	 * 扣氧與「這一行算不算錯」仍只看 `ok`，所以這類失敗照樣不懲罰探索。
+	 */
+	exitStatus?: number;
 }
 
 export interface CommandDefinition {
