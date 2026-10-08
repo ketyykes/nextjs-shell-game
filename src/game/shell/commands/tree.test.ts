@@ -164,3 +164,26 @@ describe("tree 錯誤", () => {
 		});
 	});
 });
+
+describe("tree 選項切分的邊界", () => {
+	it("-L 可以接在合併旗標的最後，值放在下一個參數", () => {
+		const result = treeCommand.run(["-dL", "1", "/deck2"], createFilterContext());
+
+		expect(result.lines).toEqual(["/deck2", "└── logs/", "", "2 directories"]);
+	});
+
+	it("-L 後面黏著的字一律當層數，-La 的 a 不是選項", () => {
+		expect(treeCommand.run(["-La"], createFilterContext())).toEqual({ ok: false, lines: invalidTreeLevel("a") });
+	});
+
+	it("-L 後面的參數一律當層數，即使它是 --", () => {
+		expect(treeCommand.run(["-L", "--"], createFilterContext())).toEqual({ ok: false, lines: invalidTreeLevel("--") });
+	});
+
+	it("-- 之後的 -a 當成路徑", () => {
+		const result = treeCommand.run(["--", "-a"], createFilterContext());
+
+		expect(result.ok).toBe(false);
+		expect(result.lines).toEqual(expect.arrayContaining(fsError("ENOENT", "-a")));
+	});
+});

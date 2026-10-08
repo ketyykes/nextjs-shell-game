@@ -211,3 +211,30 @@ describe("cut 用法錯誤", () => {
 		});
 	});
 });
+
+describe("cut 選項切分的邊界", () => {
+	it("-s 可以跟 -d、-f 合併，值放在下一個參數或黏在後面", () => {
+		const expected = ["name", "阿彬", "NOVA", "林"];
+
+		expect(cutCommand.run(["-sd", ",", "-f", "2", "crew.csv"], createContext()).lines).toEqual(expected);
+		expect(cutCommand.run(["crew.csv", "-sf2", "-d,"], createContext()).lines).toEqual(expected);
+	});
+
+	it("-d 後面黏著的字一律當分隔字元，-ds 的 s 不是選項", () => {
+		expect(cutCommand.run(["-ds", "-f", "1"], createContext({ stdin: ["asb"] }))).toEqual({ ok: true, lines: ["a"] });
+	});
+
+	it("-d 後面的參數一律當分隔字元，即使它是 --", () => {
+		expect(cutCommand.run(["-d", "--", "-f", "1"], createContext())).toEqual({
+			ok: false,
+			lines: cutInvalidDelimiter("--"),
+		});
+	});
+
+	it("-- 之後的 -f 當成檔名", () => {
+		const result = cutCommand.run(["-c", "1", "--", "-f"], createContext());
+
+		expect(result.ok).toBe(false);
+		expect(result.lines).toEqual(expect.arrayContaining(fsError("ENOENT", "-f")));
+	});
+});
