@@ -83,6 +83,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 		return this.currentFacing;
 	}
 
+	/** 鍵盤控制是否開著（終端機或暫停選單開著時為 false），開發模式的座標鉤子會讀。 */
+	get isInputEnabled(): boolean {
+		return this.inputEnabled;
+	}
+
 	/**
 	 * 每幀呼叫，依鍵盤設速度與動畫。inputEnabled 為 false 時停住並播站立幀。
 	 *

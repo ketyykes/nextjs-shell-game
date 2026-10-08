@@ -14,6 +14,7 @@ import {
 } from "../objects/effects";
 import { LightMask } from "../objects/LightMask";
 import { Player } from "../objects/Player";
+import { installPlayerProbe } from "../objects/playerProbe";
 import { PositionReporter, resolveSpawnPoint } from "../objects/position";
 import { RoomTracker } from "../objects/RoomTracker";
 import { ShadowFigure } from "../objects/ShadowFigure";
@@ -157,12 +158,14 @@ export class Station extends Phaser.Scene {
 		// 場景重啟走 SHUTDOWN；`game.destroy()` 只發 DESTROY 不發 SHUTDOWN（Phaser 的 Systems.destroy 不會先 shutdown），
 		// 兩條路都要清，否則 React 重建遊戲後（例如 Fast Refresh、換角色）舊場景的 sfx:play 訂閱還掛在全域 EventBus 上，
 		// 而舊 sound 已被 SoundManager 銷毀（currentConfig 變 null），下一個音效會炸「Cannot set properties of null (setting 'seek')」。
+		const detachPlayerProbe = this.attachPlayerProbe();
 		let cleanedUp = false;
 		const cleanup = (): void => {
 			if (cleanedUp) {
 				return;
 			}
 			cleanedUp = true;
+			detachPlayerProbe();
 			this.terminalZones.destroy();
 			this.lightMask.destroy();
 			this.shadowFigure.destroy();
@@ -385,6 +388,22 @@ export class Station extends Phaser.Scene {
 			return;
 		}
 		this.lightMask.flicker(durationMs);
+	}
+
+	/**
+	 * 開發模式把角色座標、艙區與能否操作掛到 `window.__kepler9Player`，e2e 的閉環走路讀它（M11-6，延伸決策 #7）。
+	 * 正式 build 不掛，回傳的拆除函式什麼都不做。
+	 */
+	private attachPlayerProbe(): () => void {
+		if (process.env.NODE_ENV === "production") {
+			return () => {};
+		}
+		return installPlayerProbe(window as unknown as Record<string, unknown>, () => ({
+			x: this.player.x,
+			y: this.player.y,
+			roomId: this.roomTracker.roomId,
+			inputEnabled: this.player.isInputEnabled,
+		}));
 	}
 
 	/** 讀 registry 的開場斷電旗標，只有明確的 `true` 才摸黑（registry 沒有型別保證）。 */
