@@ -76,10 +76,12 @@ interface PlayScreenReadyProps {
 
 /** 讀檔完成後才掛載，所以這裡的 store 讀寫都安全。 */
 function PlayScreenReady({ character }: PlayScreenReadyProps) {
+	// 目前章節：劇本、地圖、演出都從它來，只在掛載當下讀一次。換章是整頁重載（#31），
+	// 按「進入下一章」到頁面真的卸載之間 store 已是下一章，若跟著訂閱會提前說掉下一章開場、重建 Phaser
+	const [chapterNumber] = useState(() => useGameStore.getState().progress.chapter);
 	// 只訂閱用得到的欄位：角色停下存位置、存檔時間這些 progress 變動不會讓整頁重新 render（A4）
-	const { chapterNumber, solvedTerminals, learnedCommands } = useGameStore(
+	const { solvedTerminals, learnedCommands } = useGameStore(
 		useShallow((state) => ({
-			chapterNumber: state.progress.chapter,
 			solvedTerminals: state.progress.solvedTerminals,
 			learnedCommands: state.progress.learnedCommands,
 		})),
@@ -90,7 +92,6 @@ function PlayScreenReady({ character }: PlayScreenReadyProps) {
 	const novaPortrait = useGameStore((state) => novaPortraitFor(chapterNumber, state.storyFlags));
 	const router = useRouter();
 
-	// 目前章節：劇本、地圖、演出都從它來；換章是整頁重載（#31），所以掛載期間不會變
 	const chapter = getChapter(chapterNumber);
 	useScenePreload(chapter.chapter);
 	const [terminalEffects] = useState(() => collectTerminalEffects(chapter));

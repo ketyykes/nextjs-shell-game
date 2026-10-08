@@ -9,6 +9,7 @@ import { createInitialSaveData, useGameStore } from "@/game/store";
 import type { ProgressState, SettingsState, StoryFlags } from "@/game/store/types";
 import type { PhaserGame } from "./PhaserGame";
 import { PlayScreen } from "./PlayScreen";
+import { reloadPage } from "./reloadPage";
 
 /**
  * PlayScreen 的整合測試：Phaser 換成假元件，用 EventBus 發事件驅動，store 用真的。
@@ -56,6 +57,9 @@ vi.mock("@/components/game/NovaDialogue", () => ({
 		</div>
 	),
 }));
+
+// jsdom 的 window.location.reload 不能替換，換章與重玩本章的整頁重載換成假函式
+vi.mock("./reloadPage", () => ({ reloadPage: vi.fn() }));
 
 vi.mock("@/game/phaser/EventBus", async (importOriginal) => {
 	const actual = await importOriginal<typeof import("@/game/phaser/EventBus")>();
@@ -148,6 +152,7 @@ beforeEach(() => {
 	mocks.routerPush.mockClear();
 	mocks.phaserProps.length = 0;
 	vi.mocked(onGameEvent).mockClear();
+	vi.mocked(reloadPage).mockClear();
 	seedSave();
 });
 
@@ -617,6 +622,31 @@ describe("PlayScreen 章節結束", () => {
 		seedSave({ progress: { solvedTerminals: ALL_CHAPTER_ONE, savedAt: null } });
 		render(<PlayScreen />);
 		expect(useGameStore.getState().progress.savedAt).not.toBeNull();
+	});
+
+	it("按「進入第 2 章」後到整頁重載之前，畫面仍停在第一章，不提前說第二章開場也不重建 Phaser（#31）", () => {
+		seedSave({
+			progress: { solvedTerminals: ALL_CHAPTER_ONE },
+			storyFlags: { [introShownFlag(1)]: true, [outroShownFlag(1)]: true },
+		});
+		render(<PlayScreen />);
+		fireEvent.click(screen.getByText("繼續"));
+		const phaserRenders = mocks.phaserProps.length;
+
+		fireEvent.click(screen.getByText("進入第 2 章"));
+
+		expect(reloadPage).toHaveBeenCalledTimes(1);
+		const state = useGameStore.getState();
+		expect(state.progress.chapter).toBe(2);
+		// 第二章開場要留給重載後的新頁面說
+		expect(state.storyFlags[introShownFlag(2)]).toBeUndefined();
+		expect(state.stats["2"]).toBeUndefined();
+		expect(novaQueueIds()).not.toContain("intro-2-0");
+		// Phaser 的章節不變，不會在重載前銷毀重建成第二章地圖
+		for (const props of mocks.phaserProps.slice(phaserRenders) as PhaserProps[]) {
+			expect(props.chapter).toBe(CHAPTER_ONE.map.deck);
+		}
+		expect(screen.getByRole("main").getAttribute("data-chapter")).toBe("1");
 	});
 
 	it("還差一台就不顯示", () => {

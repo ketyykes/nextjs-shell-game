@@ -52,6 +52,9 @@ test.describe("第一章 happy path", () => {
 		await expect(page.getByTestId("chapter-end-done")).toBeVisible();
 		await page.getByRole("button", { name: "進入第 2 章" }).click();
 		await expect(page.locator("main[data-chapter='2'][data-scene-ready='true']")).toBeAttached({ timeout: 20000 });
+		// 重載後的新頁面才說第二章開場：重載前就立了 introShown 旗標的話，這裡只會聽到進房台詞
+		const chapterTwoIntro = /資料中心。這一層的電從來沒斷過。|撤離當晚的事|我一份都沒讀過/;
+		await expect(page.getByTestId("nova-dialogue")).toContainText(chapterTwoIntro, { timeout: 20000 });
 		await expect(page.getByTestId("hud-room")).toHaveText("資料中心入口");
 		await expect(page.getByTestId("objective-progress")).toHaveText("0/6");
 
