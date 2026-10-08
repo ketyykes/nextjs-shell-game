@@ -374,3 +374,17 @@ export function hintNotAvailable(): string[] {
 export function historyEmpty(): string[] {
 	return ["還沒有任何指令紀錄，先打幾個指令試試，例如 ls。"];
 }
+
+// ---------------------------------------------------------------------------
+// M13-3：tree、cut、diff、which、less
+// ---------------------------------------------------------------------------
+
+/** `tree -L` 後面不是正整數，例如 `tree -L 0`（tree：Invalid level, must be greater than 0）。 */
+export function invalidTreeLevel(value: string): string[] {
+	return [`\`${value}\` 不是有效的層數，tree 的 -L 後面要接 1 以上的整數，例如 tree -L 2。`];
+}
+
+/** `tree` 碰到讀不到的目錄時，接在目錄名稱後面的標記（tree：[error opening dir]）。 */
+export function treeUnreadableMark(): string {
+	return "[沒有讀取權限，打不開]";
+}

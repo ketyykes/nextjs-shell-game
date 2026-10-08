@@ -9,6 +9,8 @@ const LATER_COMMANDS = [
 	"mkdir", "touch", "cp", "mv", "rm", "chmod",
 	"echo", "sort", "uniq", "export", "env", "ps", "top", "kill",
 ];
+/** M13-3 只開放使用、沒編進劇本的指令，排在最後。 */
+const EXTRA_COMMANDS = ["tree"];
 
 describe("COMMAND_DOCS", () => {
 	it.each(CHAPTER_ONE_COMMANDS)("第一章指令 %s 有說明", (name) => {
@@ -80,8 +82,8 @@ describe("COMMAND_DOCS", () => {
 });
 
 describe("COMMAND_DOC_ORDER", () => {
-	it("順序符合設計：先第一章，再依章節接上", () => {
-		expect(COMMAND_DOC_ORDER).toEqual([...CHAPTER_ONE_COMMANDS, ...LATER_COMMANDS]);
+	it("順序符合設計：先第一章，再依章節接上，最後是沒編進劇本的指令", () => {
+		expect(COMMAND_DOC_ORDER).toEqual([...CHAPTER_ONE_COMMANDS, ...LATER_COMMANDS, ...EXTRA_COMMANDS]);
 	});
 
 	it("每個名稱都能在 COMMAND_DOCS 找到", () => {

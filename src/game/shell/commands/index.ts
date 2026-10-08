@@ -32,11 +32,12 @@ import { sortCommand } from "./sort";
 import { tailCommand } from "./tail";
 import { topCommand } from "./top";
 import { touchCommand } from "./touch";
+import { treeCommand } from "./tree";
 import { uniqCommand } from "./uniq";
 import { wcCommand } from "./wc";
 import type { CommandDefinition } from "../types";
 
-/** 六章全部指令，依章節排列。順序不影響行為，只是方便閱讀。 */
+/** 全部指令：六章依章節排列，最後是 M13-3 只開放使用的指令。順序不影響行為，只是方便閱讀。 */
 export const ALL_COMMANDS: CommandDefinition[] = [
 	// 第一章
 	pwdCommand,
@@ -72,6 +73,8 @@ export const ALL_COMMANDS: CommandDefinition[] = [
 	psCommand,
 	topCommand,
 	killCommand,
+	// M13-3：只開放使用，不在劇本裡
+	treeCommand,
 ];
 
 export { catCommand, cdCommand, clearCommand, helpCommand, hintCommand, historyCommand, lsCommand, manCommand, pwdCommand };

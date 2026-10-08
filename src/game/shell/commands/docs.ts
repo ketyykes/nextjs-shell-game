@@ -7,11 +7,15 @@
 
 import type { CommandDoc } from "../types";
 import { CONCEPT_DOCS } from "./docsConcepts";
+import { EXTRA_COMMAND_DOCS, EXTRA_COMMAND_ORDER } from "./docsExtra";
 import { FILE_COMMAND_DOCS, FILE_COMMAND_ORDER } from "./docsFiles";
 import { FILTER_COMMAND_DOCS, FILTER_COMMAND_ORDER } from "./docsFilter";
 import { SYSTEM_COMMAND_DOCS, SYSTEM_COMMAND_ORDER } from "./docsSystem";
 
-/** 第一章的指令說明；第二章以後的分別在 `docsFilter.ts`、`docsFiles.ts`、`docsSystem.ts`，合併成 `COMMAND_DOCS`。 */
+/**
+ * 第一章的指令說明；第二章以後的分別在 `docsFilter.ts`、`docsFiles.ts`、`docsSystem.ts`，
+ * 沒編進劇本的 M13-3 指令在 `docsExtra.ts`，合併成 `COMMAND_DOCS`。
+ */
 const CHAPTER_ONE_DOCS: Record<string, CommandDoc> = {
 	pwd: {
 		name: "pwd",
@@ -153,9 +157,10 @@ export const COMMAND_DOCS: Record<string, CommandDoc> = {
 	...FILTER_COMMAND_DOCS,
 	...FILE_COMMAND_DOCS,
 	...SYSTEM_COMMAND_DOCS,
+	...EXTRA_COMMAND_DOCS,
 };
 
-/** 指令列表的顯示順序，`help` 與側邊面板都照這個順序排：先第一章的，再依章節順序接上。 */
+/** 指令列表的顯示順序，`help` 與側邊面板都照這個順序排：先第一章的，再依章節順序接上，最後是沒編進劇本的指令。 */
 export const COMMAND_DOC_ORDER: string[] = [
 	"pwd",
 	"ls",
@@ -169,6 +174,7 @@ export const COMMAND_DOC_ORDER: string[] = [
 	...FILTER_COMMAND_ORDER,
 	...FILE_COMMAND_ORDER,
 	...SYSTEM_COMMAND_ORDER,
+	...EXTRA_COMMAND_ORDER,
 ];
 
 /**
