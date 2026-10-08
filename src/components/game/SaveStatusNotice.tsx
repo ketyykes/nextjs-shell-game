@@ -23,7 +23,7 @@ export function SaveStatusNotice() {
 		<div
 			role="alert"
 			data-testid="save-status-notice"
-			className="pointer-events-none fixed top-4 left-1/2 z-[60] max-w-[90vw] -translate-x-1/2 border border-game-amber bg-game-bg/90 px-4 py-1 text-center font-terminal text-xl text-game-amber"
+			className="pointer-events-none fixed inset-x-0 top-4 z-[60] mx-auto w-fit max-w-[90vw] border border-game-amber bg-game-bg/90 px-4 py-1 text-center font-terminal text-xl text-game-amber"
 		>
 			{MESSAGES[issue]}
 		</div>
