@@ -23,7 +23,7 @@
 | 目前階段 | **M0 到 M9 全部完成**；第十三場依審計結果排出 **M10 到 M14**（優化路線，見第 3 節，證據在 [`audit-2026-10-08.md`](./audit-2026-10-08.md)），都還沒動工；第九場用 playwright-cli 從標題一路真玩到片尾（六章 36 台終端機、零頁面錯誤），抓到四個 bug 並全部修掉（見第 7 節第九場與第 8 節 #37 到 #39）。Danny 本人還沒玩過第二章以後 |
 | 程式碼狀態 | 標題 → 選角 → boot log → 六章地圖 → 片尾。`pnpm test --run` 88 個測試檔 1861 個測試全綠，`npx tsc --noEmit` 與 `pnpm lint` 乾淨；`PORT=3001 pnpm test:e2e` 26 個全綠（M9 新增 `save-v2.spec.ts` 7 個）。六章插圖 44 張全部到齊，場景 PNG 已 256 色量化（18.8MB → 8.3MB） |
 | 下一步 | **M10 玩家體驗與引導**（Danny 指定先做這批）。M10 到 M14 的順序是 Danny 定的第一批加我排的後續，動工時每批先對照 `audit-2026-10-08.md` 重新核對行號。Danny 的試玩與潤稿照舊並行（標題「繼續」或 `e2e/helpers/deck.ts` 的 `seedSave` 可直接種到第 N 章） |
-| 遠端 | `origin` 是 SSH 網址 `git@github.com:ketyykes/nextjs-shell-game.git`，最後一次 push 是 2026-10-02；第十場之後的 commit 還沒 push，push 前先問 Danny |
+| 遠端 | `origin` 是 HTTPS 網址 `https://github.com/ketyykes/nextjs-shell-game.git`，2026-10-08 Danny 親自 push 到 `ef64bd3`；之後的 commit push 前先問 Danny |
 
 ## 2. 里程碑總覽
 
@@ -272,7 +272,7 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
   一張約兩分鐘，1254x1254，codex 會先存到 `~/.codex/generated_images/<session>/` 再複製過來。
 - **NOVA 不要再產人臉版**：六種人形方向 Danny 都沒採用，定案非人形。
 - **sprite 重切**：原圖有 alpha 1 到 31 的極淡雜訊與碎屑，`scripts/slice-sprites.mjs` 已處理（清雜訊、每格只留最大連通區塊、每列各自縮放、腳底對齊第 47 列）。新增角色時把原圖加進腳本的 `SHEETS` 陣列再跑 `pnpm sprites:slice`。
-- **Git 憑證**：這台 Mac 的 `gh` 與 HTTPS keychain 都是失效的其他帳號，push 用 SSH。抓公開 repo 資料用 `curl`，不要用 `gh api`。
+- **Git 憑證**：`origin` 已改回 HTTPS，2026-10-08 Danny 用它 push 成功，HTTPS 憑證現在可用。`gh` 是否仍是失效的其他帳號沒有重新確認過，抓公開 repo 資料照舊用 `curl`，不要用 `gh api`。
 - **Next.js 16 與 Phaser**：Phaser 會碰 `window`，只能在 client component 內用 `next/dynamic` 加 `ssr: false` 載入。寫 Next.js 相關程式前先讀 `node_modules/next/dist/docs/` 的對應章節，這版與訓練資料有差異。
 - **版本限制**：TypeScript 停在 6.x、ESLint 停在 9.x，原因見 `CLAUDE.md`。
 - **Vitest**：設定在 `vitest.config.mts`，只掃 `src/**/*.{test,spec}.{ts,tsx}`，環境 jsdom，`@/` 別名已設。純邏輯測試可在檔案頂端加 `// @vitest-environment node` 加速。測試共用的 fixture 檔不要用 `.test` 後綴（例如 `testFixtures.ts`），否則會被當測試跑。
