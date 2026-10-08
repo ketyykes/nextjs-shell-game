@@ -5,8 +5,13 @@
  * - `normal`：引號外，空白分隔 token，`|`、`>`、`>>`、`;`、`&&` 切成符號 token（`;`、`&&` 多記在輸入裡的位置）。
  * - `singleQuote`：單引號內，一切照抄，直到下一個 `'`。
  * - `doubleQuote`：雙引號內，照抄直到下一個 `"`；
- *   只處理三種跳脫：`\"`、`\\`、`\$` 變成字面的 `"`、`\`、`$`，
+ *   只處理四種跳脫：`\"`、`\\`、`\$`、`` \` `` 變成字面的 `"`、`\`、`$`、`` ` ``，
  *   其他反斜線原樣保留（例如 `"a\b"` 是 `a\b`），跟 bash 在雙引號內的行為一致。
+ *
+ * 不支援的語法（M13-1）：引號外遇到 `||`、背景執行的 `&`、`<`、`<<`、指定檔案描述元的重導向
+ * （`2>`、`2>>`、`2>&1`、`1>`、`&>`、`>&2`、`|&`），或是引號外與雙引號內的指令替換（`$(`、反引號），
+ * 直接回傳 `UNSUPPORTED_SYNTAX`，detail 是那個符號，不默默當成一般字元。單引號內與反斜線跳脫過的都是字面值。
+ * 檔案描述元只認「整個 word 都是引號外打的數字」緊接 `>`，所以 `a2>b`、`2 > b`、`"2">b` 都是一般重導向。
  *
  * 變數展開（第五章）：有給 `options.env` 時，在 `normal` 與 `doubleQuote` 狀態把
  * `$NAME`、`${NAME}` 換成變數值，沒有這個變數換成空字串；單引號內照抄。
@@ -37,6 +42,36 @@ const NAME_CHAR_PATTERN = /[A-Za-z0-9_]/;
 
 /** 整個字串是不是合法的變數名稱。 */
 const NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+/** 整個 word 都是數字時，緊接的 `>` 是「指定檔案描述元」的重導向（`2>`、`1>`）。 */
+const FD_NUMBER_PATTERN = /^[0-9]+$/;
+
+/** `>&` 後面接的檔案描述元或 `-`（`2>&1`、`>&-`）。 */
+const FD_TARGET_PATTERN = /[0-9-]/;
+
+/**
+ * 從 `chars[index]`（一定是 `>`）開始讀出整個重導向符號，接在 `prefix` 後面當錯誤的 detail，
+ * 例如 prefix `2` 讀出 `2>`、`2>>`、`2>&1`；prefix 空字串遇到 `>&2` 讀出 `>&2`。
+ */
+function describeRedirect(chars: string[], index: number, prefix: string): string {
+	let detail = `${prefix}>`;
+	let cursor = index + 1;
+
+	if (chars[cursor] === ">") {
+		return `${detail}>`;
+	}
+
+	if (chars[cursor] === "&") {
+		detail += "&";
+		cursor += 1;
+		while (cursor < chars.length && FD_TARGET_PATTERN.test(chars[cursor])) {
+			detail += chars[cursor];
+			cursor += 1;
+		}
+	}
+
+	return detail;
+}
 
 function isWhitespace(char: string): boolean {
 	return char === " " || char === "\t";
@@ -105,6 +140,8 @@ export function tokenize(input: string, options: ParseOptions = {}): TokenizeRes
 	let hasSingleQuotedPart = false;
 	/** 目前的 word 是否有內容不是來自單引號內（引號外的字元、雙引號段落）。 */
 	let hasOtherPart = false;
+	/** 目前的 word 是否有變數展開出來的內容；展開出來的數字不算檔案描述元（`$N>b` 是一般重導向）。 */
+	let wordExpanded = false;
 
 	const flushWord = (): void => {
 		// 引號外展開成空字串的 word 直接丟掉；有引號包住的空字串要保留
@@ -122,6 +159,22 @@ export function tokenize(input: string, options: ParseOptions = {}): TokenizeRes
 		wordQuoted = false;
 		hasSingleQuotedPart = false;
 		hasOtherPart = false;
+		wordExpanded = false;
+	};
+
+	const unsupported = (detail: string): TokenizeResult => {
+		return { ok: false, error: { code: "UNSUPPORTED_SYNTAX", detail } };
+	};
+
+	/** `$(` 或反引號（指令替換）回傳那個符號，否則回傳 null。引號外與雙引號內都要擋，bash 在兩處都會執行它。 */
+	const commandSubstitutionAt = (index: number): string | null => {
+		if (chars[index] === "$" && chars[index + 1] === "(") {
+			return "$(";
+		}
+		if (chars[index] === "`") {
+			return "`";
+		}
+		return null;
 	};
 
 	const pushOperator = (kind: Token["kind"], value: string): void => {
@@ -147,6 +200,7 @@ export function tokenize(input: string, options: ParseOptions = {}): TokenizeRes
 		}
 		buffer += expansion.value;
 		hasWord = true;
+		wordExpanded = true;
 		if (expansion.value !== "") {
 			hasOtherPart = true;
 		}
@@ -175,11 +229,15 @@ export function tokenize(input: string, options: ParseOptions = {}): TokenizeRes
 			}
 			if (char === "\\") {
 				const next = chars[index + 1];
-				if (next === '"' || next === "\\" || next === "$") {
+				if (next === '"' || next === "\\" || next === "$" || next === "`") {
 					buffer += next;
 					index += 2;
 					continue;
 				}
+			}
+			const substitution = commandSubstitutionAt(index);
+			if (substitution !== null) {
+				return unsupported(substitution);
 			}
 			const consumed = tryExpand(index);
 			if (consumed > 0) {
@@ -226,6 +284,11 @@ export function tokenize(input: string, options: ParseOptions = {}): TokenizeRes
 			continue;
 		}
 
+		const substitution = commandSubstitutionAt(index);
+		if (substitution !== null) {
+			return unsupported(substitution);
+		}
+
 		if (char === ";") {
 			flushWord();
 			pushListOperator("semicolon", ";", index);
@@ -233,21 +296,47 @@ export function tokenize(input: string, options: ParseOptions = {}): TokenizeRes
 			continue;
 		}
 
-		if (char === "&" && chars[index + 1] === "&") {
-			flushWord();
-			pushListOperator("and", "&&", index);
-			index += 2;
-			continue;
+		if (char === "&") {
+			const next = chars[index + 1];
+			if (next === "&") {
+				flushWord();
+				pushListOperator("and", "&&", index);
+				index += 2;
+				continue;
+			}
+			if (next === ">") {
+				return unsupported(describeRedirect(chars, index + 1, "&"));
+			}
+			return unsupported("&");
 		}
 
 		if (char === "|") {
+			const next = chars[index + 1];
+			if (next === "|" || next === "&") {
+				return unsupported(`|${next}`);
+			}
 			flushWord();
 			pushOperator("pipe", "|");
 			index += 1;
 			continue;
 		}
 
+		if (char === "<") {
+			if (chars[index + 1] === "<") {
+				return unsupported("<<");
+			}
+			return unsupported("<");
+		}
+
 		if (char === ">") {
+			// 整個 word 都是引號外打的數字（`2>`、`1>`）是指定檔案描述元的重導向
+			const isFdNumber = hasWord && !wordQuoted && !wordExpanded && FD_NUMBER_PATTERN.test(buffer);
+			if (isFdNumber) {
+				return unsupported(describeRedirect(chars, index, buffer));
+			}
+			if (chars[index + 1] === "&") {
+				return unsupported(describeRedirect(chars, index, ""));
+			}
 			flushWord();
 			if (chars[index + 1] === ">") {
 				pushOperator("redirectAppend", ">>");

@@ -57,6 +57,48 @@ export function emptyListCommand(operator: ListConnector): string[] {
 	];
 }
 
+/**
+ * 引號外出現遊戲的 shell 不支援的寫法（M13-1），`detail` 是那個符號。
+ * 明講不支援，再給一個用支援的語法做得到的替代寫法。
+ */
+export function unsupportedSyntax(detail: string): string[] {
+	if (detail === "||") {
+		return [
+			"這個遊戲的 shell 不支援 `||`（前一個指令失敗才執行下一個）。",
+			"請分兩行輸入：先打前一個指令，失敗了再打下一個。要「成功了才接著做」用 &&，例如 cd logs && ls。",
+		];
+	}
+	if (detail === "&") {
+		return [
+			"這個遊戲的 shell 不支援 `&`（把指令丟到背景執行）。",
+			"這裡的指令都會馬上跑完，把 & 拿掉就好；要接著執行下一個指令用 && 或 ;，例如 cd logs && ls。",
+		];
+	}
+	if (detail === "<" || detail === "<<") {
+		return [
+			`這個遊戲的 shell 不支援 \`${detail}\`（從別的地方讀進輸入）。`,
+			"直接把檔名接在指令後面就好，例如 sort data.txt；或是用 cat 讀出來再接 |，例如 cat data.txt | sort。",
+		];
+	}
+	if (detail === "$(") {
+		return [
+			"這個遊戲的 shell 不支援 `$( )`（把一個指令的輸出塞進另一個指令）。",
+			"先單獨執行括號裡的指令，再把看到的結果打進下一個指令。",
+		];
+	}
+	if (detail === "`") {
+		return [
+			"這個遊戲的 shell 不支援反引號「`」（把一個指令的輸出塞進另一個指令）。",
+			"先單獨執行反引號裡的指令，再把看到的結果打進下一個指令。",
+		];
+	}
+	// 其餘都是指定檔案描述元的重導向：2>、2>>、2>&1、1>、&>、>&2、|&
+	return [
+		`這個遊戲的 shell 不支援 \`${detail}\` 這種寫法（在 > 或 | 旁邊加數字或 &，用來另外處理錯誤訊息）。`,
+		"錯誤訊息會直接印在畫面上，把這一段拿掉就好；要把輸出存進檔案用 > 或 >>，例如 ls > list.txt。",
+	];
+}
+
 /** `>` 或 `>>` 後面沒有檔名。 */
 export function missingRedirectTarget(operator: string): string[] {
 	return [`\`${operator}\` 後面要接一個檔名，輸出才有地方存，例如 ls > list.txt。`];
@@ -87,6 +129,8 @@ export function parseError(error: ParseError): string[] {
 			return emptyCommand(error.detail);
 		case "MISSING_REDIRECT_TARGET":
 			return missingRedirectTarget(error.detail);
+		case "UNSUPPORTED_SYNTAX":
+			return unsupportedSyntax(error.detail);
 	}
 }
 

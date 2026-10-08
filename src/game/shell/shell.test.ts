@@ -12,6 +12,7 @@ import {
 	missingRedirectTarget,
 	missingSpace,
 	pathNotFound,
+	unsupportedSyntax,
 } from "./messages";
 import { Shell } from "./shell";
 import type { ShellSessionState } from "./shell";
@@ -722,6 +723,37 @@ describe("Shell 萬用字元", () => {
 	});
 });
 
+describe("Shell 不支援的語法（M13-1）", () => {
+	it.each([
+		["echo hi || echo no", "||"],
+		["sleep 5 &", "&"],
+		["cat < wake_up.txt", "<"],
+		["ls 2>&1", "2>&1"],
+		["cat nope.txt 2> err.txt", "2>"],
+		["echo $(pwd)", "$("],
+		["echo `pwd`", "`"],
+	])("%s 回報不支援 %s，算一次錯誤", (input, detail) => {
+		const shell = createShell();
+		const result = shell.execute(input);
+		expect(result.isError).toBe(true);
+		expect(result.lines).toEqual(unsupportedSyntax(detail));
+	});
+
+	it("一行裡有不支援的寫法時一個指令都不執行，也不會先建立重導向的檔案", () => {
+		const probe = createProbe();
+		const shell = createShellWith([probe.command]);
+		shell.execute("probe > out.txt ; probe || probe");
+		expect(probe.calls).toHaveLength(0);
+		expect(shell.fs.exists(shell.cwd, "out.txt")).toBe(false);
+	});
+
+	it("引號內的這些符號是字面值", () => {
+		const shell = createShell();
+		expect(shell.execute("echo 'a || b & c < d 2>&1 $(e) `f`'").lines).toEqual(["a || b & c < d 2>&1 $(e) `f`"]);
+		expect(shell.execute('echo "a || b; c && d"').lines).toEqual(["a || b; c && d"]);
+	});
+});
+
 describe("Shell ; 與 &&（M13-2）", () => {
 	it("; 依序執行，後面的指令看得到前面的副作用", () => {
 		const shell = createShell();
@@ -846,6 +878,11 @@ describe("Shell ; 與 &&（M13-2）", () => {
 		const trailing = shell.execute("pwd ;");
 		expect(trailing.segments).toBeUndefined();
 		expect(trailing).toMatchObject({ input: "pwd ;", lines: ["/home/tech"], isError: false });
+	});
+
+	it("審計 G2 的例子：echo hi; echo there 分兩段印出", () => {
+		const shell = createShell();
+		expect(shell.execute("echo hi; echo there")).toMatchObject({ isError: false, lines: ["hi", "there"] });
 	});
 
 	it("clear 之後的段落輸出照樣留下，clear 之前的丟掉", () => {

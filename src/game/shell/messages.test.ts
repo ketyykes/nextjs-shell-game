@@ -36,6 +36,7 @@ import {
 	conflictingMatchers,
 	extraOperand,
 	emptyListCommand,
+	unsupportedSyntax,
 } from "./messages";
 import type { FsErrorCode, ParseErrorCode, RegexErrorCode } from "./types";
 
@@ -143,6 +144,8 @@ describe("parseError 依代碼分派", () => {
 		["MISSING_REDIRECT_TARGET", ">", missingRedirectTarget(">")],
 		["EMPTY_COMMAND", ";", emptyListCommand(";")],
 		["EMPTY_COMMAND", "&&", emptyListCommand("&&")],
+		["UNSUPPORTED_SYNTAX", "||", unsupportedSyntax("||")],
+		["UNSUPPORTED_SYNTAX", "2>&1", unsupportedSyntax("2>&1")],
 	];
 
 	it.each(cases)("%s 會分派到對應的訊息", (code, detail, expected) => {
@@ -164,6 +167,54 @@ describe("; 與 && 的訊息（M13）", () => {
 		expect(text).toContain("`&&`");
 		expect(text).toContain("成功");
 		expect(text).toContain("cd logs && ls");
+	});
+});
+
+describe("不支援的語法（M13-1）", () => {
+	it.each(["||", "&", "<", "<<", "2>", "2>>", "2>&1", "1>", "&>", ">&2", "|&", "$("])(
+		"%s 明講「這個遊戲的 shell 不支援」並放進符號",
+		(detail) => {
+			const text = joinLines(unsupportedSyntax(detail));
+			expect(text).toContain("這個遊戲的 shell 不支援");
+			expect(text).toContain(detail);
+		},
+	);
+
+	it("|| 建議分兩行，並提到支援的 &&", () => {
+		const text = joinLines(unsupportedSyntax("||"));
+		expect(text).toContain("分兩行");
+		expect(text).toContain("&&");
+	});
+
+	it("& 建議拿掉，要接著做下一個用 && 或 ;", () => {
+		const text = joinLines(unsupportedSyntax("&"));
+		expect(text).toContain("背景");
+		expect(text).toContain("&&");
+		expect(text).toContain(";");
+	});
+
+	it("< 與 << 建議把檔名當參數或用 cat 接管線", () => {
+		for (const detail of ["<", "<<"]) {
+			const text = joinLines(unsupportedSyntax(detail));
+			expect(text).toContain("sort data.txt");
+			expect(text).toContain("cat data.txt | sort");
+		}
+	});
+
+	it("2>、2>&1、&> 這類說明錯誤訊息會直接印出，存檔用 > 或 >>", () => {
+		for (const detail of ["2>", "2>&1", "&>", ">&2", "|&", "1>"]) {
+			const text = joinLines(unsupportedSyntax(detail));
+			expect(text).toContain("錯誤訊息");
+			expect(text).toContain("ls > list.txt");
+		}
+	});
+
+	it("$( 與反引號建議先單獨執行裡面的指令", () => {
+		for (const detail of ["$(", "`"]) {
+			const text = joinLines(unsupportedSyntax(detail));
+			expect(text).toContain("先單獨執行");
+		}
+		expect(joinLines(unsupportedSyntax("`"))).toContain("反引號");
 	});
 });
 

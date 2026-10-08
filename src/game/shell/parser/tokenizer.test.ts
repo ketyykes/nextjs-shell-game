@@ -263,6 +263,82 @@ describe("tokenize：; 與 &&", () => {
 	});
 });
 
+/** 斷言 tokenize 回傳「不支援的語法」錯誤，回傳 detail。 */
+function unsupportedDetailOf(input: string, options?: ParseOptions): string {
+	const result = tokenize(input, options);
+	if (result.ok) {
+		throw new Error(`預期 UNSUPPORTED_SYNTAX，卻成功切出 ${result.tokens.length} 個 token`);
+	}
+	expect(result.error.code).toBe("UNSUPPORTED_SYNTAX");
+	return result.error.detail;
+}
+
+describe("tokenize：不支援的語法回傳 UNSUPPORTED_SYNTAX（M13-1）", () => {
+	it.each([
+		["ls || echo no", "||"],
+		["ls||echo no", "||"],
+		["sleep 5 &", "&"],
+		["ls & pwd", "&"],
+		["sort < data.txt", "<"],
+		["cat << EOF", "<<"],
+		["ls 2> err.txt", "2>"],
+		["ls 2>err.txt", "2>"],
+		["ls 2>> err.txt", "2>>"],
+		["ls 2>&1", "2>&1"],
+		["ls > out.txt 2>&1", "2>&1"],
+		["ls 1> out.txt", "1>"],
+		["ls &> out.txt", "&>"],
+		["echo oops >&2", ">&2"],
+		["ls |& cat", "|&"],
+		["echo $(pwd)", "$("],
+		['echo "今天是 $(date)"', "$("],
+		["echo `pwd`", "`"],
+		['echo "`pwd`"', "`"],
+	])("%s → %s", (input, detail) => {
+		expect(unsupportedDetailOf(input)).toBe(detail);
+	});
+
+	it("有給 env 時 $( 一樣攔下，不當成變數", () => {
+		expect(unsupportedDetailOf("echo $(pwd)", { env: { HOME: "/home/tech" } })).toBe("$(");
+	});
+
+	it("單引號內全部是字面值", () => {
+		expect(tokensOf("echo '|| & < 2> $(pwd) `x`'")).toEqual([word("echo"), word("|| & < 2> $(pwd) `x`", true, true)]);
+	});
+
+	it("雙引號內的 || & < 2> 是字面值", () => {
+		expect(tokensOf('echo "a || b & c < d 2> e"')).toEqual([word("echo"), word("a || b & c < d 2> e", true)]);
+	});
+
+	it("雙引號內的 \\` 是字面的反引號", () => {
+		expect(tokensOf('echo "\\`"')).toEqual([word("echo"), word("`", true)]);
+	});
+
+	it("反斜線跳脫的符號是字面值", () => {
+		expect(tokensOf("echo \\| \\& \\< \\` \\$(pwd)")).toEqual([
+			word("echo"),
+			word("|", true),
+			word("&", true),
+			word("<", true),
+			word("`", true),
+			word("$(pwd)", true),
+		]);
+	});
+
+	it("數字黏在其他字後面時不是檔案描述元，> 照常是重導向", () => {
+		expect(tokensOf("echo a2>b")).toEqual([word("echo"), word("a2"), redirect, word("b")]);
+	});
+
+	it("數字跟 > 之間有空白時，數字是參數", () => {
+		expect(tokensOf("echo 2 > b")).toEqual([word("echo"), word("2"), redirect, word("b")]);
+	});
+
+	it("引號包住或變數展開出來的數字不是檔案描述元", () => {
+		expect(tokensOf('echo "2">b')).toEqual([word("echo"), word("2", true), redirect, word("b")]);
+		expect(tokensOf("echo $N>b", { env: { N: "2" } })).toEqual([word("echo"), word("2"), redirect, word("b")]);
+	});
+});
+
 describe("tokenize：singleQuoted", () => {
 	it("整個 token 都在單引號內時 singleQuoted 為 true", () => {
 		expect(tokensOf("echo 'a b'")).toEqual([word("echo"), word("a b", true, true)]);

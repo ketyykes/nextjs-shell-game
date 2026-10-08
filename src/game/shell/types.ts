@@ -254,8 +254,15 @@ export interface Token {
  * - UNCLOSED_QUOTE：引號沒關
  * - EMPTY_COMMAND：`|` 的前面或後面沒有指令（例如 `ls |`、`| sort`）
  * - MISSING_REDIRECT_TARGET：`>` 或 `>>` 後面沒有檔名
+ * - UNSUPPORTED_SYNTAX：引號外出現遊戲的 shell 不支援的寫法（M13-1），detail 是那個符號，例如
+ *   `||`、`&`、`<`、`<<`、`2>`、`2>&1`、`&>`、`>&2`、`|&`、`$(`、`` ` ``
  */
-export type ParseErrorCode = "FULLWIDTH_CHAR" | "UNCLOSED_QUOTE" | "EMPTY_COMMAND" | "MISSING_REDIRECT_TARGET";
+export type ParseErrorCode =
+	| "FULLWIDTH_CHAR"
+	| "UNCLOSED_QUOTE"
+	| "EMPTY_COMMAND"
+	| "MISSING_REDIRECT_TARGET"
+	| "UNSUPPORTED_SYNTAX";
 
 export interface ParseError {
 	code: ParseErrorCode;
