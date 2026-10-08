@@ -32,6 +32,8 @@
 | 5 | 艦橋 | `chmod`、`export`、環境變數、`env`、`man` |
 | 6 | NOVA 核心 | `ps`、`kill`、`top`、綜合運用 |
 
+劇本之外還開放 `less`（全螢幕分頁器）、`tree`、`cut`、`diff`、`which`，會的人可以直接用，`man` 查得到說明。
+
 ## 快速開始
 
 需要 Node.js 20.9+ 與 [pnpm](https://pnpm.io/)。
@@ -52,7 +54,7 @@ pnpm build        # 正式建置（三個路由都是靜態輸出）
 
 - **Next.js 16**（App Router）+ **React 19** + **TypeScript**（嚴格模式）
 - **Phaser 4**：俯視角地圖、碰撞與角色移動；透過 EventBus 與 React 溝通
-- **自製 shell 引擎**：純 TypeScript 虛擬檔案系統與指令解析器，零依賴，26 個指令含管線、重導向、`;` 與 `&&` 串接、glob、變數與 `~` 展開、引號與跳脫，行為對照 GNU coreutils / bash；不支援的寫法（`||`、背景 `&`、`<`、`2>`、`$( )` 等）會明講並給替代寫法，不會默默誤解
+- **自製 shell 引擎**：純 TypeScript 虛擬檔案系統與指令解析器，零依賴，33 個指令（含 `less` 全螢幕分頁器）、管線、重導向、`;` 與 `&&` 串接、glob、變數與 `~` 展開、引號與跳脫，行為對照 GNU coreutils / bash；不支援的寫法（`||`、背景 `&`、`<`、`2>`、`$( )` 等）會明講並給替代寫法，不會默默誤解
 - **zustand** + persist：劇情旗標、進度與存檔
 - **Tailwind CSS v4** + shadcn/ui
 
