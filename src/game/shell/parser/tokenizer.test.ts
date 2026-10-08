@@ -219,6 +219,50 @@ describe("tokenize：管線與重導向", () => {
 	});
 });
 
+/** `;` token，`offset` 是它在輸入裡的字元位置。 */
+function semicolon(offset: number): Token {
+	return { kind: "semicolon", value: ";", quoted: false, singleQuoted: false, offset };
+}
+
+/** `&&` token，`offset` 是第一個 `&` 在輸入裡的字元位置。 */
+function and(offset: number): Token {
+	return { kind: "and", value: "&&", quoted: false, singleQuoted: false, offset };
+}
+
+describe("tokenize：; 與 &&", () => {
+	it("; 切成 semicolon token 並記下位置", () => {
+		expect(tokensOf("cd a ; ls")).toEqual([word("cd"), word("a"), semicolon(5), word("ls")]);
+	});
+
+	it("黏著的 ; 也要切開", () => {
+		expect(tokensOf("cd a;ls")).toEqual([word("cd"), word("a"), semicolon(4), word("ls")]);
+	});
+
+	it("&& 切成 and token 並記下位置", () => {
+		expect(tokensOf("cd a && ls")).toEqual([word("cd"), word("a"), and(5), word("ls")]);
+	});
+
+	it("黏著的 && 也要切開", () => {
+		expect(tokensOf("cd a&&ls")).toEqual([word("cd"), word("a"), and(4), word("ls")]);
+	});
+
+	it("位置以字元計，中文字算一個", () => {
+		expect(tokensOf("cat 日誌;ls")).toEqual([word("cat"), word("日誌"), semicolon(6), word("ls")]);
+	});
+
+	it("引號內的 ; 與 && 是字面值", () => {
+		expect(tokensOf(`echo 'a;b' "c && d"`)).toEqual([word("echo"), word("a;b", true, true), word("c && d", true)]);
+	});
+
+	it("反斜線跳脫的 ; 與 & 是字面值", () => {
+		expect(tokensOf("echo a\\;b \\&\\&")).toEqual([word("echo"), word("a;b", true), word("&&", true)]);
+	});
+
+	it("展開出來的 ; 與 && 不會變成符號", () => {
+		expect(tokensOf("echo $SYM", { env: { SYM: "a;b&&c" } })).toEqual([word("echo"), word("a;b&&c")]);
+	});
+});
+
 describe("tokenize：singleQuoted", () => {
 	it("整個 token 都在單引號內時 singleQuoted 為 true", () => {
 		expect(tokensOf("echo 'a b'")).toEqual([word("echo"), word("a b", true, true)]);

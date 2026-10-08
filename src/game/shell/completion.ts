@@ -3,7 +3,7 @@
  *
  * 只處理「游標在輸入結尾」的情況：
  * - 輸入只有一個 token 且結尾沒有空白：補指令名。
- * - 最後一個 token 在 `|` 右邊，或是 `man`、`help` 的參數：補指令名。
+ * - 最後一個 token 是 `|`、`;`、`&&` 右邊的第一個 token，或是 `man`、`help` 的參數：補指令名。
  * - 其他情況：把最後一個 token 當路徑補全；路徑裡的 `$NAME` 會用 `env` 展開查目錄，回填維持原寫法。
  *
  * 純字串與虛擬檔案系統運算，不依賴 React、Next.js 或 Phaser。
@@ -79,6 +79,18 @@ export function longestCommonPrefix(names: string[]): string {
 	}
 
 	return common.join("");
+}
+
+/**
+ * 取出 `head` 裡最後一段指令（`|`、`;`、`&&` 右邊）的內容，去掉前後空白。
+ * 跟補全的其他部分一樣不走 tokenizer，引號裡的符號也會被當成分隔，但只影響「補指令名還是路徑」的判斷。
+ *
+ * @example lastCommandSegment("ls ; man ") // "man"
+ * @example lastCommandSegment("ps | ") // ""
+ */
+function lastCommandSegment(head: string): string {
+	const segments = head.split(/&&|[|;]/);
+	return segments[segments.length - 1].trim();
 }
 
 /** 指令名補全。 */
@@ -166,7 +178,7 @@ function completePath(head: string, token: string, context: CompletionContext): 
  * 對輸入做 Tab 補全，游標視為在輸入結尾。
  *
  * - 空字串或只有空白：列出全部指令名，`completed` 等於原輸入。
- * - 只有一個 token 且結尾沒有空白：補指令名。
+ * - 只有一個 token 且結尾沒有空白，或是 `|`、`;`、`&&` 右邊的第一個 token：補指令名。
  * - 其他：把最後一個 token 當路徑補全，前面的 token 與目錄部分原樣保留。
  *
  * 補全結果的三種情況（唯一、多個、沒有）見 `CompletionResult`。
@@ -186,15 +198,11 @@ export function complete(input: string, context: CompletionContext): CompletionR
 
 	const head = input.slice(0, tokenStart);
 	const lastToken = input.slice(tokenStart);
-	const headTrimmed = head.trim();
+	// 最後一段指令：`|`、`;`、`&&` 右邊的部分。整行只有一個 token 時是空字串
+	const segmentHead = lastCommandSegment(head);
 
-	// head 只有空白（或空字串）代表整行只有一個 token，而且結尾沒有空白
-	if (headTrimmed === "" && lastToken !== "") {
-		return completeCommandName(head, lastToken, context);
-	}
-
-	// 管線右邊的第一個 token 也是指令；man 與 help 的參數是指令名，不是路徑
-	if (headTrimmed.endsWith("|") || headTrimmed === "man" || headTrimmed === "help") {
+	// 每一段的第一個 token 是指令；man 與 help 的參數是指令名，不是路徑
+	if (segmentHead === "" || segmentHead === "man" || segmentHead === "help") {
 		return completeCommandName(head, lastToken, context);
 	}
 

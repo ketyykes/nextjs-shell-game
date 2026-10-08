@@ -35,6 +35,7 @@ import {
 	invalidPattern,
 	conflictingMatchers,
 	extraOperand,
+	emptyListCommand,
 } from "./messages";
 import type { FsErrorCode, ParseErrorCode, RegexErrorCode } from "./types";
 
@@ -140,10 +141,29 @@ describe("parseError 依代碼分派", () => {
 		["EMPTY_COMMAND", ">", missingCommandForRedirect(">")],
 		["EMPTY_COMMAND", ">>", missingCommandForRedirect(">>")],
 		["MISSING_REDIRECT_TARGET", ">", missingRedirectTarget(">")],
+		["EMPTY_COMMAND", ";", emptyListCommand(";")],
+		["EMPTY_COMMAND", "&&", emptyListCommand("&&")],
 	];
 
 	it.each(cases)("%s 會分派到對應的訊息", (code, detail, expected) => {
 		expect(parseError({ code, detail })).toEqual(expected);
+	});
+});
+
+describe("; 與 && 的訊息（M13）", () => {
+	it("emptyListCommand(;) 說明「做完左邊再做右邊」並給範例", () => {
+		const text = joinLines(emptyListCommand(";"));
+		expect(text).toContain("`;`");
+		expect(text).toContain("做完左邊再做右邊");
+		expect(text).toContain("cd logs; ls");
+		expect(text).not.toContain("輸出交給右邊");
+	});
+
+	it("emptyListCommand(&&) 說明「左邊成功了才做右邊」並給範例", () => {
+		const text = joinLines(emptyListCommand("&&"));
+		expect(text).toContain("`&&`");
+		expect(text).toContain("成功");
+		expect(text).toContain("cd logs && ls");
 	});
 });
 

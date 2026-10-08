@@ -9,7 +9,7 @@
  * 指令與路徑用反引號包住。
  */
 
-import type { FsErrorCode, ParseError, RegexErrorCode } from "./types";
+import type { FsErrorCode, ListConnector, ParseError, RegexErrorCode } from "./types";
 
 // ---------------------------------------------------------------------------
 // 解析階段的錯誤
@@ -43,6 +43,20 @@ export function emptyCommand(operator: string): string[] {
 	];
 }
 
+/** `;` 或 `&&` 旁邊少了指令，例如 `; ls`、`ls ;; pwd`、`cd logs &&`。 */
+export function emptyListCommand(operator: ListConnector): string[] {
+	if (operator === ";") {
+		return [
+			"`;` 的左邊要有指令，它的意思是「做完左邊再做右邊」，不管左邊成功還是失敗。",
+			"例如 cd logs; ls，先走進 logs，再列出裡面的檔案。",
+		];
+	}
+	return [
+		"`&&` 的兩邊都要有指令，它的意思是「左邊成功了才做右邊」。",
+		"例如 cd logs && ls，走得進 logs 才列出裡面的檔案。",
+	];
+}
+
 /** `>` 或 `>>` 後面沒有檔名。 */
 export function missingRedirectTarget(operator: string): string[] {
 	return [`\`${operator}\` 後面要接一個檔名，輸出才有地方存，例如 ls > list.txt。`];
@@ -66,6 +80,9 @@ export function parseError(error: ParseError): string[] {
 		case "EMPTY_COMMAND":
 			if (error.detail === ">" || error.detail === ">>") {
 				return missingCommandForRedirect(error.detail);
+			}
+			if (error.detail === ";" || error.detail === "&&") {
+				return emptyListCommand(error.detail);
 			}
 			return emptyCommand(error.detail);
 		case "MISSING_REDIRECT_TARGET":

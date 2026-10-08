@@ -4,7 +4,10 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { CHAPTER_COUNT } from "@/game/phaser/events";
 import { getTeachDoc } from "@/game/shell/commands/docs";
+import { VirtualFileSystem } from "@/game/shell/fs";
+import { Shell } from "@/game/shell/shell";
 import { deckTerminals } from "@/game/story/decks";
+import { createObjectiveContext, evaluateObjective } from "@/game/story/objectives";
 import { CHAPTERS, chapterTeaches, FINAL_CHAPTER, findTerminal, getChapter, getNextChapter, isChapterComplete } from "./index";
 import { chapterOneLifeSupport } from "./index";
 import { CHAPTER_METAS, NOVA_FIRST_LINE } from "./meta";
@@ -149,5 +152,72 @@ describe("章節 metadata（meta.ts 與劇本同步）", () => {
 	it("meta.ts 不 import 劇本檔，標題頁才不會把六章拉進首載", async () => {
 		const source = await readFile(new URL("./meta.ts", import.meta.url), "utf8");
 		expect(source).not.toMatch(/from "\.\/(ch\d|index)/);
+	});
+});
+
+/** 用劇本的 FS、起始目錄、環境變數與程序清單開一台終端機，打一行之後判定是否過關。 */
+function runLine(terminalId: string, input: string): { solved: boolean; isError: boolean } {
+	const terminal = findTerminal(terminalId);
+	if (terminal === undefined) {
+		throw new Error(`劇本裡沒有終端機 ${terminalId}`);
+	}
+	const shell = new Shell({
+		fs: VirtualFileSystem.fromSnapshot(terminal.fs),
+		terminalId: terminal.id,
+		hints: terminal.hints,
+		learnedCommands: [],
+		cwd: terminal.initialCwd,
+		env: terminal.env,
+		processes: terminal.processes,
+	});
+	const execution = shell.execute(input);
+	const solved = evaluateObjective(terminal, createObjectiveContext(terminal.id, execution, shell.fs, shell.home));
+	return { solved, isError: execution.isError };
+}
+
+describe("用 ; 與 && 串起來的一行（M13-2）", () => {
+	it("ch1 T2：cd 進去再 cat，用 && 或 ; 一行打完也過關", () => {
+		expect(runLine("ch1-t2", "cd power && cat status.txt")).toEqual({ solved: true, isError: false });
+		expect(runLine("ch1-t2", "cd /deck1/systems/power ; cat status.txt")).toEqual({ solved: true, isError: false });
+	});
+
+	it("ch1 T2：讀完再換目錄，相對路徑照讀檔當下的位置判定", () => {
+		expect(runLine("ch1-t2", "cat power/status.txt ; cd ..")).toEqual({ solved: true, isError: false });
+	});
+
+	it("ch1 T2：cd 失敗時 && 後面的 cat 不執行，不過關", () => {
+		expect(runLine("ch1-t2", "cd pwer && cat /deck1/systems/power/status.txt")).toEqual({
+			solved: false,
+			isError: true,
+		});
+	});
+
+	it("ch1 T2：; 串的一行有一段打錯，整行算錯誤、不過關", () => {
+		expect(runLine("ch1-t2", "cd pwer ; cat power/status.txt")).toEqual({ solved: false, isError: true });
+	});
+
+	it("ch2 T3：grep 沒抓到的鎖定紀錄，不會被同一行 cat 印出來的內容湊成過關", () => {
+		expect(runLine("ch2-t3", "grep OPEN door_events.log ; cat door_events.log")).toEqual({
+			solved: false,
+			isError: false,
+		});
+		expect(runLine("ch2-t3", "ls ; grep -n LOCK door_events.log")).toEqual({ solved: true, isError: false });
+	});
+
+	it("ch4 T3：排序那一段的最後一行對了就過關，後面多接一段不影響", () => {
+		expect(runLine("ch4-t3", "sort pointing.log | tail -n 1 ; pwd")).toEqual({ solved: true, isError: false });
+	});
+
+	it("ch5 T2：export 之後同一行用 $CAPTAIN_KEY，執行到那一段才展開", () => {
+		expect(runLine("ch5-t2", "export CAPTAIN_KEY=CAPT-0417 && cat /deck5/keys/$CAPTAIN_KEY.txt")).toEqual({
+			solved: true,
+			isError: false,
+		});
+	});
+
+	it("ch6 T6：發射程序的四個步驟用 && 串成一行也過關", () => {
+		const input =
+			"chmod +r sealed/launch_code.txt && echo EP-0606-ARGO > launch.txt && export PASSENGERS=1 && kill 47731";
+		expect(runLine("ch6-t6", input)).toEqual({ solved: true, isError: false });
 	});
 });

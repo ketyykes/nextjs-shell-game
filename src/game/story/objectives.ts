@@ -220,19 +220,32 @@ export function any(...checks: ObjectiveCheck[]): ObjectiveCheck {
 
 /**
  * 判定這次執行是否讓終端機過關。
- * 執行失敗（`isError`）一律不算，`objective.check` 不會被呼叫。
+ * 執行失敗（`isError`）一律不算，`objective.check` 不會被呼叫；用 `;`、`&&` 串起來的一行只要有一段失敗，
+ * 整行就是 `isError`，也不算（跟 PlayScreen 一樣：錯誤的那一行只扣氧氣，不判定過關）。
+ *
+ * 一行串了好幾段（`execution.segments`）時逐段判定，任一段成立就過關。每一段用自己的原文、輸出、
+ * 執行完當下的 cwd、env 與程序清單組 context，所以 `cat a.txt ; cd ..` 的相對路徑照 cat 當時的位置解析、
+ * `outputContains` 不會被別段的輸出湊成。檔案系統只有整行跑完的狀態，`fileExists` 這類看的是最後結果。
  */
 export function evaluateObjective(definition: TerminalDefinition, context: ObjectiveContext): boolean {
 	if (context.execution.isError) {
 		return false;
 	}
 
-	return definition.objective.check(context);
+	const segments = context.execution.segments;
+	if (segments === undefined) {
+		return definition.objective.check(context);
+	}
+
+	return segments.some((segment) =>
+		definition.objective.check(createObjectiveContext(context.terminalId, segment, context.fs, context.home)),
+	);
 }
 
 /**
  * 從一次 shell 執行組出判定用的 context。
- * 輸入再解析一次填 `command`；解析失敗或空輸入時為 null。
+ * 輸入再解析一次填 `command`；解析失敗或空輸入時為 null。用 `;`、`&&` 串了好幾段時填的是第一段，
+ * 逐段判定由 `evaluateObjective` 用 `execution.segments` 各自組 context。
  */
 export function createObjectiveContext(
 	terminalId: string,

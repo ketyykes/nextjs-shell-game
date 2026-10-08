@@ -2,7 +2,7 @@
  * 指令列 tokenizer。
  *
  * 用明確的狀態機逐字掃描，三種狀態：
- * - `normal`：引號外，空白分隔 token，`|`、`>`、`>>` 切成符號 token。
+ * - `normal`：引號外，空白分隔 token，`|`、`>`、`>>`、`;`、`&&` 切成符號 token（`;`、`&&` 多記在輸入裡的位置）。
  * - `singleQuote`：單引號內，一切照抄，直到下一個 `'`。
  * - `doubleQuote`：雙引號內，照抄直到下一個 `"`；
  *   只處理三種跳脫：`\"`、`\\`、`\$` 變成字面的 `"`、`\`、`$`，
@@ -128,6 +128,11 @@ export function tokenize(input: string, options: ParseOptions = {}): TokenizeRes
 		tokens.push({ kind, value, quoted: false, singleQuoted: false });
 	};
 
+	/** `;`、`&&` 多記位置，解析器才切得出每一段的原文。 */
+	const pushListOperator = (kind: "semicolon" | "and", value: string, offset: number): void => {
+		tokens.push({ kind, value, quoted: false, singleQuoted: false, offset });
+	};
+
 	/**
 	 * 目前字元是 `$` 而且有給 env 時嘗試展開。
 	 * 成功回傳吃掉的字元數，不成功回傳 0（呼叫端把 `$` 當一般字元）。
@@ -218,6 +223,20 @@ export function tokenize(input: string, options: ParseOptions = {}): TokenizeRes
 			wordQuoted = true;
 			hasOtherPart = true;
 			index += 1;
+			continue;
+		}
+
+		if (char === ";") {
+			flushWord();
+			pushListOperator("semicolon", ";", index);
+			index += 1;
+			continue;
+		}
+
+		if (char === "&" && chars[index + 1] === "&") {
+			flushWord();
+			pushListOperator("and", "&&", index);
+			index += 2;
 			continue;
 		}
 

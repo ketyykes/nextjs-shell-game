@@ -225,9 +225,10 @@ export const DIR_SIZE = 4096;
 // ---------------------------------------------------------------------------
 
 /**
- * token 種類。`word` 是一般字串；`pipe` 是 `|`；`redirect` 是 `>`、`redirectAppend` 是 `>>`。
+ * token 種類。`word` 是一般字串；`pipe` 是 `|`；`redirect` 是 `>`、`redirectAppend` 是 `>>`；
+ * `semicolon` 是 `;`、`and` 是 `&&`（M13-2，把一行切成依序執行的好幾段）。
  */
-export type TokenKind = "word" | "pipe" | "redirect" | "redirectAppend";
+export type TokenKind = "word" | "pipe" | "redirect" | "redirectAppend" | "semicolon" | "and";
 
 export interface Token {
 	kind: TokenKind;
@@ -240,6 +241,11 @@ export interface Token {
 	quoted: boolean;
 	/** 是否整個 token 都在單引號內，單引號內的 `$NAME` 不展開。沒有這個欄位視為 false。 */
 	singleQuoted?: boolean;
+	/**
+	 * 符號在輸入裡的位置，以字元（`Array.from(input)` 的索引）計。
+	 * 只有 `semicolon` 與 `and` 帶，解析器用它切出每一段的原文。
+	 */
+	offset?: number;
 }
 
 /**
@@ -300,6 +306,12 @@ export interface ParsedPipeline {
 	commands: ParsedCommand[];
 	redirect: Redirect | null;
 }
+
+/**
+ * 把一行切成好幾段的連接符號（M13-2）：`;` 不管前一段成敗都執行下一段，
+ * `&&` 前一段成功才執行下一段。兩者都比 `|` 鬆，每一段各自是一條管線。
+ */
+export type ListConnector = ";" | "&&";
 
 /** 解析選項：`env` 給變數展開用（第五章），沒給就不展開、`$NAME` 原樣保留。 */
 export interface ParseOptions {
@@ -474,6 +486,10 @@ export interface ShellOptions {
 /**
  * 一次輸入的執行結果，是 UI 唯一需要看的東西。
  * `isError` 與 `CommandResult.ok` 相反，並且包含解析錯誤與指令不存在。
+ *
+ * 用 `;`、`&&` 串起來的一行（M13-2）：`lines` 是每一段的輸出依序接起來（`clear` 之前的丟掉），
+ * 任一段失敗 `isError` 就是 true（整行算一次錯誤），`cwd`、`env`、`processes` 是整行跑完的狀態，
+ * 每一段各自的結果放在 `segments`。
  */
 export interface ShellExecution {
 	input: string;
@@ -488,4 +504,10 @@ export interface ShellExecution {
 	processes: ProcessInfo[];
 	/** 這一行有沒有跑到 `hint`（含管線裡的），卡關偵測用它把閒置計時從這裡重新算起。 */
 	hintUsed: boolean;
+	/**
+	 * 一行用 `;`、`&&` 串了兩段以上時，實際執行過的每一段（被 `&&` 跳過的不算），依執行順序。
+	 * 每段的 `input` 是那一段的原文，`cwd`、`env`、`processes` 是那一段跑完當下的狀態，目標判定逐段看。
+	 * 只有一段時沒有這個欄位，整行就是那一段。
+	 */
+	segments?: ShellExecution[];
 }

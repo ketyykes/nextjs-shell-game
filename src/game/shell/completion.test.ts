@@ -363,6 +363,21 @@ describe("管線與 man 後補指令名", () => {
 
 		expect(result.completed).toBe("cat wake_up.txt ");
 	});
+
+	it("; 與 && 右邊的第一個 token 也是指令", () => {
+		expect(complete("cd pod_01 ; pw", createContext()).completed).toBe("cd pod_01 ; pwd ");
+		expect(complete("cd pod_01 && pw", createContext()).completed).toBe("cd pod_01 && pwd ");
+	});
+
+	it("; 後面的 man 參數補指令名", () => {
+		const result = complete("ls ; man hi", createContext());
+
+		expect(result.candidates).toEqual(["hint", "history"]);
+	});
+
+	it("; 後面那一段的第二個參數仍然補路徑", () => {
+		expect(complete("pwd ; cat wa", createContext()).completed).toBe("pwd ; cat wake_up.txt ");
+	});
 });
 
 describe("路徑裡的環境變數", () => {

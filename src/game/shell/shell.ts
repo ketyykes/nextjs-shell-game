@@ -3,8 +3,8 @@
  *
  * 一個 `Shell` 實例代表玩家在某一台終端機上的 session：
  * 它持有工作目錄、指令歷史、hint 計數、環境變數與程序清單，並把輸入串起解析器、指令註冊表與訊息模組。
- * 一行輸入可以是用 `|` 串起來的管線，結尾可接 `>`／`>>` 重導向；參數裡的 `$NAME` 由解析器展開，
- * 沒被引號包住的 `*`、`?` 由這裡呼叫 `fs.glob` 展開。
+ * 一行輸入可以用 `;`、`&&` 串成好幾段，每一段是用 `|` 串起來的管線，結尾可接 `>`／`>>` 重導向；
+ * 參數裡的 `$NAME` 由解析器在執行到那一段時展開，沒被引號包住的 `*`、`?` 由這裡呼叫 `fs.glob` 展開。
  * UI 只需要呼叫 `execute`、`complete`、`historyUp`、`historyDown`，
  * 存檔時呼叫 `toState`，還原時用 `Shell.fromState`。
  *
@@ -16,7 +16,7 @@ import { joinContentLines } from "./commands/cat";
 import { complete as completeInput } from "./completion";
 import { CommandHistory } from "./history";
 import { commandNotFound, fsError, missingSpace, parseError } from "./messages";
-import { parseCommandLineDetailed, suggestMissingSpace } from "./parser";
+import { parseCommandLineDetailed, parseCommandList, suggestMissingSpace } from "./parser";
 import type { ParsedWord } from "./parser";
 import type {
 	CommandContext,
@@ -162,15 +162,12 @@ export class Shell {
 
 	/**
 	 * 執行一行輸入。
-	 * 不管成功或失敗都會記進歷史（跟 bash 一樣，打錯的也能用 ↑ 叫回來修）。
+	 * 不管成功或失敗都會記進歷史（跟 bash 一樣，打錯的也能用 ↑ 叫回來修），整行只記一筆。
 	 *
-	 * 管線依序執行，前一個指令的 `lines` 是下一個的 `stdin`；任何一個失敗（或不存在）就停下，
-	 * 回傳那個指令的錯誤。每個指令的副作用（換目錄、hint、環境變數、程序清單）都會套用。
-	 *
-	 * 有重導向時跟 bash 一樣**先開檔再執行**：`>` 先建立或清空目標檔，`>>` 在目標不存在時先建空檔，
-	 * 所以指令失敗（例如 `cat missing.txt > out.txt`）也會留下空的目標檔；目標本身不合法（父目錄不存在、是目錄）
-	 * 時只回報目標的錯誤，管線一個指令都不執行。最後一個指令成功時輸出寫進檔案，畫面上不印。
-	 * 不管哪一種失敗，整行都只算一次錯誤。
+	 * 一行可以用 `;`、`&&` 串成好幾段（M13-2）。跟 bash 一樣先解析整行，任一段有語法錯誤就一段都不執行；
+	 * 接著依序執行每一段：`;` 後面的段落一定執行，`&&` 後面的段落只在前一段成功時執行（被跳過時維持失敗，
+	 * 所以 `fail && a && b` 的 `b` 也跳過）。每一段執行到時才展開變數與萬用字元，看得到前面段落的副作用。
+	 * 任一段失敗整行就算一次錯誤，輸出依序接起來；每一段的結果放在 `segments` 給目標判定逐段看。
 	 */
 	execute(input: string): ShellExecution {
 		this.hintUsedInExecution = false;
@@ -178,6 +175,46 @@ export class Shell {
 		const previousHistory = this.history.entries();
 		this.history.push(input);
 
+		// 這一步不給 env：只檢查整行語法並切段，變數等執行到那一段才用當下的值展開
+		const list = parseCommandList(input);
+		if (!list.ok) {
+			return this.finish(input, false, parseError(list.error), false);
+		}
+
+		const segments: ShellExecution[] = [];
+		let previousOk = true;
+		for (const item of list.items) {
+			if (item.connector === "&&" && !previousOk) {
+				continue;
+			}
+			const segment = this.executePipeline(item.source, previousHistory);
+			segments.push(segment);
+			previousOk = !segment.isError;
+		}
+
+		if (list.items.length <= 1) {
+			const only = segments[0];
+			if (only === undefined) {
+				return this.finish(input, true, [], false);
+			}
+			return { ...only, input };
+		}
+
+		return this.combineSegments(input, segments);
+	}
+
+	/**
+	 * 執行一段管線（`;`、`&&` 切開後的其中一段），`input` 是那一段的原文，用當下的環境變數解析。
+	 *
+	 * 管線依序執行，前一個指令的 `lines` 是下一個的 `stdin`；任何一個失敗（或不存在）就停下，
+	 * 回傳那個指令的錯誤。每個指令的副作用（換目錄、hint、環境變數、程序清單）都會套用。
+	 *
+	 * 有重導向時跟 bash 一樣**先開檔再執行**：`>` 先建立或清空目標檔，`>>` 在目標不存在時先建空檔，
+	 * 所以指令失敗（例如 `cat missing.txt > out.txt`）也會留下空的目標檔；目標本身不合法（父目錄不存在、是目錄）
+	 * 時只回報目標的錯誤，管線一個指令都不執行。最後一個指令成功時輸出寫進檔案，畫面上不印。
+	 * 不管哪一種失敗，這一段都只算一次錯誤。
+	 */
+	private executePipeline(input: string, previousHistory: string[]): ShellExecution {
 		const parsed = parseCommandLineDetailed(input, { env: this.currentEnv });
 		if (!parsed.ok) {
 			return this.finish(input, false, parseError(parsed.error), false);
@@ -231,6 +268,25 @@ export class Shell {
 			return this.finish(input, false, redirectError, clearScreen);
 		}
 		return this.finish(input, true, [], clearScreen);
+	}
+
+	/**
+	 * 把好幾段的結果合成整行的結果：輸出依序接起來，遇到清畫面的段落就丟掉它之前的輸出
+	 * （`ls ; clear ; pwd` 畫面上只剩 pwd 的輸出）；任一段失敗整行就算錯誤。
+	 */
+	private combineSegments(input: string, segments: ShellExecution[]): ShellExecution {
+		let lines: string[] = [];
+		let clearScreen = false;
+		for (const segment of segments) {
+			if (segment.clearScreen) {
+				clearScreen = true;
+				lines = [];
+			}
+			lines = [...lines, ...segment.lines];
+		}
+
+		const ok = segments.every((segment) => !segment.isError);
+		return { ...this.finish(input, ok, lines, clearScreen), segments };
 	}
 
 	/** Tab 補全，游標視為在輸入結尾。 */

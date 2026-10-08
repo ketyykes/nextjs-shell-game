@@ -198,6 +198,58 @@ describe("evaluateObjective", () => {
 		expect(evaluateObjective(terminal, contextOf("cat wake_up.txt", { isError: true }))).toBe(false);
 		expect(called).toBe(false);
 	});
+
+	describe("一行用 ; 或 && 串了好幾段（有 segments）時逐段判定", () => {
+		/** 用好幾段組出整行的執行結果：整行的輸出是各段接起來，狀態是最後一段的。 */
+		function lineOf(segments: ShellExecution[]): ObjectiveContext {
+			const last = segments[segments.length - 1];
+			const whole = execution(segments.map((segment) => segment.input).join(" ; "), {
+				lines: segments.flatMap((segment) => segment.lines),
+				cwd: last.cwd,
+				env: last.env,
+				processes: last.processes,
+				segments,
+			});
+			return createObjectiveContext("ch1-t1", whole, fs, HOME);
+		}
+
+		it("任一段成立就過關", () => {
+			const terminal = terminalWith(catFile("/home/tech/wake_up.txt"));
+			const context = lineOf([execution("cd /home/tech"), execution("cat wake_up.txt")]);
+			expect(evaluateObjective(terminal, context)).toBe(true);
+		});
+
+		it("每一段用自己執行完的 cwd 解析相對路徑，後面換了目錄不影響", () => {
+			const terminal = terminalWith(catFile("/home/tech/wake_up.txt"));
+			const context = lineOf([execution("cat wake_up.txt"), execution("cd /deck1", { cwd: "/deck1" })]);
+			expect(evaluateObjective(terminal, context)).toBe(true);
+		});
+
+		it("輸出只看同一段的，別段的輸出不會湊成過關", () => {
+			const terminal = terminalWith(all(commandIs("cat"), outputContains("RESET-B3-7734")));
+			const context = lineOf([
+				execution("cat wake_up.txt", { lines: ["喚醒排程"] }),
+				execution("echo RESET-B3-7734", { lines: ["RESET-B3-7734"] }),
+			]);
+			expect(evaluateObjective(terminal, context)).toBe(false);
+		});
+
+		it("變數用那一段執行完的 env 展開", () => {
+			const terminal = terminalWith(catFile("/home/tech/wake_up.txt"));
+			const context = lineOf([
+				execution("export F=wake_up.txt", { env: { F: "wake_up.txt" } }),
+				execution("cat $F", { env: { F: "wake_up.txt" } }),
+			]);
+			expect(evaluateObjective(terminal, context)).toBe(true);
+		});
+
+		it("整行有一段失敗（isError）就不判定", () => {
+			const terminal = terminalWith(catFile("/home/tech/wake_up.txt"));
+			const segments = [execution("cat nope.txt", { isError: true }), execution("cat wake_up.txt")];
+			const whole = execution("cat nope.txt ; cat wake_up.txt", { isError: true, segments });
+			expect(evaluateObjective(terminal, createObjectiveContext("ch1-t1", whole, fs, HOME))).toBe(false);
+		});
+	});
 });
 
 describe("createObjectiveContext", () => {

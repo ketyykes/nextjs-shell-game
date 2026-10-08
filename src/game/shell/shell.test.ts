@@ -6,6 +6,7 @@ import { VirtualFileSystem } from "./fs";
 import {
 	commandNotFound,
 	emptyCommand,
+	emptyListCommand,
 	fsError,
 	fullwidthChar,
 	missingRedirectTarget,
@@ -150,6 +151,10 @@ describe("Shell 狀態", () => {
 		expect(shell.execute("pwd").hintUsed).toBe(false);
 		expect(shell.execute("hint | tail -n 1").hintUsed).toBe(true);
 		expect(shell.execute("xyz").hintUsed).toBe(false);
+		// ; 與 && 串接時任一段跑到 hint 就算
+		expect(shell.execute("hint ; pwd").hintUsed).toBe(true);
+		expect(shell.execute("pwd && hint").hintUsed).toBe(true);
+		expect(shell.execute("pwd ; ls").hintUsed).toBe(false);
 	});
 
 	it("clear 會要求 UI 清畫面", () => {
@@ -714,5 +719,140 @@ describe("Shell 萬用字元", () => {
 		const shell = createCommsShell([probe.command]);
 		shell.execute("ls | probe *.txt");
 		expect(probe.calls[0].args).toEqual(["notes.txt"]);
+	});
+});
+
+describe("Shell ; 與 &&（M13-2）", () => {
+	it("; 依序執行，後面的指令看得到前面的副作用", () => {
+		const shell = createShell();
+		const result = shell.execute("cd pod_06 ; pwd");
+		expect(result.isError).toBe(false);
+		expect(result.lines).toEqual(["/home/tech/pod_06"]);
+		expect(shell.cwd).toBe("/home/tech/pod_06");
+	});
+
+	it("cd 目錄 && ls 先走進去再列出裡面的東西", () => {
+		const shell = createShell();
+		expect(shell.execute("cd /home && ls").lines).toEqual(["abin/", "tech/"]);
+	});
+
+	it("; 前一段失敗照樣執行下一段，整行算一次錯誤", () => {
+		const shell = createShell();
+		const result = shell.execute("cat nope.txt ; pwd");
+		expect(result.isError).toBe(true);
+		expect(result.lines).toEqual([...pathNotFound("nope.txt"), "/home/tech"]);
+	});
+
+	it("&& 前一段失敗就不執行下一段", () => {
+		const probe = createProbe();
+		const shell = createShellWith([probe.command, failCommand]);
+		const result = shell.execute("fail && probe");
+		expect(result).toMatchObject({ isError: true, lines: ["boom"] });
+		expect(probe.calls).toHaveLength(0);
+	});
+
+	it("&& 跳過之後，後面接的 && 也跳過，; 之後重新開始", () => {
+		const probe = createProbe();
+		const shell = createShellWith([probe.command, failCommand]);
+		shell.execute("fail && probe && probe ; probe && probe");
+		expect(probe.calls).toHaveLength(2);
+	});
+
+	it("前一段成功、這一段失敗時，後面的 && 也不執行", () => {
+		const probe = createProbe();
+		const shell = createShellWith([probe.command, failCommand]);
+		const result = shell.execute("probe && fail && probe");
+		expect(probe.calls).toHaveLength(1);
+		expect(result).toMatchObject({ isError: true, lines: ["probed", "boom"] });
+	});
+
+	it("每一段可以是帶重導向的管線（; 與 && 比 | 鬆）", () => {
+		const shell = createShell();
+		const result = shell.execute("ls | cat > list.txt && cat list.txt");
+		expect(result.isError).toBe(false);
+		expect(result.lines).toContain("wake_up.txt");
+		expect(result.lines).toContain("list.txt");
+	});
+
+	it("變數在執行到那一段時才展開，前一段 export 的值後一段用得到", () => {
+		const shell = createShell();
+		const result = shell.execute("export TARGET=/deck1 ; cd $TARGET && pwd");
+		expect(result.isError).toBe(false);
+		expect(result.lines).toEqual(["/deck1"]);
+	});
+
+	it("萬用字元在執行到那一段時才展開，用的是當下的工作目錄", () => {
+		const shell = createShell();
+		expect(shell.execute("cd /home ; echo *").lines).toEqual(["abin tech"]);
+	});
+
+	it("歷史只記整行一次，每一段看到的歷史都不含這一行", () => {
+		const probe = createProbe();
+		const shell = createShellWith([probe.command]);
+		shell.execute("pwd");
+		shell.execute("probe ; probe");
+		expect(shell.historyEntries).toEqual(["pwd", "probe ; probe"]);
+		expect(probe.calls.map((call) => call.context.history)).toEqual([["pwd"], ["pwd"]]);
+	});
+
+	it("任一段有語法錯誤時整行一段都不執行", () => {
+		const probe = createProbe();
+		const shell = createShellWith([probe.command]);
+		const result = shell.execute("probe ; ls |");
+		expect(result).toMatchObject({ isError: true, lines: emptyCommand("|") });
+		expect(probe.calls).toHaveLength(0);
+	});
+
+	it("; 的左邊沒有指令回傳 emptyListCommand", () => {
+		const shell = createShell();
+		const result = shell.execute("; ls");
+		expect(result.isError).toBe(true);
+		expect(result.lines).toEqual(emptyListCommand(";"));
+	});
+
+	it("變數展開後才出現的錯誤只算那一段失敗，前面的照樣執行", () => {
+		const shell = createShell();
+		const result = shell.execute("pwd ; ls > $NOPE");
+		expect(result.isError).toBe(true);
+		expect(result.lines).toEqual(["/home/tech", ...missingRedirectTarget(">")]);
+	});
+
+	it("segments 依序記下實際執行的每一段，各自帶那一段執行完的狀態", () => {
+		const shell = createShellWith([setvarCommand]);
+		const result = shell.execute("cd pod_06 ; cat nope.txt ; setvar A 1 && pwd");
+		expect(result.segments?.map((segment) => segment.input)).toEqual([
+			"cd pod_06",
+			"cat nope.txt",
+			"setvar A 1",
+			"pwd",
+		]);
+		expect(result.segments?.map((segment) => segment.isError)).toEqual([false, true, false, false]);
+		expect(result.segments?.[0].cwd).toBe("/home/tech/pod_06");
+		expect(result.segments?.[1].lines).toEqual(pathNotFound("nope.txt"));
+		expect(result.segments?.[1].env.A).toBeUndefined();
+		expect(result.segments?.[2].env.A).toBe("1");
+		expect(result.segments?.[3].lines).toEqual(["/home/tech/pod_06"]);
+	});
+
+	it("segments 不含被 && 跳過的段落", () => {
+		const shell = createShellWith([failCommand]);
+		const result = shell.execute("fail && pwd ; pwd");
+		expect(result.segments?.map((segment) => segment.input)).toEqual(["fail", "pwd"]);
+	});
+
+	it("只有一段時沒有 segments，結尾的 ; 也一樣", () => {
+		const shell = createShell();
+		expect(shell.execute("pwd").segments).toBeUndefined();
+		const trailing = shell.execute("pwd ;");
+		expect(trailing.segments).toBeUndefined();
+		expect(trailing).toMatchObject({ input: "pwd ;", lines: ["/home/tech"], isError: false });
+	});
+
+	it("clear 之後的段落輸出照樣留下，clear 之前的丟掉", () => {
+		const shell = createShell();
+		const result = shell.execute("ls ; clear ; pwd");
+		expect(result.clearScreen).toBe(true);
+		expect(result.lines).toEqual(["/home/tech"]);
+		expect(shell.execute("pwd ; clear")).toMatchObject({ clearScreen: true, lines: [] });
 	});
 });
