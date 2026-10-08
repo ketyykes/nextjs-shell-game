@@ -65,6 +65,8 @@
 - 用 `useLayoutEffect` 建立 `new Phaser.Game()`，卸載時 `game.destroy(true)`，並防 React 嚴格模式重複建立。
 - 遊戲設定：`pixelArt: true` 讓像素放大不糊，`type: Phaser.AUTO`。
 - 預取：標題流程（`usePlayPrefetch`）在標題淡入動畫跑完後的閒置時段 `router.prefetch("/play")`，並動態 import `PhaserGame` 模組（`preloadPhaserGame`，跟 `PhaserGameDynamic` 同一個 chunk），所以 **`PhaserGame` 的整個模組圖會在標題頁評估**，那條 import 鏈上不要放有副作用或依賴 `/play` 狀態的頂層程式碼。引擎排完接著預載要進的那一章插圖；進 `/play` 掛載時（`useScenePreload`）也會排本章插圖，兩邊共用同一條一次一張、低優先的 `Image` 佇列（`lib/preload.ts`），載過的留在記憶體快取，插圖卡顯示時不再發請求。
+- 只用 arcade 物理，打包時用 `next.config.ts` 的 `turbopack.resolveAlias` 把 `phaser` 換成不含 Matter.js 的 `phaser-arcade-physics` 建置（M12-3）。
+- 素材載入失敗：React 的 error boundary 接不到 Phaser 遊戲迴圈裡的例外，所以由 Preloader 檢查（`loaderror` 加上關鍵素材是否進了 cache），經 EventBus 的 `assets:error` 通知 React。地圖、tileset、角色 sprite 缺了就不進 Station，整個畫面顯示繁中提示與「重新載入」；只有音效缺了遊戲照常，頂端一條可收起的提示（M12-6）。
 
 ### 3.3 虛擬 shell 引擎
 
@@ -204,6 +206,11 @@ NOVA 從未被回滾，「失憶」是演的。公司規定無人站點滿三年
 - **章節結束**：先播過場插圖與 NOVA 結尾台詞，再顯示「指令回顧卡」列出本章學會的指令與一句話說明，自動存檔。第一版結束後顯示「第二章開發中」並回標題。
 - **存檔**：單一存檔槽，localStorage，每台終端機過關與章節結束時自動存。存檔 v2 起也存角色最後停下的位置（章節、座標、艙區），重開從那裡出發；換章與重玩該章時清掉。
 - **直接開 `/play`**：沒有存檔（還沒選過角）時導回標題，免得跳過選角、boot log、開場插圖與 NOVA 第一句。`/play` 不列進 sitemap 並帶 robots noindex。
+- **存檔容錯**（M12-5，存檔版本仍是 v2）：
+  - 寫不進去（儲存空間滿、瀏覽器封鎖）：遊戲照常，進度只留在記憶體，畫面頂端一行繁中提示「存檔失敗」，之後寫入成功就消失。
+  - 某台終端機的存檔內容壞掉：開那台時丟掉它的紀錄、用劇本初始狀態重建，其他終端機與進度不受影響。
+  - 存檔版本比程式新（例如部署回滾）：不讀也不寫，原始存檔原封不動，畫面頂端提示；這個分頁照樣能從頭玩，只是不存檔。
+  - 舊版存檔升級前，原始字串備份到 `kepler9-save.backup.v<舊版號>`。
 - **選章**：標題畫面在有存檔且到過兩章以上時多一項「選章」，只列第一章到最遠到過的章節。選定後確認「從頭重玩」，只清該章的進度，其他章節與最遠章節保留；選第一章會重走 boot log。
 - **設定選單第一版三項**：文字速度、關閉閃爍效果、關閉 CRT 掃描線。關閉閃爍是光敏體質玩家的安全項，恐怖遊戲常閃燈，這項不能省。音量等有音效再加。
   - 關閉閃爍時：CRT 閃爍、環境燈閃、`flicker` 過關演出、開門的鏡頭閃光、人影出現時的鏡頭震動都不播；人影改成約 1.4 秒的淡入淡出，劇情點保留。亮燈序列與斷電是緩慢淡變，照播。
