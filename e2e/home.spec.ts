@@ -6,6 +6,8 @@ test.describe("標題畫面", () => {
 		await page.goto("/");
 		await page.evaluate(() => window.localStorage.clear());
 		await page.reload();
+		// 讀檔完成、標題選單掛上鍵盤監聽之前按的鍵會被吃掉，先等選單出現
+		await expect(page.getByRole("button", { name: "新遊戲" })).toBeVisible();
 	});
 
 	test("沒有存檔時只有新遊戲與設定，走完選角與 boot log 進入地圖", async ({ page }) => {
