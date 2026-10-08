@@ -6,7 +6,7 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   // Next.js 16 起改用 ESLint CLI，需自行排除建置產物
-  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", ".claude/**"]),
+  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", ".claude/**", "playwright-report/**", "test-results/**"]),
 ]);
 
 export default eslintConfig;
