@@ -19,6 +19,7 @@ import {
 	processProtected,
 	unknownOption,
 } from "../messages";
+import { splitOptionsAndOperands } from "./options";
 
 /** 強制結束的訊號寫法。 */
 const KILL_SIGNALS = new Set(["-9", "-KILL"]);
@@ -37,14 +38,13 @@ type KillParseResult =
 /** 分出訊號與 PID；不認得的訊號直接回錯誤。多個訊號以最後一個為準。 */
 function parseKillArgs(args: string[]): KillParseResult {
 	let force = false;
-	const pids: string[] = [];
+	// kill 沒有 `--` 的語意，單獨的 `-` 也不是 PID，兩者都留在 options 被當成不認得的訊號
+	const { options: signals, operands: pids } = splitOptionsAndOperands(args, {
+		endOfOptions: false,
+		loneDashIsOperand: false,
+	});
 
-	for (const arg of args) {
-		if (!arg.startsWith("-")) {
-			pids.push(arg);
-			continue;
-		}
-
+	for (const arg of signals) {
 		if (KILL_SIGNALS.has(arg)) {
 			force = true;
 		} else if (TERM_SIGNALS.has(arg)) {

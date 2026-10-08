@@ -12,6 +12,7 @@ import type { CommandContext, CommandDefinition, CommandResult } from "../types"
 import { FsError } from "../types";
 import { fsError, invalidNumber, missingOperand, noInput, unknownOption } from "../messages";
 import { splitContentLines } from "./cat";
+import { splitOptionsAndOperands } from "./options";
 
 /** 沒有指定 `-n` 時的預設行數。 */
 export const DEFAULT_LINE_COUNT = 10;
@@ -49,37 +50,27 @@ function parsePositiveInteger(value: string): number | null {
  */
 export function parseLineCountArgs(command: string, args: string[]): LineCountParseResult {
 	let count = DEFAULT_LINE_COUNT;
-	const paths: string[] = [];
-	let optionsEnded = false;
+	// `-n 5` 的 5 由切分函式緊接著 `-n` 放進 options
+	const { options, operands } = splitOptionsAndOperands(args, { valueOptions: ["-n"] });
 	let index = 0;
 
-	while (index < args.length) {
-		const arg = args[index];
+	while (index < options.length) {
+		const arg = options[index];
 		index += 1;
-
-		if (optionsEnded || !arg.startsWith("-") || arg === "-") {
-			paths.push(arg);
-			continue;
-		}
-
-		if (arg === "--") {
-			optionsEnded = true;
-			continue;
-		}
 
 		// `-n` 的值：黏在後面（`-n5`）或是下一個參數（`-n 5`）
 		// `-5` 這種純數字簡寫也走同一套驗證，`-0` 才會得到「0 不是數字」的提示
 		let value: string | null = null;
 
 		if (arg === "-n") {
-			if (index >= args.length) {
+			if (index >= options.length) {
 				return {
 					ok: false,
 					lines: missingOperand(command, `在 -n 後面接要顯示的行數，例如 ${command} -n 5 door_events.log`),
 				};
 			}
 
-			value = args[index];
+			value = options[index];
 			index += 1;
 		} else if (arg.startsWith("-n") && !arg.startsWith("--")) {
 			value = arg.slice(2);
@@ -104,7 +95,7 @@ export function parseLineCountArgs(command: string, args: string[]): LineCountPa
 		count = parsed;
 	}
 
-	return { ok: true, count, paths };
+	return { ok: true, count, paths: operands };
 }
 
 // ---------------------------------------------------------------------------

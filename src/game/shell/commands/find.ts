@@ -15,6 +15,7 @@
 import type { CommandContext, CommandDefinition, CommandResult, FsNode } from "../types";
 import { canRead, FsError } from "../types";
 import { fsError, missingOperand, unknownOption } from "../messages";
+import { splitOptionsAndOperands } from "./options";
 
 // ---------------------------------------------------------------------------
 // 樣式比對
@@ -74,18 +75,17 @@ const MISSING_VALUE_HINTS: Record<string, string> = {
  * - 其餘參數都是起點，沒有起點時用 `.`
  */
 export function parseFindArgs(args: string[]): FindParseResult {
-	const paths: string[] = [];
 	const tests: FindTests = { names: [], type: null };
+	// find 沒有 `--` 的語意，`--` 會留在 options 被當成不認得的選項
+	const { options, operands: paths } = splitOptionsAndOperands(args, {
+		endOfOptions: false,
+		valueOptions: Object.keys(MISSING_VALUE_HINTS),
+	});
 	let index = 0;
 
-	while (index < args.length) {
-		const arg = args[index];
+	while (index < options.length) {
+		const arg = options[index];
 		index += 1;
-
-		if (!arg.startsWith("-") || arg === "-") {
-			paths.push(arg);
-			continue;
-		}
 
 		const hint = MISSING_VALUE_HINTS[arg];
 
@@ -93,11 +93,11 @@ export function parseFindArgs(args: string[]): FindParseResult {
 			return { ok: false, lines: unknownOption("find", arg) };
 		}
 
-		if (index >= args.length) {
+		if (index >= options.length) {
 			return { ok: false, lines: missingOperand("find", hint) };
 		}
 
-		const value = args[index];
+		const value = options[index];
 		index += 1;
 
 		if (arg === "-type") {

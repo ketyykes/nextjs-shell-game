@@ -8,6 +8,7 @@
  * 這個檔案不 import React、Phaser 或 zustand。
  */
 
+import { splitOptionsAndOperands } from "@/game/shell/commands/options";
 import { parseCommandLine } from "@/game/shell/parser";
 import { FsError, type ParsedCommand, type Redirect, type ShellExecution, type VirtualFs } from "@/game/shell/types";
 import type { ObjectiveCheck, ObjectiveContext, TerminalDefinition } from "./types";
@@ -15,32 +16,6 @@ import type { ObjectiveCheck, ObjectiveContext, TerminalDefinition } from "./typ
 // ---------------------------------------------------------------------------
 // 參數拆解
 // ---------------------------------------------------------------------------
-
-/**
- * 把參數拆成「選項」與「路徑」，規則跟 `ls` 一樣：
- * `-` 開頭（但不是單獨的 `-`）是選項，`--` 之後全部當路徑。
- */
-function splitOptionsAndPaths(args: string[]): { options: string[]; paths: string[] } {
-	const options: string[] = [];
-	const paths: string[] = [];
-	let optionsEnded = false;
-
-	for (const arg of args) {
-		if (optionsEnded || !arg.startsWith("-") || arg === "-") {
-			paths.push(arg);
-			continue;
-		}
-
-		if (arg === "--") {
-			optionsEnded = true;
-			continue;
-		}
-
-		options.push(arg);
-	}
-
-	return { options, paths };
-}
 
 /** 任一參數解析成絕對路徑後等於目標。 */
 function anyArgResolvesTo(context: ObjectiveContext, args: string[], absolutePath: string): boolean {
@@ -88,7 +63,7 @@ export function lsWithFlag(flag: "-a" | "-l", absoluteDirPath?: string): Objecti
 			return false;
 		}
 
-		const { options, paths } = splitOptionsAndPaths(context.command.args);
+		const { options, operands: paths } = splitOptionsAndOperands(context.command.args);
 		const hasFlag = options.some((option) => !option.startsWith("--") && option.slice(1).includes(letter));
 		if (!hasFlag) {
 			return false;
@@ -133,7 +108,7 @@ export function anyCommandIs(name: string): ObjectiveCheck {
 export function commandTouches(name: string, absolutePath: string): ObjectiveCheck {
 	return (context) =>
 		commandsNamed(context, name).some((command) => {
-			const { paths } = splitOptionsAndPaths(command.args);
+			const { operands: paths } = splitOptionsAndOperands(command.args);
 			return anyArgResolvesTo(context, paths, absolutePath);
 		});
 }
@@ -143,7 +118,7 @@ export function commandHasOption(name: string, option: string): ObjectiveCheck {
 	const letter = option.replace(/^-/, "");
 	return (context) =>
 		commandsNamed(context, name).some((command) => {
-			const { options } = splitOptionsAndPaths(command.args);
+			const { options } = splitOptionsAndOperands(command.args);
 			return options.some((item) => !item.startsWith("--") && item.slice(1).includes(letter));
 		});
 }

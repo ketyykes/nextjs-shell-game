@@ -12,7 +12,8 @@
 
 import type { CommandContext, CommandDefinition, CommandResult } from "../types";
 import { FsError } from "../types";
-import { fsError, noInput, unknownOption } from "../messages";
+import { fsError, noInput } from "../messages";
+import { parseFlagArgs } from "./options";
 import { splitContentLines } from "./cat";
 
 // ---------------------------------------------------------------------------
@@ -82,48 +83,24 @@ export type SortParseResult =
 	| { ok: true; options: SortOptions; paths: string[] }
 	| { ok: false; lines: string[] };
 
-const SUPPORTED_FLAGS = new Set(["r", "n", "u"]);
+const SUPPORTED_FLAGS = "rnu";
 
 /**
  * 解析 `sort` 的參數，規則同 `ls`：
  * 單字母選項可合併（`-nr`），`--` 之後全部當檔名，單獨的 `-` 當檔名，長選項不支援。
  */
 export function parseSortArgs(args: string[]): SortParseResult {
-	const options: SortOptions = { reverse: false, numeric: false, unique: false };
-	const paths: string[] = [];
-	let optionsEnded = false;
-
-	for (const arg of args) {
-		if (optionsEnded || !arg.startsWith("-") || arg === "-") {
-			paths.push(arg);
-			continue;
-		}
-
-		if (arg === "--") {
-			optionsEnded = true;
-			continue;
-		}
-
-		if (arg.startsWith("--")) {
-			return { ok: false, lines: unknownOption("sort", arg) };
-		}
-
-		for (const flag of arg.slice(1)) {
-			if (!SUPPORTED_FLAGS.has(flag)) {
-				return { ok: false, lines: unknownOption("sort", `-${flag}`) };
-			}
-
-			if (flag === "r") {
-				options.reverse = true;
-			} else if (flag === "n") {
-				options.numeric = true;
-			} else {
-				options.unique = true;
-			}
-		}
+	const parsed = parseFlagArgs("sort", args, SUPPORTED_FLAGS);
+	if (!parsed.ok) {
+		return parsed;
 	}
 
-	return { ok: true, options, paths };
+	const options: SortOptions = {
+		reverse: parsed.flags.has("r"),
+		numeric: parsed.flags.has("n"),
+		unique: parsed.flags.has("u"),
+	};
+	return { ok: true, options, paths: parsed.operands };
 }
 
 // ---------------------------------------------------------------------------

@@ -8,7 +8,8 @@
 
 import type { CommandDefinition, CommandResult } from "../types";
 import { fsError, missingOperand } from "../messages";
-import { captureFsError, parseFlagArgs } from "./fileArgs";
+import { captureFsError } from "./fileArgs";
+import { parseFlagArgs } from "./options";
 
 export const touchCommand: CommandDefinition = {
 	name: "touch",

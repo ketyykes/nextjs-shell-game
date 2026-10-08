@@ -9,7 +9,8 @@
 
 import type { CommandDefinition, CommandResult } from "../types";
 import { fsError, missingOperand, mkdirParentMissing } from "../messages";
-import { captureFsError, parseFlagArgs } from "./fileArgs";
+import { captureFsError } from "./fileArgs";
+import { parseFlagArgs } from "./options";
 
 export const mkdirCommand: CommandDefinition = {
 	name: "mkdir",

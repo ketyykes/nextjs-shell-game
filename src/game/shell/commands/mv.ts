@@ -10,7 +10,8 @@
 
 import type { CommandDefinition, CommandResult } from "../types";
 import { fsError } from "../messages";
-import { captureFsError, parseFlagArgs, planTransfer } from "./fileArgs";
+import { captureFsError, planTransfer } from "./fileArgs";
+import { parseFlagArgs } from "./options";
 
 export const mvCommand: CommandDefinition = {
 	name: "mv",

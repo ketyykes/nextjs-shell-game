@@ -1,59 +1,16 @@
 /**
- * 檔案操作指令（mkdir、touch、cp、mv、rm）共用的選項解析與小工具。
+ * 檔案操作指令（mkdir、touch、cp、mv、rm）共用的小工具。
  *
- * 選項解析
- * 規則跟 `ls` 一樣：
- * - `-r`、`-f`、`-rf`、`-fr` 這種單一字母選項可以合併，也可以放在參數後面
- * - `--` 之後全部當成一般參數；單獨的 `-` 也是一般參數（跟 bash 一樣）
- * - 不支援的字母與 `--xxx` 長選項回傳 `unknownOption`
- *
+ * 選項解析改在 `./options` 的 `parseFlagArgs`，跟過濾類指令共用。
  * `chmod` 不用它，因為 `chmod -r 檔名` 的 `-r` 是權限寫法（拿掉讀取權限），不是選項。
  */
 
 import type { CommandContext } from "../types";
 import { FsError } from "../types";
-import { missingOperand, unknownOption } from "../messages";
+import { missingOperand } from "../messages";
 
-/** 解析結果：成功時帶出現過的選項字母與其他參數，失敗時帶要印出的錯誤訊息。 */
-export type FlagParseResult =
-	| { ok: true; flags: Set<string>; operands: string[] }
-	| { ok: false; lines: string[] };
-
-/**
- * 解析指令參數。
- * `supported` 是可以接受的選項字母，例如 rm 傳 `"rRf"`、沒有選項的指令傳空字串。
- */
-export function parseFlagArgs(command: string, args: string[], supported: string): FlagParseResult {
-	const flags = new Set<string>();
-	const operands: string[] = [];
-	let optionsEnded = false;
-
-	for (const arg of args) {
-		if (optionsEnded || !arg.startsWith("-") || arg === "-") {
-			operands.push(arg);
-			continue;
-		}
-
-		if (arg === "--") {
-			optionsEnded = true;
-			continue;
-		}
-
-		if (arg.startsWith("--")) {
-			return { ok: false, lines: unknownOption(command, arg) };
-		}
-
-		for (const flag of arg.slice(1)) {
-			if (!supported.includes(flag)) {
-				return { ok: false, lines: unknownOption(command, `-${flag}`) };
-			}
-
-			flags.add(flag);
-		}
-	}
-
-	return { ok: true, flags, operands };
-}
+/** 相容用：並行開發中的指令可能還從這裡 import，之後全部改從 `./options` 拿就可以刪。 */
+export { parseFlagArgs, type FlagParseResult } from "./options";
 
 /**
  * 執行一個檔案系統操作：成功回傳 null，丟 `FsError` 時回傳那個錯誤，其他錯誤照樣往外丟。

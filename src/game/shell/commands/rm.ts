@@ -10,7 +10,8 @@
 
 import type { CommandContext, CommandDefinition, CommandResult } from "../types";
 import { directoryNeedsRecursive, fsError, missingOperand } from "../messages";
-import { captureFsError, parseFlagArgs } from "./fileArgs";
+import { captureFsError } from "./fileArgs";
+import { parseFlagArgs } from "./options";
 
 /** `rm` 的選項。 */
 interface RmOptions {

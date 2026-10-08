@@ -13,7 +13,8 @@
  */
 
 import type { CommandContext, CommandDefinition, CommandResult } from "../types";
-import { extraOperand, fsError, unknownOption } from "../messages";
+import { extraOperand, fsError } from "../messages";
+import { parseFlagArgs } from "./options";
 import { joinContentLines } from "./cat";
 import { captureFsError } from "./fileArgs";
 import { readInputLines } from "./sort";
@@ -35,7 +36,7 @@ export type UniqParseResult =
 	| { ok: true; options: UniqOptions; paths: string[] }
 	| { ok: false; lines: string[] };
 
-const SUPPORTED_FLAGS = new Set(["c", "d"]);
+const SUPPORTED_FLAGS = "cd";
 
 /** 次數欄寬度，跟 GNU uniq 一樣。 */
 const COUNT_WIDTH = 7;
@@ -48,39 +49,13 @@ const STDIN_PATH = "-";
 
 /** 解析 `uniq` 的參數，規則同 `ls`。 */
 export function parseUniqArgs(args: string[]): UniqParseResult {
-	const options: UniqOptions = { count: false, duplicatesOnly: false };
-	const paths: string[] = [];
-	let optionsEnded = false;
-
-	for (const arg of args) {
-		if (optionsEnded || !arg.startsWith("-") || arg === "-") {
-			paths.push(arg);
-			continue;
-		}
-
-		if (arg === "--") {
-			optionsEnded = true;
-			continue;
-		}
-
-		if (arg.startsWith("--")) {
-			return { ok: false, lines: unknownOption("uniq", arg) };
-		}
-
-		for (const flag of arg.slice(1)) {
-			if (!SUPPORTED_FLAGS.has(flag)) {
-				return { ok: false, lines: unknownOption("uniq", `-${flag}`) };
-			}
-
-			if (flag === "c") {
-				options.count = true;
-			} else {
-				options.duplicatesOnly = true;
-			}
-		}
+	const parsed = parseFlagArgs("uniq", args, SUPPORTED_FLAGS);
+	if (!parsed.ok) {
+		return parsed;
 	}
 
-	return { ok: true, options, paths };
+	const options: UniqOptions = { count: parsed.flags.has("c"), duplicatesOnly: parsed.flags.has("d") };
+	return { ok: true, options, paths: parsed.operands };
 }
 
 // ---------------------------------------------------------------------------

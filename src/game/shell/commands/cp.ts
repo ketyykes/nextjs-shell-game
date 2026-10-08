@@ -10,7 +10,8 @@
 
 import type { CommandContext, CommandDefinition, CommandResult } from "../types";
 import { directoryNeedsRecursive, fsError } from "../messages";
-import { captureFsError, parseFlagArgs, planTransfer } from "./fileArgs";
+import { captureFsError, planTransfer } from "./fileArgs";
+import { parseFlagArgs } from "./options";
 
 /** 複製一個來源，成功回傳空陣列，失敗回傳要印的錯誤訊息。 */
 function copyOne(context: CommandContext, source: string, destination: string, recursive: boolean): string[] {

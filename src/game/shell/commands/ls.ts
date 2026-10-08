@@ -11,7 +11,8 @@
 import type { CommandContext, CommandDefinition, CommandResult, FsDirNode, FsNode } from "../types";
 import { FsError } from "../types";
 import { getNodeSize } from "../fs";
-import { fsError, unknownOption } from "../messages";
+import { fsError } from "../messages";
+import { parseFlagArgs } from "./options";
 
 // ---------------------------------------------------------------------------
 // 選項解析
@@ -31,7 +32,7 @@ export type LsParseResult =
 	| { ok: false; lines: string[] };
 
 /** 可以接受的選項字母。 */
-const SUPPORTED_FLAGS = new Set(["a", "l"]);
+const SUPPORTED_FLAGS = "al";
 
 /**
  * 解析 `ls` 的參數。
@@ -41,39 +42,13 @@ const SUPPORTED_FLAGS = new Set(["a", "l"]);
  * - 不以 `-` 開頭的參數是路徑；單獨的 `-` 也當成路徑（跟 bash 一樣）
  */
 export function parseLsArgs(args: string[]): LsParseResult {
-	const options: LsOptions = { all: false, long: false };
-	const paths: string[] = [];
-	let optionsEnded = false;
-
-	for (const arg of args) {
-		if (optionsEnded || !arg.startsWith("-") || arg === "-") {
-			paths.push(arg);
-			continue;
-		}
-
-		if (arg === "--") {
-			optionsEnded = true;
-			continue;
-		}
-
-		if (arg.startsWith("--")) {
-			return { ok: false, lines: unknownOption("ls", arg) };
-		}
-
-		for (const flag of arg.slice(1)) {
-			if (!SUPPORTED_FLAGS.has(flag)) {
-				return { ok: false, lines: unknownOption("ls", `-${flag}`) };
-			}
-
-			if (flag === "a") {
-				options.all = true;
-			} else {
-				options.long = true;
-			}
-		}
+	const parsed = parseFlagArgs("ls", args, SUPPORTED_FLAGS);
+	if (!parsed.ok) {
+		return parsed;
 	}
 
-	return { ok: true, options, paths };
+	const options: LsOptions = { all: parsed.flags.has("a"), long: parsed.flags.has("l") };
+	return { ok: true, options, paths: parsed.operands };
 }
 
 // ---------------------------------------------------------------------------

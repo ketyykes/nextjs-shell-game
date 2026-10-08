@@ -25,8 +25,8 @@ import {
 	invalidPattern,
 	missingOperand,
 	noInput,
-	unknownOption,
 } from "../messages";
+import { parseFlagArgs } from "./options";
 import { splitContentLines } from "./cat";
 import { compileGrepPattern } from "./grepPattern";
 import type { CompiledGrepPattern, GrepSyntax } from "./grepPattern";
@@ -61,7 +61,7 @@ export type GrepParseResult =
 	| { ok: false; lines: string[] };
 
 /** 可以接受的選項字母。 */
-const SUPPORTED_FLAGS = new Set(["i", "n", "c", "v", "r", "w", "o", "E", "F"]);
+const SUPPORTED_FLAGS = "incvrwoEF";
 
 /** 搜尋目前目錄時的特殊路徑標記：子項前綴不加任何東西（GNU grep `-r` 不給路徑時的行為）。 */
 const CURRENT_DIR_IMPLICIT = "";
@@ -112,35 +112,14 @@ export function parseGrepArgs(args: string[]): GrepParseResult {
 		onlyMatching: false,
 		syntax: "basic",
 	};
-	const operands: string[] = [];
-	let optionsEnded = false;
-
-	for (const arg of args) {
-		if (optionsEnded || !arg.startsWith("-") || arg === "-") {
-			operands.push(arg);
-			continue;
-		}
-
-		if (arg === "--") {
-			optionsEnded = true;
-			continue;
-		}
-
-		if (arg.startsWith("--")) {
-			return { ok: false, lines: unknownOption("grep", arg) };
-		}
-
-		for (const flag of arg.slice(1)) {
-			if (!SUPPORTED_FLAGS.has(flag)) {
-				return { ok: false, lines: unknownOption("grep", `-${flag}`) };
-			}
-
-			if (!applyFlag(options, flag)) {
-				return { ok: false, lines: conflictingMatchers("grep") };
-			}
-		}
+	const parsed = parseFlagArgs("grep", args, SUPPORTED_FLAGS, (flag) =>
+		applyFlag(options, flag) ? null : conflictingMatchers("grep"),
+	);
+	if (!parsed.ok) {
+		return parsed;
 	}
 
+	const { operands } = parsed;
 	if (operands.length === 0) {
 		return { ok: false, lines: missingOperand("grep", "一個要搜尋的字串，例如 grep ERROR system.log") };
 	}

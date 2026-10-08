@@ -11,7 +11,8 @@
 
 import type { CommandDefinition, CommandResult } from "../types";
 import { FsError } from "../types";
-import { fsError, noInput, unknownOption } from "../messages";
+import { fsError, noInput } from "../messages";
+import { parseFlagArgs } from "./options";
 import { splitContentLines } from "./cat";
 
 // ---------------------------------------------------------------------------
@@ -29,46 +30,23 @@ export interface WcOptions {
 export type WcParseResult = { ok: true; options: WcOptions; paths: string[] } | { ok: false; lines: string[] };
 
 /** 可以接受的選項字母。 */
-const SUPPORTED_FLAGS = new Set(["l", "w", "c"]);
+const SUPPORTED_FLAGS = "lwc";
 
 /**
  * 解析 `wc` 的參數，風格同 `ls`：合併旗標、`--` 結束選項、未知選項回 `unknownOption`。
  * 一個選項都沒給時三個欄位全開。
  */
 export function parseWcArgs(args: string[]): WcParseResult {
-	const options: WcOptions = { lines: false, words: false, bytes: false };
-	const paths: string[] = [];
-	let optionsEnded = false;
-
-	for (const arg of args) {
-		if (optionsEnded || !arg.startsWith("-") || arg === "-") {
-			paths.push(arg);
-			continue;
-		}
-
-		if (arg === "--") {
-			optionsEnded = true;
-			continue;
-		}
-
-		if (arg.startsWith("--")) {
-			return { ok: false, lines: unknownOption("wc", arg) };
-		}
-
-		for (const flag of arg.slice(1)) {
-			if (!SUPPORTED_FLAGS.has(flag)) {
-				return { ok: false, lines: unknownOption("wc", `-${flag}`) };
-			}
-
-			if (flag === "l") {
-				options.lines = true;
-			} else if (flag === "w") {
-				options.words = true;
-			} else {
-				options.bytes = true;
-			}
-		}
+	const parsed = parseFlagArgs("wc", args, SUPPORTED_FLAGS);
+	if (!parsed.ok) {
+		return parsed;
 	}
+
+	const options: WcOptions = {
+		lines: parsed.flags.has("l"),
+		words: parsed.flags.has("w"),
+		bytes: parsed.flags.has("c"),
+	};
 
 	if (!options.lines && !options.words && !options.bytes) {
 		options.lines = true;
@@ -76,7 +54,7 @@ export function parseWcArgs(args: string[]): WcParseResult {
 		options.bytes = true;
 	}
 
-	return { ok: true, options, paths };
+	return { ok: true, options, paths: parsed.operands };
 }
 
 // ---------------------------------------------------------------------------
