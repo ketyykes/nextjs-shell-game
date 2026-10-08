@@ -17,6 +17,7 @@ import { SettingsMenu } from "@/components/title/SettingsMenu";
 import type { ChapterOption } from "@/components/title/ChapterSelectPanel";
 import { TitleScreen } from "@/components/title/TitleScreen";
 import { TouchWarningPanel } from "@/components/title/TouchWarningPanel";
+import { usePlayPrefetch } from "@/components/title/usePlayPrefetch";
 import { useTouchWarning } from "@/components/title/useTouchWarning";
 import { getChapterMeta, NOVA_FIRST_LINE } from "@/game/chapters/meta";
 import { INTRO_SCENE_IMAGE } from "@/game/story/scenes";
@@ -81,6 +82,8 @@ function TitleFlowReady() {
 	const [stage, setStage] = useState<TitleStage>("title");
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const touchWarning = useTouchWarning();
+	// 標題、選角、boot log 的空檔先把 /play 與 Phaser 引擎抓進快取
+	usePlayPrefetch();
 
 	const handleNewGame = useCallback(() => {
 		// 覆蓋確認已在 TitleScreen 內做過，這裡直接清進度（設定保留）
