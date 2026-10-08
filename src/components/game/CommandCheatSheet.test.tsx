@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { getCommandDoc } from "@/game/shell/commands/docs";
 import { CommandCheatSheet } from "./CommandCheatSheet";
 
@@ -7,32 +7,8 @@ import { CommandCheatSheet } from "./CommandCheatSheet";
 afterEach(cleanup);
 
 describe("CommandCheatSheet", () => {
-	it("收起時只有標籤，沒有指令面板", () => {
-		render(<CommandCheatSheet learnedCommands={["pwd"]} open={false} onOpenChange={() => {}} />);
-		const tab = screen.getByRole("button", { name: /已學指令/ });
-		expect(tab.getAttribute("aria-expanded")).toBe("false");
-		expect(screen.queryByTestId("command-cheat-sheet-panel")).toBeNull();
-		expect(screen.queryByText("pwd")).toBeNull();
-	});
-
-	it("收起時點標籤會呼叫 onOpenChange(true)", () => {
-		const onOpenChange = vi.fn();
-		render(<CommandCheatSheet learnedCommands={["pwd"]} open={false} onOpenChange={onOpenChange} />);
-		fireEvent.click(screen.getByRole("button", { name: /已學指令/ }));
-		expect(onOpenChange).toHaveBeenCalledWith(true);
-	});
-
-	it("展開時點標籤會呼叫 onOpenChange(false)", () => {
-		const onOpenChange = vi.fn();
-		render(<CommandCheatSheet learnedCommands={["pwd"]} open onOpenChange={onOpenChange} />);
-		const tab = screen.getByRole("button", { name: /已學指令/ });
-		expect(tab.getAttribute("aria-expanded")).toBe("true");
-		fireEvent.click(tab);
-		expect(onOpenChange).toHaveBeenCalledWith(false);
-	});
-
-	it("展開時列出 pwd 與完整字串 ls -a，且 ls -a 顯示 ls 的 summary", () => {
-		render(<CommandCheatSheet learnedCommands={["pwd", "ls -a"]} open onOpenChange={() => {}} />);
+	it("列出 pwd 與完整字串 ls -a，且 ls -a 顯示 ls 的 summary", () => {
+		render(<CommandCheatSheet learnedCommands={["pwd", "ls -a"]} />);
 		expect(screen.getByText("pwd")).toBeDefined();
 		expect(screen.getByText("ls -a")).toBeDefined();
 		const lsDoc = getCommandDoc("ls");
@@ -41,7 +17,7 @@ describe("CommandCheatSheet", () => {
 	});
 
 	it("點 ls -a 展開 usage 與範例，再點一次收起", () => {
-		render(<CommandCheatSheet learnedCommands={["pwd", "ls -a"]} open onOpenChange={() => {}} />);
+		render(<CommandCheatSheet learnedCommands={["pwd", "ls -a"]} />);
 		const lsDoc = getCommandDoc("ls");
 		const usage = lsDoc?.usage ?? "";
 		const firstExample = lsDoc?.examples[0];
@@ -61,7 +37,7 @@ describe("CommandCheatSheet", () => {
 	});
 
 	it("同時只展開一項：點另一項時前一項收起", () => {
-		render(<CommandCheatSheet learnedCommands={["pwd", "ls -a"]} open onOpenChange={() => {}} />);
+		render(<CommandCheatSheet learnedCommands={["pwd", "ls -a"]} />);
 		const pwdButton = screen.getByRole("button", { name: /pwd/ });
 		const lsButton = screen.getByRole("button", { name: /ls -a/ });
 		fireEvent.click(pwdButton);
@@ -71,18 +47,18 @@ describe("CommandCheatSheet", () => {
 	});
 
 	it("已學為空時顯示引導文案", () => {
-		render(<CommandCheatSheet learnedCommands={[]} open onOpenChange={() => {}} />);
+		render(<CommandCheatSheet learnedCommands={[]} />);
 		expect(screen.getByText("還沒學會任何指令，走到終端機前按 E")).toBeDefined();
 	});
 
 	it("查不到 docs 的指令只顯示名稱，不是按鈕", () => {
-		render(<CommandCheatSheet learnedCommands={["foo"]} open onOpenChange={() => {}} />);
+		render(<CommandCheatSheet learnedCommands={["foo"]} />);
 		expect(screen.getByText("foo")).toBeDefined();
 		expect(screen.queryByRole("button", { name: /foo/ })).toBeNull();
 	});
 
 	it("顯示 man 提示，且所有按鈕都不進 Tab 順序", () => {
-		render(<CommandCheatSheet learnedCommands={["pwd", "ls -a"]} open onOpenChange={() => {}} />);
+		render(<CommandCheatSheet learnedCommands={["pwd", "ls -a"]} />);
 		expect(screen.getByText(/終端機內輸入 man/)).toBeDefined();
 		for (const button of screen.getAllByRole("button")) {
 			expect(button.getAttribute("tabindex")).toBe("-1");

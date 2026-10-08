@@ -121,3 +121,78 @@ describe("dropStaleRoomMessages", () => {
 		]);
 	});
 });
+
+describe("history（對話紀錄）", () => {
+	it("一開始沒有紀錄，排進佇列但還沒播完的也不算", () => {
+		const { result } = renderHook(() => useNovaQueue());
+		expect(result.current.history).toEqual([]);
+		act(() => {
+			result.current.enqueue("intro", ["第一句", "第二句"]);
+		});
+		expect(result.current.history).toEqual([]);
+	});
+
+	it("播完（dismiss）的台詞依序記進紀錄，標成已播出", () => {
+		const { result } = renderHook(() => useNovaQueue());
+		act(() => {
+			result.current.enqueue("intro", ["第一句", "第二句"]);
+		});
+		act(() => {
+			result.current.dismiss("intro-0");
+		});
+		act(() => {
+			result.current.dismiss("intro-1");
+		});
+		expect(result.current.history).toEqual([
+			{ id: "intro-0", text: "第一句", status: "shown" },
+			{ id: "intro-1", text: "第二句", status: "shown" },
+		]);
+	});
+
+	it("同一則 dismiss 兩次只記一筆，不在佇列裡的 id 不記", () => {
+		const { result } = renderHook(() => useNovaQueue());
+		act(() => {
+			result.current.enqueue("intro", ["第一句"]);
+		});
+		act(() => {
+			result.current.dismiss("intro-0");
+			result.current.dismiss("intro-0");
+			result.current.dismiss("not-queued-0");
+		});
+		expect(result.current.history.map((entry) => entry.id)).toEqual(["intro-0"]);
+	});
+
+	it("換艙區被丟掉的進房台詞也記進紀錄，標成未播出", () => {
+		const { result } = renderHook(() => useNovaQueue());
+		act(() => {
+			result.current.enqueue("room-cryo", ["冷凍艙第一句", "冷凍艙第二句"]);
+		});
+		act(() => {
+			result.current.dropStaleRoomMessages("corridor");
+		});
+		expect(result.current.history).toEqual([{ id: "room-cryo-1", text: "冷凍艙第二句", status: "missed" }]);
+	});
+
+	it("紀錄照排進佇列的順序：正在顯示的那則比被丟掉的晚播完，仍排在它們前面", () => {
+		const { result } = renderHook(() => useNovaQueue());
+		act(() => {
+			result.current.enqueue("room-cryo", ["冷凍艙第一句", "冷凍艙第二句", "冷凍艙第三句"]);
+			result.current.enqueue("room-corridor", ["走廊的台詞"]);
+		});
+		act(() => {
+			result.current.dropStaleRoomMessages("corridor");
+		});
+		act(() => {
+			result.current.dismiss("room-cryo-0");
+		});
+		act(() => {
+			result.current.dismiss("room-corridor-0");
+		});
+		expect(result.current.history).toEqual([
+			{ id: "room-cryo-0", text: "冷凍艙第一句", status: "shown" },
+			{ id: "room-cryo-1", text: "冷凍艙第二句", status: "missed" },
+			{ id: "room-cryo-2", text: "冷凍艙第三句", status: "missed" },
+			{ id: "room-corridor-0", text: "走廊的台詞", status: "shown" },
+		]);
+	});
+});

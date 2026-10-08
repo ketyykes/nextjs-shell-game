@@ -1,22 +1,17 @@
 "use client";
 
 /**
- * 右側的「已學指令」側邊面板（設計文件 4.8）。
+ * 右側面板組的「已學指令」內容（設計文件 4.8）。標籤、開關與外框由 `SidePanels` 負責。
  *
- * 收起時只有一條垂直的窄標籤，展開後滑出面板，列出已學指令；
- * 點一項可看用法、說明與範例，資料與終端機內的 `man` 共用 `COMMAND_DOCS`。
+ * 列出已學指令；點一項可看用法、說明與範例，資料與終端機內的 `man` 共用 `COMMAND_DOCS`。
  */
 
-import { AnimatePresence, motion } from "motion/react";
 import { useId, useState } from "react";
 import { getTeachDoc } from "@/game/shell/commands/docs";
 
 export interface CommandCheatSheetProps {
 	/** 已學指令，順序就是學會的順序，可能含 "ls -a" 這種帶參數的字串 */
 	learnedCommands: string[];
-	/** 是否展開；預設收起只顯示右側一條窄標籤 */
-	open: boolean;
-	onOpenChange: (open: boolean) => void;
 }
 
 /** 取空白前的第一個字當指令名，例如 "ls -a" 查 `ls` 的說明。 */
@@ -25,8 +20,8 @@ function getBaseCommandName(learned: string): string {
 	return baseName ?? learned;
 }
 
-export function CommandCheatSheet({ learnedCommands, open, onOpenChange }: CommandCheatSheetProps) {
-	const panelId = useId();
+export function CommandCheatSheet({ learnedCommands }: CommandCheatSheetProps) {
+	const listId = useId();
 	// 同時只展開一項，存的是 learnedCommands 裡的完整字串
 	const [expandedCommand, setExpandedCommand] = useState<string | null>(null);
 
@@ -34,61 +29,26 @@ export function CommandCheatSheet({ learnedCommands, open, onOpenChange }: Comma
 		setExpandedCommand((current) => (current === command ? null : command));
 	}
 
-	const tabLabel = open ? "已學指令 ◂" : "已學指令 ▸";
-
 	return (
-		// 外層不吃滑鼠事件，只有標籤與面板自己 pointer-events-auto，不擋住底下的地圖
-		<div className="pointer-events-none absolute top-16 right-0 z-30 flex items-start font-terminal">
-			{/* 鍵盤是遊戲的（走動、E、Esc），所以按鈕都 tabIndex={-1}，面板只用滑鼠操作 */}
-			<button
-				type="button"
-				tabIndex={-1}
-				aria-expanded={open}
-				aria-controls={panelId}
-				onClick={() => onOpenChange(!open)}
-				className="pointer-events-auto cursor-pointer border border-r-0 border-game-dim bg-game-bg/85 px-1.5 py-3 text-base text-game-holo [writing-mode:vertical-rl] hover:text-game-text"
-			>
-				{tabLabel}
-			</button>
-
-			<AnimatePresence>
-				{open && (
-					<motion.div
-						key="panel"
-						id={panelId}
-						initial={{ x: "100%" }}
-						animate={{ x: 0 }}
-						exit={{ x: "100%" }}
-						transition={{ duration: 0.2 }}
-						// 不需要在這裡攔 onKeyDown 阻止事件冒泡到 window：
-						// 所有按鈕都是 tabIndex={-1}，面板內不會有焦點，鍵盤事件根本不會從這裡發出，
-						// 遊戲的按鍵（走動、E、Esc）自然照常運作。
-						className="pointer-events-auto flex max-h-[70vh] w-72 flex-col border border-r-0 border-game-dim bg-game-bg/90"
-						data-testid="command-cheat-sheet-panel"
-					>
-						<div className="overflow-y-auto px-3 py-2">
-							{learnedCommands.length === 0 ? (
-								<p className="py-2 text-base text-game-dim">還沒學會任何指令，走到終端機前按 E</p>
-							) : (
-								<ul className="flex flex-col gap-1">
-									{learnedCommands.map((command, index) => (
-										<CommandItem
-											key={`${command}-${index}`}
-											command={command}
-											itemId={`${panelId}-item-${index}`}
-											expanded={expandedCommand === command}
-											onToggle={handleToggleCommand}
-										/>
-									))}
-								</ul>
-							)}
-						</div>
-						<p className="border-t border-game-dim px-3 py-2 text-sm text-game-dim">
-							終端機內輸入 man &lt;指令&gt; 也看得到
-						</p>
-					</motion.div>
+		<div className="flex min-h-0 flex-1 flex-col" data-testid="command-cheat-sheet-panel">
+			<div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
+				{learnedCommands.length === 0 ? (
+					<p className="py-2 text-base text-game-dim">還沒學會任何指令，走到終端機前按 E</p>
+				) : (
+					<ul className="flex flex-col gap-1">
+						{learnedCommands.map((command, index) => (
+							<CommandItem
+								key={`${command}-${index}`}
+								command={command}
+								itemId={`${listId}-item-${index}`}
+								expanded={expandedCommand === command}
+								onToggle={handleToggleCommand}
+							/>
+						))}
+					</ul>
 				)}
-			</AnimatePresence>
+			</div>
+			<p className="border-t border-game-dim px-3 py-2 text-sm text-game-dim">終端機內輸入 man &lt;指令&gt; 也看得到</p>
 		</div>
 	);
 }

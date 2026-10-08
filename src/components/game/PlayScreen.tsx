@@ -14,7 +14,6 @@ import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChapterEndScreen } from "@/components/game/ChapterEndScreen";
-import { CommandCheatSheet } from "@/components/game/CommandCheatSheet";
 import { CrtOverlay } from "@/components/game/CrtOverlay";
 import { NovaDialogue } from "@/components/game/NovaDialogue";
 import { ObjectivePanel } from "@/components/game/ObjectivePanel";
@@ -22,8 +21,10 @@ import { OxygenVignette } from "@/components/game/OxygenVignette";
 import { PauseMenu } from "@/components/game/PauseMenu";
 import { PhaserGameDynamic } from "@/components/game/PhaserGameDynamic";
 import { SceneCard, type SceneCardMessage } from "@/components/game/SceneCard";
+import { SidePanels } from "@/components/game/SidePanels";
 import { SettingsMenu } from "@/components/title/SettingsMenu";
 import { useNovaQueue } from "@/components/game/useNovaQueue";
+import { isAppleUserAgent, useSidePanelShortcuts, type SidePanelId } from "@/components/game/useSidePanelShortcuts";
 import { useTerminalPressure } from "@/components/game/useTerminalPressure";
 import { Terminal } from "@/components/terminal";
 import { chapterTeaches, findTerminal, getChapter, getNextChapter, isChapterComplete } from "@/game/chapters";
@@ -187,7 +188,10 @@ function PlayScreenReady() {
 	const [nearbyTerminal, setNearbyTerminal] = useState<TerminalDefinition | null>(null);
 	const [currentRoom, setCurrentRoom] = useState<RoomId | null>(savedPosition?.roomId ?? null);
 	const [justSolvedId, setJustSolvedId] = useState<string | null>(null);
-	const [cheatSheetOpen, setCheatSheetOpen] = useState(false);
+	// 右側面板組目前打開哪一個（已學指令或對話紀錄），同時只開一個
+	const [sidePanel, setSidePanel] = useState<SidePanelId | null>(null);
+	// 讀檔完成後才掛載，已經在瀏覽器裡，可以直接讀 navigator
+	const [appleKeyboard] = useState(() => isAppleUserAgent(window.navigator.userAgent));
 	const [sceneReady, setSceneReady] = useState(false);
 	const [paused, setPaused] = useState(false);
 	const [settingsOpen, setSettingsOpen] = useState(false);
@@ -284,6 +288,15 @@ function PlayScreenReady() {
 		advanceChapter();
 		window.location.reload();
 	}, [advanceChapter, chapter.chapter, setFlag]);
+
+	// 右側面板組的 Alt 快捷鍵（4.6）：終端機、暫停、設定與章節結束畫面開著時不處理
+	const toggleSidePanel = useCallback((id: SidePanelId) => {
+		setSidePanel((current) => (current === id ? null : id));
+	}, []);
+	useSidePanelShortcuts({
+		enabled: openTerminal === null && !menuOpen && !showChapterEnd,
+		onToggle: toggleSidePanel,
+	});
 
 	// 設定選單改音量或靜音時即時通知 Phaser 的 AudioManager
 	useEffect(() => {
@@ -517,10 +530,12 @@ function PlayScreenReady() {
 				solved={justSolved !== undefined}
 				progress={{ solved: chapterSolvedCount, total: chapter.terminals.length }}
 			/>
-			<CommandCheatSheet
+			<SidePanels
+				active={sidePanel}
+				onActiveChange={setSidePanel}
 				learnedCommands={progress.learnedCommands}
-				open={cheatSheetOpen}
-				onOpenChange={setCheatSheetOpen}
+				novaLog={nova.history}
+				appleKeyboard={appleKeyboard}
 			/>
 			<NovaDialogue
 				queue={nova.queue}
