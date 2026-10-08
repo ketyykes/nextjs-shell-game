@@ -378,6 +378,24 @@ describe("管線與 man 後補指令名", () => {
 	it("; 後面那一段的第二個參數仍然補路徑", () => {
 		expect(complete("pwd ; cat wa", createContext()).completed).toBe("pwd ; cat wake_up.txt ");
 	});
+
+	it(";、&&、| 後面沒加空白也補指令名，只替換符號後面那一段", () => {
+		const context = { ...createContext(), commandNames: [...COMMAND_NAMES, "sort", "which"] };
+		expect(complete("ls;ca", context)).toEqual({ completed: "ls;cat ", candidates: ["cat"] });
+		expect(complete("ls ;ca", context).completed).toBe("ls ;cat ");
+		expect(complete("cd logs&&wh", context).completed).toBe("cd logs&&which ");
+		expect(complete("cat x|so", context).completed).toBe("cat x|sort ");
+	});
+
+	it("符號後面沒加空白、還沒打字時列出全部指令", () => {
+		expect(complete("ls;", createContext()).candidates).toEqual(
+			[...COMMAND_NAMES].sort((a, b) => a.localeCompare(b, "en")),
+		);
+	});
+
+	it("符號後面沒加空白的那一段，第二個參數仍然補路徑", () => {
+		expect(complete("pwd;cat wa", createContext()).completed).toBe("pwd;cat wake_up.txt ");
+	});
 });
 
 describe("路徑裡的環境變數", () => {

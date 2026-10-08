@@ -3,7 +3,7 @@
  *
  * 只處理「游標在輸入結尾」的情況：
  * - 輸入只有一個 token 且結尾沒有空白：補指令名。
- * - 最後一個 token 是 `|`、`;`、`&&` 右邊的第一個 token，或是 `man`、`help` 的參數：補指令名。
+ * - 最後一個 token 是 `|`、`;`、`&&` 右邊的第一個 token（符號後面不加空白也算），或是 `man`、`help` 的參數：補指令名。
  * - 其他情況：把最後一個 token 當路徑補全；路徑裡的 `$NAME` 會用 `env` 展開查目錄，回填維持原寫法。
  *
  * 純字串與虛擬檔案系統運算，不依賴 React、Next.js 或 Phaser。
@@ -26,6 +26,14 @@ export interface DirAndPrefix {
 
 function isWhitespace(char: string): boolean {
 	return char === " " || char === "\t";
+}
+
+/**
+ * 最後一個 token 從哪裡開始：往回掃到空白或 `;`、`|`、`&` 就停。
+ * 符號後面不加空白（`ls;ca`、`cd logs&&wh`、`cat x|so`）時，要補的只有符號後面那一段。
+ */
+function isTokenBoundary(char: string): boolean {
+	return isWhitespace(char) || char === ";" || char === "|" || char === "&";
 }
 
 /**
@@ -190,9 +198,9 @@ export function complete(input: string, context: CompletionContext): CompletionR
 		return { completed: input, candidates: all };
 	}
 
-	// 找出最後一個 token 的起點：最後一個空白字元之後
+	// 找出最後一個 token 的起點：最後一個空白或 `;`、`|`、`&` 之後
 	let tokenStart = input.length;
-	while (tokenStart > 0 && !isWhitespace(input[tokenStart - 1])) {
+	while (tokenStart > 0 && !isTokenBoundary(input[tokenStart - 1])) {
 		tokenStart -= 1;
 	}
 
