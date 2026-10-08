@@ -95,8 +95,15 @@ export function SandboxScreen({ onExit, textSpeed, appleKeyboard = false, crt }:
 
 	const cancelExit = useCallback(() => {
 		setConfirmingExit(false);
-		terminalAreaRef.current?.querySelector("input")?.focus();
 	}, []);
+
+	// 確認面板收起後把焦點還給輸入框。要等 `inert` 拿掉之後（commit 之後）才 focus 得到，所以放 effect
+	useEffect(() => {
+		if (confirmingExit) {
+			return;
+		}
+		terminalAreaRef.current?.querySelector("input")?.focus();
+	}, [confirmingExit]);
 
 	useEffect(() => {
 		if (confirmingExit) {
