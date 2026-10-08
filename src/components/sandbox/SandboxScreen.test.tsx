@@ -30,7 +30,7 @@ function runCommand(text: string): void {
 }
 
 /** Alt+R：Mac 的 Option+R 的 key 是「®」，只能靠 code 認。 */
-function pressReset(target: EventTarget = getInput()): void {
+function pressReset(target: Window | Element = getInput()): void {
 	fireEvent.keyDown(target, { key: "®", code: "KeyR", altKey: true });
 }
 
