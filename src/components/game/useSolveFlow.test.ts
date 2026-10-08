@@ -160,4 +160,16 @@ describe("useSolveFlow", () => {
 		rerender();
 		expect(result.current.handleExecuted).toBe(first);
 	});
+
+	it("錯誤與 hint 記進目前章節的遊玩統計，過關後打錯也算（M14-1）", () => {
+		useGameStore.setState({ progress: { ...useGameStore.getState().progress, chapter: 1 } });
+		const { result } = setup();
+		const shell = resolveShell(new Map(), CRYO);
+		run(result.current.handleExecuted, CRYO, shell, "notacommand");
+		run(result.current.handleExecuted, CRYO, shell, "hint");
+		run(result.current.handleExecuted, CRYO, shell, "cat wake_up.txt");
+		run(result.current.handleExecuted, CRYO, shell, "notacommand");
+
+		expect(useGameStore.getState().stats["1"]).toEqual({ playTimeMs: 0, errors: 2, hints: 1 });
+	});
 });

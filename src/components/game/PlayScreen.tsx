@@ -33,13 +33,14 @@ import { useChapterNavigation } from "@/components/game/useChapterNavigation";
 import { useNovaTriggers } from "@/components/game/useNovaTriggers";
 import { usePauseMenu } from "@/components/game/usePauseMenu";
 import { collectTerminalEffects, usePhaserBridge } from "@/components/game/usePhaserBridge";
+import { usePlayTime } from "@/components/game/usePlayTime";
 import { usePressureReactions } from "@/components/game/usePressureReactions";
 import { useScenePreload } from "@/components/game/useScenePreload";
 import { isAppleUserAgent, useSidePanelShortcuts, type SidePanelId } from "@/components/game/useSidePanelShortcuts";
 import { useSolveFlow } from "@/components/game/useSolveFlow";
 import { useTerminalSessions } from "@/components/game/useTerminalSessions";
 import { SettingsMenu } from "@/components/title/SettingsMenu";
-import { chapterTeaches, findTerminal, getChapter } from "@/game/chapters";
+import { chapterTeaches, findTerminal, getChapter, isChapterComplete } from "@/game/chapters";
 import { ENDING_LINES } from "@/game/chapters/ending";
 import { ROOM_NAMES, type GameEventMap, type RoomId } from "@/game/phaser/events";
 import { novaPortraitFor, type TerminalDefinition } from "@/game/story";
@@ -124,6 +125,9 @@ function PlayScreenReady({ character }: PlayScreenReadyProps) {
 	const { handleExecuted, justSolvedId } = useSolveFlow({ pressure, onSolved: nova.deferSolvedLine });
 	const pauseMenu = usePauseMenu({ terminalOpen });
 	const chapterNavigation = useChapterNavigation({ chapter, solvedTerminals, terminalOpen });
+	// 遊玩統計（M14-1）：這章還沒全解、選單沒開、分頁在前景時計時；章節結束畫面顯示本章紀錄
+	usePlayTime(chapter.chapter, !isChapterComplete(chapter, solvedTerminals) && !pauseMenu.menuOpen);
+	const chapterStats = useGameStore((state) => state.stats[String(chapter.chapter)]);
 
 	// 關閉終端機後，地圖上的 NOVA 重說這次過關台詞的最後一句（#5）
 	const handleCloseTerminal = useCallback(() => {
@@ -258,6 +262,7 @@ function PlayScreenReady({ character }: PlayScreenReadyProps) {
 					onReturnToTitle={chapterNavigation.handleReturnToTitle}
 					onNextChapter={chapterNavigation.handleNextChapter}
 					skipOutro={chapterNavigation.outroAlreadyShown}
+					stats={chapterStats}
 				/>
 			)}
 

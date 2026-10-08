@@ -32,6 +32,7 @@ export interface UseSolveFlowResult {
  *
  * - 每道指令播一次按鍵聲（#14）。
  * - 未過關的終端機記進卡關計數；錯誤扣 1% 氧氣（已過關的終端機打錯也扣）。
+ * - 錯誤與 hint 記進目前章節的遊玩統計（M14-1），過關不歸零。
  * - 成功且達成目標就過關：卡關歸零、記錄過關、回氧、學會這台教的指令（#1、#2，store 存完整字串、shell 只學指令名）、
  *   存檔、目標面板打勾、發 `puzzle:solved` 讓 Phaser 播演出（終端機開著時 Station 自己延到關閉才播，#4）、
  *   播過關音效（M10-1），最後在終端機插「目標達成」系統行與 NOVA 過關台詞。
@@ -45,6 +46,8 @@ export function useSolveFlow({ pressure, onSolved }: UseSolveFlowOptions): UseSo
 			// 按鍵聲（4.10）：每送出一道指令響一次，每個按鍵都響太吵
 			emitGameEvent("sfx:play", { sound: "key" });
 			const store = useGameStore.getState();
+			// 遊玩統計（M14-1）：終端機只會在目前章節打開，記在目前章節
+			store.recordCommandStats(store.progress.chapter, execution);
 			const alreadySolved = store.progress.solvedTerminals.includes(definition.id);
 			if (!alreadySolved) {
 				recordExecution(execution.isError, execution.hintUsed);

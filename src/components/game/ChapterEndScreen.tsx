@@ -16,7 +16,8 @@ import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { useTypewriter } from "@/components/terminal/useTypewriter";
 import { getTeachDoc } from "@/game/shell/commands/docs";
-import { TEXT_SPEED_MS, type TextSpeed } from "@/game/store/types";
+import { formatPlayTime } from "@/game/store/stats";
+import { TEXT_SPEED_MS, type ChapterStats, type TextSpeed } from "@/game/store/types";
 
 /** 每句台詞打完後預設停留的毫秒數。 */
 const DEFAULT_LINE_HOLD_MS = 1500;
@@ -64,6 +65,8 @@ export interface ChapterEndScreenProps {
 	lineHoldMs?: number;
 	/** outro 已經播過時傳 true：跳過台詞直接從回顧卡開始，玩家仍能走到「進入下一章」 */
 	skipOutro?: boolean;
+	/** 本章的遊玩統計（M14-1），回顧卡下方顯示；沒給就不顯示 */
+	stats?: ChapterStats;
 }
 
 interface TypingState {
@@ -135,6 +138,7 @@ export function ChapterEndScreen({
 	onMounted,
 	lineHoldMs = DEFAULT_LINE_HOLD_MS,
 	skipOutro = false,
+	stats,
 }: ChapterEndScreenProps) {
 	const [phase, setPhase] = useState<Phase>(skipOutro ? "recap" : "outro");
 	const [typing, setTyping] = useState<TypingState>({ lineIndex: 0, revealed: false });
@@ -344,6 +348,18 @@ export function ChapterEndScreen({
 							))}
 						</ul>
 					</section>
+					{stats !== undefined && (
+						// 只陳述數字不打分數：4.8 不懲罰探索、新手要靠 hint 通關
+						<section
+							aria-label="本章紀錄"
+							className="flex w-full max-w-xl flex-wrap justify-center gap-x-6 gap-y-1 text-base text-game-dim"
+							data-testid="chapter-end-stats"
+						>
+							<span>{`用時 ${formatPlayTime(stats.playTimeMs)}`}</span>
+							<span>{`指令出錯 ${stats.errors} 次`}</span>
+							<span>{`看提示 ${stats.hints} 次`}</span>
+						</section>
+					)}
 					<button type="button" onClick={handlePrimaryAction} className={PRIMARY_BUTTON_CLASS}>
 						繼續
 					</button>

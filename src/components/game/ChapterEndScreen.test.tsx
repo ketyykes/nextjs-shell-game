@@ -136,6 +136,23 @@ describe("ChapterEndScreen", () => {
 		expect(screen.queryByTestId("chapter-end-outro")).toBeNull();
 	});
 
+	it("回顧卡下方顯示本章紀錄：用時、指令出錯次數與看提示次數", () => {
+		render(
+			<ChapterEndScreen
+				{...createProps({ skipOutro: true, stats: { playTimeMs: 12 * 60_000 + 30_000, errors: 7, hints: 2 } })}
+			/>,
+		);
+		const section = screen.getByRole("region", { name: "本章紀錄" });
+		expect(section.textContent).toContain("12 分 30 秒");
+		expect(section.textContent).toContain("7 次");
+		expect(section.textContent).toContain("2 次");
+	});
+
+	it("沒有統計（例如統計功能上線前就玩完的章節）時不顯示本章紀錄", () => {
+		render(<ChapterEndScreen {...createProps({ skipOutro: true })} />);
+		expect(screen.queryByRole("region", { name: "本章紀錄" })).toBeNull();
+	});
+
 	it("回顧卡上管線、重導向與變數展開也有說明，不是空白", () => {
 		render(<ChapterEndScreen {...createProps({ learnedCommands: [">", "|", ">>", "$變數"] })} />);
 		goToRecap();

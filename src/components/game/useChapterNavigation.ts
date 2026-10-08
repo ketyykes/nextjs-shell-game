@@ -22,7 +22,7 @@ export interface UseChapterNavigationResult {
 	nextChapter: ChapterDefinition | null;
 	/** 章節結束畫面掛上時存一次檔。 */
 	handleChapterEndMounted: () => void;
-	/** 章節結束畫面的「回標題」：記這章結尾播過，回首頁。 */
+	/** 章節結束畫面的「回標題」：記這章結尾播過（最後一章再記已逃離），回首頁。 */
 	handleReturnToTitle: () => void;
 	/** 章節結束畫面的「進入下一章」。 */
 	handleNextChapter: () => void;
@@ -53,9 +53,14 @@ export function useChapterNavigation({
 	}, []);
 
 	const handleReturnToTitle = useCallback(() => {
-		useGameStore.getState().setFlag(outroShownFlag(chapter.chapter));
+		const store = useGameStore.getState();
+		store.setFlag(outroShownFlag(chapter.chapter));
+		// 最後一章只會從片尾最後一句回標題：記下已逃離（M14-1）
+		if (nextChapter === null) {
+			store.markGameCleared();
+		}
 		router.push("/");
-	}, [chapter.chapter, router]);
+	}, [chapter.chapter, nextChapter, router]);
 
 	const handleNextChapter = useCallback(() => {
 		const store = useGameStore.getState();

@@ -78,6 +78,16 @@ describe("useChapterNavigation 離開章節", () => {
 		expect(useGameStore.getState().storyFlags[outroShownFlag(1)]).toBe(true);
 		expect(mocks.routerPush).toHaveBeenCalledWith("/");
 		expect(reloadPage).not.toHaveBeenCalled();
+		expect(useGameStore.getState().progress.clearedAt).toBeNull();
+	});
+
+	it("最後一章片尾播完回標題：記下已逃離（M14-1）", () => {
+		const { result } = setup({ chapter: LAST_CHAPTER });
+		act(() => {
+			result.current.handleReturnToTitle();
+		});
+		expect(useGameStore.getState().storyFlags[outroShownFlag(6)]).toBe(true);
+		expect(typeof useGameStore.getState().progress.clearedAt).toBe("string");
 	});
 
 	it("進下一章：記 outro 播過、章節加一、整頁重載（#31）", () => {
