@@ -40,7 +40,7 @@ export function AssetLoadErrorNotice({ onReload = reloadPage }: AssetLoadErrorNo
 			<div
 				role="alert"
 				data-testid="asset-error-notice"
-				className="fixed inset-x-0 top-20 z-[55] mx-auto flex w-fit max-w-[90vw] flex-wrap items-center justify-center gap-3 border border-game-amber bg-game-bg/90 px-4 py-2 font-terminal text-xl text-game-amber"
+				className="fixed inset-x-0 top-28 z-[55] mx-auto flex w-fit max-w-[90vw] flex-wrap items-center justify-center gap-3 border border-game-amber bg-game-bg/90 px-4 py-2 font-terminal text-xl text-game-amber"
 			>
 				<span>部分音效沒有載到，遊戲可以照常進行，只是會少了聲音。</span>
 				<button type="button" className={BUTTON_CLASS} onClick={onReload}>
