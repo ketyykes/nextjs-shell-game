@@ -14,6 +14,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import type { StateStorage } from "zustand/middleware";
+import { getSaveIssue, setSaveIssue } from "./saveStatus";
 import {
 	DEFAULT_PROGRESS,
 	DEFAULT_SETTINGS,
@@ -52,10 +53,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * 包一層 localStorage：讀到壞掉的 JSON 時當成沒有存檔。
+ * 包一層 localStorage：
  *
- * persist 遇到 `JSON.parse` 丟錯時不會把 `hasHydrated()` 設成 true，
- * 畫面會一直卡在「讀檔中」；這裡先擋掉，讓壞檔等同空檔，下一次存檔時自然被覆蓋。
+ * - 讀到壞掉的 JSON 時當成沒有存檔。persist 遇到 `JSON.parse` 丟錯時不會把 `hasHydrated()` 設成 true，
+ *   畫面會一直卡在「讀檔中」；這裡先擋掉，讓壞檔等同空檔，下一次存檔時自然被覆蓋。
+ * - 寫入失敗（配額滿的 `QuotaExceededError`、瀏覽器封鎖儲存的 `SecurityError`）不往外丟：
+ *   persist 每次 `set` 都同步寫檔，例外會從 action 一路冒到按鍵 handler，記憶體狀態已改、存檔沒寫、玩家看不到提示。
+ *   改成 console.warn 並回報 `write-failed` 讓畫面提示，記憶體裡的進度照常，下次寫入成功就清掉提示。
  */
 const safeLocalStorage: StateStorage = {
 	getItem: (name) => {
@@ -74,7 +78,16 @@ const safeLocalStorage: StateStorage = {
 		}
 	},
 	setItem: (name, value) => {
-		localStorage.setItem(name, value);
+		try {
+			localStorage.setItem(name, value);
+		} catch (error) {
+			console.warn(`[gameStore] 存檔 ${name} 寫入失敗，進度只留在記憶體裡。`, error);
+			setSaveIssue("write-failed");
+			return;
+		}
+		if (getSaveIssue() === "write-failed") {
+			setSaveIssue(null);
+		}
 	},
 	removeItem: (name) => {
 		localStorage.removeItem(name);

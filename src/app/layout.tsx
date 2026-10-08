@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SaveStatusNotice } from "@/components/game/SaveStatusNotice";
 import { fusionPixel, pressStart2P, vt323 } from "./fonts";
 import "./globals.css";
 
@@ -30,6 +31,8 @@ export default function RootLayout({
         className="antialiased"
       >
         {children}
+        {/* 存檔寫不進去或版本太新時的一行提示，標題與 /play 共用 */}
+        <SaveStatusNotice />
       </body>
     </html>
   );

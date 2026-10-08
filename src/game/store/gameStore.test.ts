@@ -1,9 +1,10 @@
 import { renderHook, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { VirtualFileSystem } from "@/game/shell/fs";
 import { Shell } from "@/game/shell/shell";
 import type { FsSnapshot } from "@/game/shell/types";
 import { createInitialSaveData, useGameStore } from "./gameStore";
+import { getSaveIssue, setSaveIssue } from "./saveStatus";
 import { selectHasSave, selectIsOxygenLow, selectTerminal } from "./selectors";
 import {
 	DEFAULT_PROGRESS,
@@ -57,7 +58,15 @@ beforeEach(() => {
 	// setState 也會寫入 localStorage，所以先重置再清空
 	useGameStore.setState(createInitialSaveData());
 	localStorage.clear();
+	setSaveIssue(null);
 });
+
+/** 讓 localStorage 的寫入一律丟 QuotaExceededError，回傳 spy 方便之後還原。 */
+function failAllWrites() {
+	return vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+		throw new DOMException("儲存空間已滿", "QuotaExceededError");
+	});
+}
 
 describe("初始狀態", () => {
 	it("預設值等於 DEFAULT_PROGRESS 與 DEFAULT_SETTINGS，終端機與旗標是空物件", () => {
@@ -553,6 +562,51 @@ describe("persist", () => {
 		expect(useGameStore.persist.hasHydrated()).toBe(true);
 		expect(useGameStore.getState().progress).toEqual(DEFAULT_PROGRESS);
 		warn.mockRestore();
+	});
+});
+
+describe("存檔寫入失敗", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it("寫入丟 QuotaExceededError 時 action 不會丟例外，記憶體裡的狀態照樣更新，並回報存檔失敗", () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+		failAllWrites();
+
+		expect(() => useGameStore.getState().loseOxygen()).not.toThrow();
+
+		expect(useGameStore.getState().progress.oxygen).toBe(OXYGEN_MAX - 1);
+		expect(getSaveIssue()).toBe("write-failed");
+		expect(warn).toHaveBeenCalled();
+	});
+
+	it("之後寫入成功就清掉存檔失敗的狀態", () => {
+		vi.spyOn(console, "warn").mockImplementation(() => {});
+		const setItem = failAllWrites();
+		useGameStore.getState().loseOxygen();
+		expect(getSaveIssue()).toBe("write-failed");
+
+		setItem.mockRestore();
+		useGameStore.getState().loseOxygen();
+
+		expect(getSaveIssue()).toBeNull();
+		expect(readStoredSave().state.progress).toMatchObject({ oxygen: OXYGEN_MAX - 2 });
+	});
+
+	it("讀舊版存檔升級後的寫入失敗也能完成 hydration，不會卡在讀檔中", async () => {
+		vi.spyOn(console, "warn").mockImplementation(() => {});
+		localStorage.setItem(
+			SAVE_STORAGE_KEY,
+			JSON.stringify({ state: { ...createInitialSaveData(), storyFlags: { "ch1.introShown": true } }, version: 1 }),
+		);
+		failAllWrites();
+
+		await useGameStore.persist.rehydrate();
+
+		expect(useGameStore.persist.hasHydrated()).toBe(true);
+		expect(useGameStore.getState().storyFlags).toEqual({ "ch1.introShown": true });
+		expect(getSaveIssue()).toBe("write-failed");
 	});
 });
 

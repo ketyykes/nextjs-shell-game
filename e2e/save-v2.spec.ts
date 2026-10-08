@@ -190,3 +190,25 @@ test("某台終端機的存檔壞掉時，按 E 仍打得開，那台用劇本�
 	expect(rootType).toBe("dir");
 	expect(errors).toEqual([]);
 });
+
+test("localStorage 寫不進去時畫面頂端提示存檔失敗，遊戲照常進得去", async ({ page }) => {
+	const errors: string[] = [];
+	page.on("pageerror", (error) => errors.push(error.message));
+
+	await seedSave(page, { chapter: 1, flags: ["ch1.introShown"] });
+	// 之後每次載入頁面都讓存檔 key 的寫入丟 QuotaExceededError（種子是 v1，讀檔升級後馬上要寫一次）
+	await page.addInitScript(() => {
+		const originalSetItem = Storage.prototype.setItem;
+		Storage.prototype.setItem = function (key: string, value: string) {
+			if (key === "kepler9-save") {
+				throw new DOMException("儲存空間已滿", "QuotaExceededError");
+			}
+			originalSetItem.call(this, key, value);
+		};
+	});
+	await enterPlay(page);
+
+	await expect(page.getByTestId("save-status-notice")).toContainText("存檔失敗");
+	await expect(page.getByTestId("hud-room")).toHaveText("冷凍艙");
+	expect(errors).toEqual([]);
+});
