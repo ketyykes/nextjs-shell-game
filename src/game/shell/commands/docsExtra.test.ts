@@ -4,7 +4,7 @@ import { ALL_COMMANDS } from ".";
 import { EXTRA_COMMAND_DOCS, EXTRA_COMMAND_ORDER } from "./docsExtra";
 
 /** M13-3 開放使用但沒編進劇本的指令。 */
-const EXTRA_COMMANDS = ["tree", "cut", "diff", "which"];
+const EXTRA_COMMANDS = ["less", "tree", "cut", "diff", "which"];
 
 describe("EXTRA_COMMAND_ORDER", () => {
 	it("順序照 M13-3 的清單", () => {
@@ -70,6 +70,13 @@ describe("EXTRA_COMMAND_DOCS", () => {
 	it("which 說明 PATH、路徑規則與內建指令", () => {
 		const text = EXTRA_COMMAND_DOCS.which.description.join("\n");
 		for (const token of ["PATH", "/usr/bin", "/usr/local/bin", "內建", "-a"]) {
+			expect(text).toContain(token);
+		}
+	});
+
+	it("less 說明翻頁、搜尋與離開的按鍵", () => {
+		const text = EXTRA_COMMAND_DOCS.less.description.join("\n");
+		for (const token of ["空白", "b", "/", "n", "q", "g", "G", "(END)", "-N"]) {
 			expect(text).toContain(token);
 		}
 	});

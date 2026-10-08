@@ -10,7 +10,7 @@ const LATER_COMMANDS = [
 	"echo", "sort", "uniq", "export", "env", "ps", "top", "kill",
 ];
 /** M13-3 只開放使用、沒編進劇本的指令，排在最後。 */
-const EXTRA_COMMANDS = ["tree", "cut", "diff", "which"];
+const EXTRA_COMMANDS = ["less", "tree", "cut", "diff", "which"];
 
 describe("COMMAND_DOCS", () => {
 	it.each(CHAPTER_ONE_COMMANDS)("第一章指令 %s 有說明", (name) => {

@@ -941,3 +941,85 @@ describe("Shell ; 與 &&（M13-2）", () => {
 		expect(shell.execute("pwd ; clear")).toMatchObject({ clearScreen: true, lines: [] });
 	});
 });
+
+describe("M13-3 新指令", () => {
+	it("Tab 補得到 less、tree、cut、diff、which", () => {
+		const shell = createShell();
+
+		expect(shell.complete("les").completed).toBe("less ");
+		expect(shell.complete("tre").completed).toBe("tree ");
+		expect(shell.complete("cu").completed).toBe("cut ");
+		expect(shell.complete("dif").completed).toBe("diff ");
+		expect(shell.complete("whi").completed).toBe("which ");
+	});
+
+	it("沒學過也能直接用（4.8 未學指令開放使用），help 不會列出", () => {
+		const shell = createShell();
+
+		expect(shell.execute("which ls")).toMatchObject({ isError: false, lines: ["/usr/bin/ls"] });
+		expect(shell.execute("help").lines.join("\n")).not.toMatch(/^(less|tree|cut|diff|which) /m);
+	});
+});
+
+describe("Shell 分頁 less（M13-3）", () => {
+	const WAKE_UP_LINES = ["喚醒排程：三年後", "原始設定：永不", "修改者："];
+
+	it("less 檔名：輸出區沒有內容，改帶一個分頁請求", () => {
+		const shell = createShell();
+		const result = shell.execute("less wake_up.txt");
+
+		expect(result).toMatchObject({ isError: false, lines: [] });
+		expect(result.pagers).toEqual([{ files: [{ name: "wake_up.txt", lines: WAKE_UP_LINES }], lineNumbers: false }]);
+	});
+
+	it("管線最後的 less 翻前一個指令的輸出", () => {
+		const shell = createShell();
+		const result = shell.execute("cat wake_up.txt | less");
+
+		expect(result.lines).toEqual([]);
+		expect(result.pagers).toEqual([{ files: [{ name: null, lines: WAKE_UP_LINES }], lineNumbers: false }]);
+	});
+
+	it("less 在管線中間或接重導向時照真的 less 直接輸出內容，不分頁", () => {
+		const shell = createShell();
+		const piped = shell.execute("less wake_up.txt | wc -l");
+		const redirected = shell.execute("less wake_up.txt > copy.txt");
+
+		expect(piped).toMatchObject({ isError: false, lines: ["3"] });
+		expect(piped.pagers).toBeUndefined();
+		expect(redirected.pagers).toBeUndefined();
+		expect(shell.fs.readFile("/home/tech", "copy.txt")).toBe(`${WAKE_UP_LINES.join("\n")}\n`);
+	});
+
+	it("有檔案讀不到時錯誤印在輸出區、其他照翻，這一行算錯誤", () => {
+		const shell = createShell();
+		const result = shell.execute("less nope.txt wake_up.txt");
+
+		expect(result).toMatchObject({ isError: true, lines: pathNotFound("nope.txt") });
+		expect(result.pagers?.[0].files.map((file) => file.name)).toEqual(["wake_up.txt"]);
+	});
+
+	it("全部讀不到時沒有分頁", () => {
+		const shell = createShell();
+		const result = shell.execute("less nope.txt");
+
+		expect(result).toMatchObject({ isError: true, lines: pathNotFound("nope.txt") });
+		expect(result.pagers).toBeUndefined();
+	});
+
+	it("用 ; 串起來時每一段的分頁依序排好，其他段落的輸出照常", () => {
+		const shell = createShell();
+		const result = shell.execute("less wake_up.txt ; pwd ; less -N wake_up.txt");
+
+		expect(result.lines).toEqual(["/home/tech"]);
+		expect(result.pagers?.map((pager) => pager.lineNumbers)).toEqual([false, true]);
+		expect(result.segments?.[0].pagers).toHaveLength(1);
+	});
+
+	it("沒有 less 的指令沒有 pagers 欄位", () => {
+		const shell = createShell();
+
+		expect(shell.execute("pwd").pagers).toBeUndefined();
+		expect(shell.execute("pwd ; ls").pagers).toBeUndefined();
+	});
+});

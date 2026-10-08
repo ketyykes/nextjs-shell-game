@@ -23,6 +23,7 @@ import type {
 	CommandDefinition,
 	CommandResult,
 	CompletionResult,
+	PagerRequest,
 	ProcessInfo,
 	Redirect,
 	SerializedFs,
@@ -238,8 +239,9 @@ export class Shell {
 
 		let stdin: string[] | null = null;
 		let clearScreen = false;
+		const commands = parsed.pipeline.commands;
 
-		for (const parsedCommand of parsed.pipeline.commands) {
+		for (const [index, parsedCommand] of commands.entries()) {
 			const name = parsedCommand.name.value;
 			const command = this.commands.get(name);
 			if (command === undefined) {
@@ -251,6 +253,11 @@ export class Shell {
 			this.applySideEffects(result);
 			if (result.clearScreen === true) {
 				clearScreen = true;
+			}
+			// less 只有在管線最後、輸出直接到畫面時才分頁；其他位置照真的 less 把內容當一般輸出
+			const isLast = index === commands.length - 1;
+			if (isLast && redirect === null && result.pager !== undefined) {
+				return { ...this.finish(input, result.ok, result.pager.lines, clearScreen), pagers: [result.pager.request] };
 			}
 			if (!result.ok) {
 				return this.finish(input, false, result.lines, clearScreen);
@@ -277,16 +284,22 @@ export class Shell {
 	private combineSegments(input: string, segments: ShellExecution[]): ShellExecution {
 		let lines: string[] = [];
 		let clearScreen = false;
+		const pagers: PagerRequest[] = [];
 		for (const segment of segments) {
 			if (segment.clearScreen) {
 				clearScreen = true;
 				lines = [];
 			}
 			lines = [...lines, ...segment.lines];
+			pagers.push(...(segment.pagers ?? []));
 		}
 
 		const ok = segments.every((segment) => !segment.isError);
-		return { ...this.finish(input, ok, lines, clearScreen), segments };
+		const combined: ShellExecution = { ...this.finish(input, ok, lines, clearScreen), segments };
+		if (pagers.length > 0) {
+			combined.pagers = pagers;
+		}
+		return combined;
 	}
 
 	/** Tab 補全，游標視為在輸入結尾。 */

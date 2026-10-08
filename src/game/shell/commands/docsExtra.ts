@@ -6,6 +6,24 @@
 import type { CommandDoc } from "../types";
 
 export const EXTRA_COMMAND_DOCS: Record<string, CommandDoc> = {
+	less: {
+		name: "less",
+		summary: "一頁一頁翻看長檔案",
+		usage: "less [-N] [檔案...]",
+		description: [
+			"檔案太長、cat 一印就洗掉整個畫面時用 less：它把內容放進全螢幕的翻頁畫面，一次只看一頁。",
+			"空白鍵或 PageDown 往下一頁，b 或 PageUp 往上一頁；↓、j、Enter 往下一行，↑、k 往上一行；d、u 半頁；g 跳到開頭，G 跳到結尾。",
+			"打 / 加關鍵字再按 Enter 往下找（寫法跟 grep -E 一樣），n 找下一個、N 找上一個；? 加關鍵字是往上找。",
+			"最下面一行顯示檔名、目前看到第幾行與百分比，翻到底會出現 (END)。按 q 或 Esc 離開，回到原本的提示列。",
+			"-N 在每行前面加行號。一次給好幾個檔案時，:n 換下一個、:p 回上一個。",
+			"沒給檔名時翻 | 左邊指令的輸出，例如 grep ERROR nova_core.log | less。",
+		],
+		examples: [
+			{ command: "less /deck2/logs/evac_2028-06-02.log", explanation: "一頁一頁翻看撤離當晚的日誌" },
+			{ command: "less -N /deck2/logs/door_events.log", explanation: "加上行號翻看艙門事件" },
+			{ command: "less door_events.log nova_core.log", explanation: "先翻第一份，:n 換到第二份" },
+		],
+	},
 	tree: {
 		name: "tree",
 		summary: "把目錄畫成樹狀圖",
@@ -82,4 +100,4 @@ export const EXTRA_COMMAND_DOCS: Record<string, CommandDoc> = {
 };
 
 /** 這組指令在側邊面板的顯示順序，排在六章指令之後。 */
-export const EXTRA_COMMAND_ORDER: string[] = ["tree", "cut", "diff", "which"];
+export const EXTRA_COMMAND_ORDER: string[] = ["less", "tree", "cut", "diff", "which"];

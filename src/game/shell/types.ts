@@ -370,6 +370,32 @@ export interface ProcessInfo {
 	protected?: boolean;
 }
 
+/** 分頁器（`less`，M13-3）要翻的一份內容。`name` 是玩家打的檔名，管線輸入是 null。 */
+export interface PagerFile {
+	name: string | null;
+	lines: string[];
+}
+
+/**
+ * 一次分頁請求：一個 `less` 要翻的檔案，第一個先顯示，`:n`／`:p` 切換。
+ * UI 看到它就進全螢幕分頁模式，翻完按 q 回到提示列；內容不寫進輸出區，也不存檔。
+ */
+export interface PagerRequest {
+	files: PagerFile[];
+	/** `less -N`：每行前面顯示行號。 */
+	lineNumbers: boolean;
+}
+
+/**
+ * 指令要求進分頁模式（`less`）。只有在管線最後一個、而且沒有重導向時才會真的分頁；
+ * 否則照真的 less 輸出不是終端機時的行為，把 `CommandResult.lines` 當一般輸出（等同 `cat`）。
+ */
+export interface PagerOutput {
+	request: PagerRequest;
+	/** 進分頁模式時改印在輸出區的行，例如讀不到的檔案的錯誤訊息；通常是空陣列。 */
+	lines: string[];
+}
+
 /** 指令執行時拿到的環境，全部唯讀，指令透過回傳值表達要改什麼。 */
 export interface CommandContext {
 	/** 目前工作目錄，絕對路徑。 */
@@ -420,6 +446,8 @@ export interface CommandResult {
 	nextEnv?: Record<string, string>;
 	/** `kill` 用：整份取代程序清單。 */
 	nextProcesses?: ProcessInfo[];
+	/** `less` 用：要求進分頁模式，見 `PagerOutput`。 */
+	pager?: PagerOutput;
 }
 
 export interface CommandDefinition {
@@ -521,4 +549,10 @@ export interface ShellExecution {
 	 * 只有一段時沒有這個欄位，整行就是那一段。
 	 */
 	segments?: ShellExecution[];
+	/**
+	 * 要依序顯示的分頁（`less`，M13-3）。UI 看到就進全螢幕分頁模式，一個翻完（q）再換下一個，
+	 * 全部翻完回到提示列；分頁內容不在 `lines` 裡，不寫進輸出區也不存檔。沒有分頁時沒有這個欄位。
+	 * `less a ; ls` 這種寫法：`lines` 是 ls 的輸出，分頁蓋在上面，離開後畫面跟 bash 一樣。
+	 */
+	pagers?: PagerRequest[];
 }

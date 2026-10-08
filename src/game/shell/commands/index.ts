@@ -23,6 +23,7 @@ import { helpCommand } from "./help";
 import { hintCommand } from "./hint";
 import { historyCommand } from "./history";
 import { killCommand } from "./kill";
+import { lessCommand } from "./less";
 import { lsCommand } from "./ls";
 import { manCommand } from "./man";
 import { mkdirCommand } from "./mkdir";
@@ -81,6 +82,7 @@ export const ALL_COMMANDS: CommandDefinition[] = [
 	cutCommand,
 	diffCommand,
 	whichCommand,
+	lessCommand,
 ];
 
 export { catCommand, cdCommand, clearCommand, helpCommand, hintCommand, historyCommand, lsCommand, manCommand, pwdCommand };
