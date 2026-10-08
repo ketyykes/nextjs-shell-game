@@ -148,7 +148,19 @@ export function Pager({ request, onQuit, ref }: PagerProps) {
 	useEffect(() => {
 		rootRef.current?.focus();
 	}, []);
-	useImperativeHandle(ref, () => ({ focus: () => rootRef.current?.focus() }), []);
+	/**
+	 * 把焦點放回該接鍵盤的地方：搜尋中（輸入框掛著）是輸入框，否則是分頁器本身。
+	 * 只讀 ref，所以給終端機的 handle 不必跟著 state 重建。
+	 */
+	const focusActiveTarget = () => {
+		const searchInput = searchInputRef.current;
+		if (searchInput !== null) {
+			searchInput.focus();
+			return;
+		}
+		rootRef.current?.focus();
+	};
+	useImperativeHandle(ref, () => ({ focus: focusActiveTarget }), []);
 
 	const isSearching = state.mode === "search";
 	useEffect(() => {
@@ -186,15 +198,6 @@ export function Pager({ request, onQuit, ref }: PagerProps) {
 			return;
 		}
 		setState(result.state);
-	};
-
-	/** 點分頁器時把焦點放回該接鍵盤的地方：搜尋中是輸入框，否則是分頁器本身。 */
-	const focusActiveTarget = () => {
-		if (isSearching) {
-			searchInputRef.current?.focus();
-			return;
-		}
-		rootRef.current?.focus();
 	};
 
 	const handleSearchChange = (event: ChangeEvent<HTMLInputElement>) => {

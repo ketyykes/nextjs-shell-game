@@ -370,6 +370,20 @@ describe("Terminal 的 less 分頁模式（M13-3）", () => {
 		expect(queryPager()).toBeNull();
 	});
 
+	it("分頁器搜尋中點輸入框、標題列或底部列，焦點留在搜尋框", () => {
+		render(<Harness />);
+		runCommand("less wake_up.txt");
+		fireEvent.keyDown(getPager(), { key: "/" });
+		const search = screen.getByRole("textbox", { name: "搜尋內容" });
+
+		fireEvent.click(search);
+		expect(document.activeElement).toBe(search);
+		fireEvent.click(screen.getByRole("heading"));
+		expect(document.activeElement).toBe(search);
+		fireEvent.click(screen.getByText(/^已學：/));
+		expect(document.activeElement).toBe(search);
+	});
+
 	it("分頁中按 Esc 只離開分頁，不關終端機", () => {
 		const onClose = vi.fn();
 		render(<Harness onClose={onClose} />);
