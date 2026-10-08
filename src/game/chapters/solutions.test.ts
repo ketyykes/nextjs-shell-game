@@ -54,3 +54,28 @@ describe("共用正解 solutions.ts", () => {
 		});
 	}
 });
+
+describe("正解最後一步接 | less 一樣過關（man less 自己教 grep ERROR x | less）", () => {
+	// 有重導向的那幾台輸出寫進檔案，接 less 沒有意義（語法上也不能 > 之後再接 |）
+	const pageable = ALL_TERMINALS.filter((terminal) => !solutionFor(terminal.id).at(-1)?.includes(">"));
+
+	it("至少涵蓋 ch2-t3 的 grep 與 ch6-t1 的 ps", () => {
+		expect(pageable.map((terminal) => terminal.id)).toEqual(expect.arrayContaining(["ch2-t3", "ch6-t1"]));
+	});
+
+	for (const terminal of pageable) {
+		it(`${terminal.id} ${terminal.title}`, () => {
+			const shell = openTerminal(terminal);
+			const steps = solutionFor(terminal.id);
+			for (const input of steps.slice(0, -1)) {
+				shell.execute(input);
+			}
+
+			const execution = shell.execute(`${steps.at(-1)} | less`);
+			expect(execution.isError, execution.lines.join(" / ")).toBe(false);
+			expect(execution.pagers).toHaveLength(1);
+			const context = createObjectiveContext(terminal.id, execution, shell.fs, shell.home);
+			expect(evaluateObjective(terminal, context)).toBe(true);
+		});
+	}
+});

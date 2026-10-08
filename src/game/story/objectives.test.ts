@@ -143,6 +143,13 @@ describe("outputContains", () => {
 		expect(check(contextOf("cat status.txt", { lines: ["狀態：", "異常：斷路器 B3 跳脫"] }))).toBe(true);
 		expect(check(contextOf("cat status.txt", { lines: ["正常"] }))).toBe(false);
 	});
+
+	it("接 | less 時看分頁裡的內容，玩家在分頁器裡看到的也算", () => {
+		const check = outputContains("B3");
+		const pagers = [{ files: [{ name: null, lines: ["狀態：", "異常：斷路器 B3 跳脫"] }], lineNumbers: false }];
+		expect(check(contextOf("cat status.txt | less", { lines: [], pagers }))).toBe(true);
+		expect(check(contextOf("cat wake_up.txt | less", { lines: [], pagers: [{ files: [{ name: null, lines: ["正常"] }], lineNumbers: false }] }))).toBe(false);
+	});
 });
 
 describe("all 與 any", () => {
@@ -241,6 +248,15 @@ describe("evaluateObjective", () => {
 				execution("cat $F", { env: { F: "wake_up.txt" } }),
 			]);
 			expect(evaluateObjective(terminal, context)).toBe(true);
+		});
+
+		it("分頁也只看同一段的：別段的 less 不會湊成過關，自己這段的 less 會", () => {
+			const terminal = terminalWith(all(commandIs("cat"), outputContains("RESET-B3-7734")));
+			const pagers = [{ files: [{ name: ".override", lines: ["RESET-B3-7734"] }], lineNumbers: false }];
+			const mixed = lineOf([execution("cat wake_up.txt", { lines: ["喚醒排程"] }), execution("less .override", { pagers })]);
+			expect(evaluateObjective(terminal, mixed)).toBe(false);
+			const own = lineOf([execution("pwd", { lines: [HOME] }), execution("cat .override | less", { pagers })]);
+			expect(evaluateObjective(terminal, own)).toBe(true);
 		});
 
 		it("整行有一段失敗（isError）就不判定", () => {

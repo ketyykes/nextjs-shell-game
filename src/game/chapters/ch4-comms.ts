@@ -32,6 +32,7 @@ import {
 	fileExists,
 	outputContains,
 	redirectsTo,
+	visibleOutputLines,
 } from "@/game/story/objectives";
 import { validateChapter } from "@/game/story/schema";
 import { lines } from "./helpers";
@@ -76,9 +77,9 @@ function usesPipe(): ObjectiveCheck {
 	return (context) => (context.pipeline?.commands.length ?? 0) >= 2;
 }
 
-/** 輸出的最後一行含有 `text`（排序之後「最後一筆」）。 */
+/** 輸出的最後一行含有 `text`（排序之後「最後一筆」）；接 `| less` 時看分頁內容的最後一行。 */
 function lastOutputLineContains(text: string): ObjectiveCheck {
-	return (context) => context.execution.lines.at(-1)?.includes(text) ?? false;
+	return (context) => visibleOutputLines(context.execution).at(-1)?.includes(text) ?? false;
 }
 
 /** 檔案的第一行剛好是 `text`。 */

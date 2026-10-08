@@ -81,9 +81,19 @@ export function lsWithFlag(flag: "-a" | "-l", absoluteDirPath?: string): Objecti
 	};
 }
 
-/** 輸出的任一行含有 `text`。 */
+/**
+ * 玩家這次看得到的所有輸出：印在輸出區的行，接著是分頁器（`| less`）裡每個檔案的內容。
+ * 分頁的內容不在 `execution.lines` 裡（不進輸出區也不存檔），但玩家確實在畫面上看到了，
+ * 所以看輸出的判定都要用這個，`grep LOCK x | less` 才跟 `grep LOCK x` 一樣過關。
+ */
+export function visibleOutputLines(execution: ShellExecution): string[] {
+	const pagerLines = (execution.pagers ?? []).flatMap((pager) => pager.files.flatMap((file) => file.lines));
+	return [...execution.lines, ...pagerLines];
+}
+
+/** 輸出的任一行含有 `text`；分頁器裡的內容也算（見 `visibleOutputLines`）。 */
 export function outputContains(text: string): ObjectiveCheck {
-	return (context) => context.execution.lines.some((line) => line.includes(text));
+	return (context) => visibleOutputLines(context.execution).some((line) => line.includes(text));
 }
 
 // ---------------------------------------------------------------------------

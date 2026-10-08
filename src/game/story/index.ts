@@ -31,6 +31,7 @@ export {
 	noProcessMatching,
 	outputContains,
 	redirectsTo,
+	visibleOutputLines,
 } from "./objectives";
 export { chapterDefinitionSchema, MAX_HINTS, TERMINAL_ID_PATTERN, terminalDefinitionSchema, validateChapter } from "./schema";
 export {
