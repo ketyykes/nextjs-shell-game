@@ -43,7 +43,13 @@ import {
 	type ChapterDefinition,
 	type TerminalDefinition,
 } from "@/game/story";
-import { FLICKER_DURATION_MS, novaErrorLine, stuckLines, type PressureReaction } from "@/game/story/pressure";
+import {
+	FLICKER_DURATION_MS,
+	novaErrorLine,
+	STUCK_REMINDER_LINES,
+	stuckLines,
+	type PressureReaction,
+} from "@/game/story/pressure";
 import { endingImage, outroImageForChapter, sceneImageForRoom } from "@/game/story/scenes";
 import { selectOxygen, selectProgress, selectSettings, useGameStore, useStoreHydration } from "@/game/store";
 import type { CharacterId, OutputEntry, SettingsState, TerminalSessionRecord } from "@/game/store/types";
@@ -319,6 +325,13 @@ function PlayScreenReady() {
 					return;
 				}
 				case "stuck":
+					// 重複提醒用系統行提示輸入 hint（M10-5），第一次才是 NOVA 的劇本台詞
+					if (reaction.repeat) {
+						appendTranscript(definition.id, [
+							{ kind: "system", id: `stuck-reminder-${definition.id}-${Date.now()}`, lines: [...STUCK_REMINDER_LINES] },
+						]);
+						return;
+					}
 					appendTranscript(
 						definition.id,
 						createDialogueEntries(`nova-stuck-${definition.id}-${Date.now()}`, stuckLines(definition)),
@@ -426,7 +439,7 @@ function PlayScreenReady() {
 			const store = useGameStore.getState();
 			const alreadySolved = store.progress.solvedTerminals.includes(definition.id);
 			if (!alreadySolved) {
-				pressure.recordExecution(execution.isError);
+				pressure.recordExecution(execution.isError, execution.hintUsed);
 			}
 			if (execution.isError) {
 				loseOxygen();

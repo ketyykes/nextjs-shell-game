@@ -45,6 +45,7 @@ describe("Shell 基本執行", () => {
 			cwd: "/home/tech",
 			env: { HOME: "/home/tech", USER: "tech", PWD: "/home/tech" },
 			processes: [],
+			hintUsed: false,
 		});
 	});
 
@@ -141,6 +142,14 @@ describe("Shell 狀態", () => {
 		const fourth = shell.execute("hint");
 		expect(fourth.isError).toBe(false);
 		expect(fourth.lines.length).toBeGreaterThan(1);
+	});
+
+	it("執行結果的 hintUsed 標出這一行有沒有跑到 hint，卡關偵測用它重算閒置時間", () => {
+		const shell = createShell();
+		expect(shell.execute("hint").hintUsed).toBe(true);
+		expect(shell.execute("pwd").hintUsed).toBe(false);
+		expect(shell.execute("hint | tail -n 1").hintUsed).toBe(true);
+		expect(shell.execute("xyz").hintUsed).toBe(false);
 	});
 
 	it("clear 會要求 UI 清畫面", () => {

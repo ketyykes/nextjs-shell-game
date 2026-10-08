@@ -43,7 +43,7 @@ const fs = VirtualFileSystem.fromSnapshot({
 
 /** 手組一次執行結果；預設成功、沒有輸出、cwd 在家目錄。 */
 function execution(input: string, overrides: Partial<ShellExecution> = {}): ShellExecution {
-	return { input, lines: [], isError: false, clearScreen: false, cwd: HOME, env: {}, processes: [], ...overrides };
+	return { input, lines: [], isError: false, clearScreen: false, cwd: HOME, env: {}, processes: [], hintUsed: false, ...overrides };
 }
 
 /** 從輸入組出判定用的 context。 */

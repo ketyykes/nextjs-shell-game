@@ -9,7 +9,7 @@ import {
 } from "@/game/story/pressure";
 import type { PressureReaction, PressureResult, PressureState } from "@/game/story/pressure";
 
-/** 閒置檢查的間隔（毫秒）。卡關門檻是三分鐘，10 秒的誤差玩家感覺不到。 */
+/** 閒置檢查的間隔（毫秒）。卡關門檻是三分鐘、重複提醒兩分鐘，10 秒的誤差玩家感覺不到。 */
 export const IDLE_CHECK_INTERVAL_MS = 10_000;
 
 export interface UseTerminalPressureOptions {
@@ -24,8 +24,11 @@ export interface UseTerminalPressureOptions {
 }
 
 export interface UseTerminalPressureResult {
-	/** 每次指令執行後呼叫，`isError` 就是 `execution.isError`。終端機關著時不做事。 */
-	recordExecution: (isError: boolean) => void;
+	/**
+	 * 每次指令執行後呼叫，`isError` 與 `hintUsed` 就是 `execution.isError`、`execution.hintUsed`。
+	 * 輸入 hint 會把閒置計時往後推，其他合法指令不會。終端機關著時不做事。
+	 */
+	recordExecution: (isError: boolean, hintUsed?: boolean) => void;
 	/** 過關時呼叫：計數歸零（並回報 `onErrorCountChange(0)`），這台的卡關提示可以再給。 */
 	reset: () => void;
 }
@@ -35,7 +38,8 @@ export interface UseTerminalPressureResult {
  *
  * - 狀態放在 `useRef`，計數變動不會讓元件重新 render；要顯示或存檔請透過 callback。
  * - `terminalId` 變動時用 `initialErrorCount` 重建狀態：累積次數接續存檔，連續次數與閒置計時重新開始。
- * - 「已給過卡關提示」在這個 hook 存活期間按終端機記住，關掉再開同一台不會重複提示，過關（`reset`）才清掉。
+ * - 「已給過第一次卡關提示」在這個 hook 存活期間按終端機記住，關掉再開同一台不會重給第一次的提示，
+ *   之後只會是重複提醒（`repeat: true`）；過關（`reset`）才清掉。
  * - 終端機開著時每 `IDLE_CHECK_INTERVAL_MS` 跑一次 `checkIdle`，關著或卸載時清掉 interval。
  * - callback 用 ref 保存最新的版本，interval 與回傳的函式都不會讀到舊的 closure。
  */
@@ -98,13 +102,13 @@ export function useTerminalPressure(options: UseTerminalPressureOptions): UseTer
 	}, [terminalId, applyResult]);
 
 	const recordExecution = useCallback(
-		(isError: boolean) => {
+		(isError: boolean, hintUsed = false) => {
 			const currentId = terminalIdRef.current;
 			const current = stateRef.current;
 			if (currentId === null || current === null) {
 				return;
 			}
-			applyResult(currentId, current, recordPressureExecution(current, isError, Date.now()));
+			applyResult(currentId, current, recordPressureExecution(current, isError, Date.now(), hintUsed));
 		},
 		[applyResult],
 	);

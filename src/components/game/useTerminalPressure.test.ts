@@ -1,6 +1,6 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { STUCK_IDLE_MS } from "@/game/story/pressure";
+import { STUCK_IDLE_MS, STUCK_REPEAT_MS } from "@/game/story/pressure";
 import type { PressureReaction } from "@/game/story/pressure";
 import { useTerminalPressure } from "./useTerminalPressure";
 
@@ -67,7 +67,7 @@ describe("useTerminalPressure", () => {
 		expect(onErrorCountChange).not.toHaveBeenCalled();
 	});
 
-	it("推進三分鐘收到 stuck 一次，之後不再收到", () => {
+	it("推進三分鐘收到 stuck 一次，之後沒打指令就不再收到", () => {
 		const { onReaction } = setup({ terminalId: "ch1-t2", initialErrorCount: 0 });
 
 		act(() => {
@@ -84,6 +84,52 @@ describe("useTerminalPressure", () => {
 			vi.advanceTimersByTime(STUCK_IDLE_MS * 2);
 		});
 		expect(reactionTypes(onReaction)).toEqual(["stuck"]);
+	});
+
+	it("一直打合法但沒過關的指令，三分鐘時照樣收到第一次 stuck", () => {
+		const { result, onReaction } = setup({ terminalId: "ch1-t2", initialErrorCount: 0 });
+
+		for (let elapsed = 0; elapsed < STUCK_IDLE_MS; elapsed += 30_000) {
+			act(() => {
+				result.current.recordExecution(false);
+				vi.advanceTimersByTime(30_000);
+			});
+		}
+
+		expect(onReaction.mock.calls.map(([reaction]) => reaction)).toEqual([{ type: "stuck", repeat: false }]);
+	});
+
+	it("輸入 hint 會把閒置計時往後推", () => {
+		const { result, onReaction } = setup({ terminalId: "ch1-t2", initialErrorCount: 0 });
+
+		act(() => {
+			vi.advanceTimersByTime(60_000);
+			result.current.recordExecution(false, true);
+			vi.advanceTimersByTime(STUCK_IDLE_MS - 20_000);
+		});
+		expect(onReaction).not.toHaveBeenCalled();
+
+		act(() => {
+			vi.advanceTimersByTime(20_000);
+		});
+		expect(reactionTypes(onReaction)).toEqual(["stuck"]);
+	});
+
+	it("給過提示後還在打指令，隔 STUCK_REPEAT_MS 收到重複提醒", () => {
+		const { result, onReaction } = setup({ terminalId: "ch1-t2", initialErrorCount: 0 });
+
+		act(() => {
+			vi.advanceTimersByTime(STUCK_IDLE_MS);
+		});
+		act(() => {
+			result.current.recordExecution(false);
+			vi.advanceTimersByTime(STUCK_REPEAT_MS);
+		});
+
+		expect(onReaction.mock.calls.map(([reaction]) => reaction)).toEqual([
+			{ type: "stuck", repeat: false },
+			{ type: "stuck", repeat: true },
+		]);
 	});
 
 	it("terminalId 變成 null 後推進時間不再有反應，記錄執行也不做事", () => {
@@ -133,7 +179,7 @@ describe("useTerminalPressure", () => {
 		expect(onErrorCountChange).toHaveBeenLastCalledWith(2);
 	});
 
-	it("關掉再開同一台不重複給卡關提示，reset 之後才會再給", () => {
+	it("關掉再開同一台不重給第一次的卡關提示，reset 之後才會再給", () => {
 		const { result, rerender, onReaction } = setup({ terminalId: "ch1-t3", initialErrorCount: 0 });
 		act(() => {
 			vi.advanceTimersByTime(STUCK_IDLE_MS);
@@ -153,7 +199,29 @@ describe("useTerminalPressure", () => {
 		act(() => {
 			vi.advanceTimersByTime(STUCK_IDLE_MS);
 		});
-		expect(reactionTypes(onReaction)).toEqual(["stuck", "stuck"]);
+		expect(onReaction.mock.calls.map(([reaction]) => reaction)).toEqual([
+			{ type: "stuck", repeat: false },
+			{ type: "stuck", repeat: false },
+		]);
+	});
+
+	it("關掉再開同一台後有打指令，隔 STUCK_REPEAT_MS 給的是重複提醒", () => {
+		const { result, rerender, onReaction } = setup({ terminalId: "ch1-t3", initialErrorCount: 0 });
+		act(() => {
+			vi.advanceTimersByTime(STUCK_IDLE_MS);
+		});
+
+		rerender({ terminalId: null, initialErrorCount: 0 });
+		rerender({ terminalId: "ch1-t3", initialErrorCount: 0 });
+		act(() => {
+			result.current.recordExecution(false);
+			vi.advanceTimersByTime(STUCK_REPEAT_MS);
+		});
+
+		expect(onReaction.mock.calls.map(([reaction]) => reaction)).toEqual([
+			{ type: "stuck", repeat: false },
+			{ type: "stuck", repeat: true },
+		]);
 	});
 
 	it("reset 歸零並回報 0，之後重新從第 1 次算", () => {
@@ -190,7 +258,7 @@ describe("useTerminalPressure", () => {
 			vi.advanceTimersByTime(STUCK_IDLE_MS);
 		});
 		expect(first).not.toHaveBeenCalled();
-		expect(second).toHaveBeenCalledExactlyOnceWith({ type: "stuck" });
+		expect(second).toHaveBeenCalledExactlyOnceWith({ type: "stuck", repeat: false });
 	});
 
 	it("卸載後清掉 interval", () => {

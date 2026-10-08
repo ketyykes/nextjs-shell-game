@@ -65,6 +65,8 @@ export class Shell {
 	private readonly history: CommandHistory;
 	private currentCwd: string;
 	private currentHintCount: number;
+	/** 目前這次 `execute` 有沒有跑到 hint，每次 `execute` 開頭歸零。 */
+	private hintUsedInExecution = false;
 	private learned: string[];
 	private currentEnv: Record<string, string>;
 	private currentProcesses: ProcessInfo[];
@@ -171,6 +173,7 @@ export class Shell {
 	 * 不管哪一種失敗，整行都只算一次錯誤。
 	 */
 	execute(input: string): ShellExecution {
+		this.hintUsedInExecution = false;
 		// 指令看到的歷史不含目前這一筆，所以先取再 push
 		const previousHistory = this.history.entries();
 		this.history.push(input);
@@ -411,6 +414,7 @@ export class Shell {
 		}
 		if (result.hintUsed === true) {
 			this.currentHintCount += 1;
+			this.hintUsedInExecution = true;
 		}
 		if (result.nextProcesses !== undefined) {
 			this.currentProcesses = copyProcesses(result.nextProcesses);
@@ -427,6 +431,7 @@ export class Shell {
 			cwd: this.currentCwd,
 			env: { ...this.currentEnv },
 			processes: copyProcesses(this.currentProcesses),
+			hintUsed: this.hintUsedInExecution,
 		};
 	}
 }

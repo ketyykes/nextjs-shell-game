@@ -10,6 +10,8 @@ import {
 	resetPressure,
 	STUCK_ERROR_STREAK,
 	STUCK_IDLE_MS,
+	STUCK_REMINDER_LINES,
+	STUCK_REPEAT_MS,
 	stuckLines,
 } from "./pressure";
 import type { PressureReaction, PressureState } from "./pressure";
@@ -30,18 +32,25 @@ function recordErrors(
 	return { state, reactionsByAttempt };
 }
 
+/** 第一次卡關提示（NOVA 用劇本台詞給方向）。 */
+const FIRST_STUCK: PressureReaction = { type: "stuck", repeat: false };
+
+/** 之後的重複提醒（系統提示輸入 hint）。 */
+const REPEAT_STUCK: PressureReaction = { type: "stuck", repeat: true };
+
 /** 只留下階梯反應（flicker、door、nova），去掉 stuck。 */
 function ladderOnly(reactions: PressureReaction[]): PressureReaction[] {
 	return reactions.filter((reaction) => reaction.type !== "stuck");
 }
 
 describe("createPressureState", () => {
-	it("帶入存檔的累積次數，連續次數與提示旗標從零開始", () => {
+	it("帶入存檔的累積次數，連續次數與提示旗標從零開始，閒置計時從開啟的時間算起", () => {
 		expect(createPressureState(1000, 4)).toEqual({
 			errorCount: 4,
 			errorStreak: 0,
-			lastProgressAt: 1000,
+			idleSince: 1000,
 			stuckHintGiven: false,
+			activeSinceReminder: false,
 		});
 	});
 
@@ -89,7 +98,6 @@ describe("recordExecution：環境反應階梯", () => {
 
 		expect(state.errorStreak).toBe(0);
 		expect(state.errorCount).toBe(2);
-		expect(state.lastProgressAt).toBe(500);
 
 		// 階梯看累積：再錯一次就是第 3 次，燈閃；卡關看連續：不會因此觸發 stuck
 		const result = recordExecution(state, true, 600);
@@ -97,12 +105,19 @@ describe("recordExecution：環境反應階梯", () => {
 		expect(result.state.errorStreak).toBe(1);
 	});
 
-	it("打對不回傳反應，錯誤不更新 lastProgressAt", () => {
+	it("打對不回傳反應；不管對錯，沒輸入 hint 都不重設閒置計時", () => {
 		const success = recordExecution(createPressureState(0), false, 100);
 		expect(success.reactions).toEqual([]);
+		expect(success.state.idleSince).toBe(0);
 
 		const failure = recordExecution(success.state, true, 900);
-		expect(failure.state.lastProgressAt).toBe(100);
+		expect(failure.state.idleSince).toBe(0);
+	});
+
+	it("輸入 hint 把閒置計時重設到那一刻", () => {
+		const result = recordExecution(createPressureState(0), false, 700, true);
+		expect(result.reactions).toEqual([]);
+		expect(result.state.idleSince).toBe(700);
 	});
 
 	it("不修改傳入的 state", () => {
@@ -115,7 +130,7 @@ describe("recordExecution：環境反應階梯", () => {
 });
 
 describe("recordExecution：卡關偵測", () => {
-	it("第 5 次連續錯誤回 stuck，第 10 次不再回", () => {
+	it("第 5 次連續錯誤回 stuck，間隔內的第 10 次不再回", () => {
 		const { state, reactionsByAttempt } = recordErrors(createPressureState(0), 10);
 		const stuckAttempts = reactionsByAttempt
 			.map((reactions, index) => ({ attempt: index + 1, reactions }))
@@ -123,7 +138,21 @@ describe("recordExecution：卡關偵測", () => {
 			.map(({ attempt }) => attempt);
 
 		expect(stuckAttempts).toEqual([STUCK_ERROR_STREAK]);
+		expect(reactionsByAttempt[STUCK_ERROR_STREAK - 1]).toContainEqual(FIRST_STUCK);
 		expect(state.stuckHintGiven).toBe(true);
+	});
+
+	it("給過提示、隔了 STUCK_REPEAT_MS 又連續錯 5 次，回重複提醒", () => {
+		const first = recordErrors(createPressureState(0), STUCK_ERROR_STREAK).state;
+		const later = recordErrors(first, STUCK_ERROR_STREAK, STUCK_REPEAT_MS);
+		expect(later.reactionsByAttempt[STUCK_ERROR_STREAK - 1]).toContainEqual(REPEAT_STUCK);
+	});
+
+	it("給過提示後，要重新連續錯滿 5 次才會再提醒", () => {
+		const first = recordErrors(createPressureState(0), STUCK_ERROR_STREAK).state;
+		const later = recordErrors(first, STUCK_ERROR_STREAK - 1, STUCK_REPEAT_MS);
+		const hasStuck = later.reactionsByAttempt.flat().some((reaction) => reaction.type === "stuck");
+		expect(hasStuck).toBe(false);
 	});
 
 	it("中間打對會讓連續次數重來，第 5 次錯（不連續）不給提示", () => {
@@ -138,7 +167,7 @@ describe("recordExecution：卡關偵測", () => {
 		let state = recordErrors(createPressureState(0), 1).state;
 		state = recordExecution(state, false, 0).state;
 		const { reactionsByAttempt } = recordErrors(state, 5);
-		expect(reactionsByAttempt[4]).toEqual([{ type: "door" }, { type: "stuck" }]);
+		expect(reactionsByAttempt[4]).toEqual([{ type: "door" }, FIRST_STUCK]);
 	});
 });
 
@@ -149,22 +178,53 @@ describe("checkIdle", () => {
 		expect(result.state.stuckHintGiven).toBe(false);
 	});
 
-	it("滿三分鐘回 stuck 一次，之後不再回", () => {
+	it("滿三分鐘回第一次 stuck，之後玩家沒打任何指令就不再回", () => {
 		const first = checkIdle(createPressureState(0), STUCK_IDLE_MS);
-		expect(first.reactions).toEqual([{ type: "stuck" }]);
+		expect(first.reactions).toEqual([FIRST_STUCK]);
 		expect(first.state.stuckHintGiven).toBe(true);
 
-		const second = checkIdle(first.state, STUCK_IDLE_MS * 2);
+		const second = checkIdle(first.state, STUCK_IDLE_MS * 10);
 		expect(second.reactions).toEqual([]);
 	});
 
-	it("合法指令會把閒置計時往後推", () => {
-		const state = recordExecution(createPressureState(0), false, 60_000).state;
-		expect(checkIdle(state, STUCK_IDLE_MS).reactions).toEqual([]);
-		expect(checkIdle(state, 60_000 + STUCK_IDLE_MS).reactions).toEqual([{ type: "stuck" }]);
+	it("合法但沒進展的指令不會把閒置計時往後推", () => {
+		let state = createPressureState(0);
+		for (const now of [30_000, 60_000, 120_000, STUCK_IDLE_MS - 1]) {
+			state = recordExecution(state, false, now).state;
+		}
+		expect(checkIdle(state, STUCK_IDLE_MS).reactions).toEqual([FIRST_STUCK]);
 	});
 
-	it("閒置給過提示後，連續錯 5 次也不再給", () => {
+	it("輸入 hint 會把閒置計時往後推", () => {
+		const state = recordExecution(createPressureState(0), false, 60_000, true).state;
+		expect(checkIdle(state, STUCK_IDLE_MS).reactions).toEqual([]);
+		expect(checkIdle(state, 60_000 + STUCK_IDLE_MS).reactions).toEqual([FIRST_STUCK]);
+	});
+
+	it("給過提示後玩家還在打指令，隔 STUCK_REPEAT_MS 再提醒一次，之後照同樣的間隔", () => {
+		const first = checkIdle(createPressureState(0), STUCK_IDLE_MS).state;
+		const active = recordExecution(first, false, STUCK_IDLE_MS + 1000).state;
+
+		expect(checkIdle(active, STUCK_IDLE_MS + STUCK_REPEAT_MS - 1).reactions).toEqual([]);
+		const repeat = checkIdle(active, STUCK_IDLE_MS + STUCK_REPEAT_MS);
+		expect(repeat.reactions).toEqual([REPEAT_STUCK]);
+
+		// 提醒之後又沒打指令：不再提醒；打了之後再等一個間隔
+		expect(checkIdle(repeat.state, STUCK_IDLE_MS + STUCK_REPEAT_MS * 3).reactions).toEqual([]);
+		const activeAgain = recordExecution(repeat.state, false, STUCK_IDLE_MS + STUCK_REPEAT_MS + 1000).state;
+		expect(checkIdle(activeAgain, STUCK_IDLE_MS + STUCK_REPEAT_MS * 2).reactions).toEqual([REPEAT_STUCK]);
+	});
+
+	it("提醒之後輸入 hint，下一次提醒從輸入 hint 的時間重新算間隔", () => {
+		const first = checkIdle(createPressureState(0), STUCK_IDLE_MS).state;
+		const hintAt = STUCK_IDLE_MS + 60_000;
+		const afterHint = recordExecution(first, false, hintAt, true).state;
+
+		expect(checkIdle(afterHint, STUCK_IDLE_MS + STUCK_REPEAT_MS).reactions).toEqual([]);
+		expect(checkIdle(afterHint, hintAt + STUCK_REPEAT_MS).reactions).toEqual([REPEAT_STUCK]);
+	});
+
+	it("閒置給過提示後，間隔內連續錯 5 次也不再給", () => {
 		const idle = checkIdle(createPressureState(0), STUCK_IDLE_MS);
 		const { reactionsByAttempt } = recordErrors(idle.state, STUCK_ERROR_STREAK, STUCK_IDLE_MS);
 		const hasStuck = reactionsByAttempt.flat().some((reaction) => reaction.type === "stuck");
@@ -183,8 +243,9 @@ describe("resetPressure", () => {
 		expect(resetPressure(5000)).toEqual({
 			errorCount: 0,
 			errorStreak: 0,
-			lastProgressAt: 5000,
+			idleSince: 5000,
 			stuckHintGiven: false,
+			activeSinceReminder: false,
 		});
 	});
 });
@@ -207,6 +268,20 @@ describe("stuckLines", () => {
 	it("onStuck 是空陣列時也退回 hints[0]", () => {
 		const lines = stuckLines({ hints: ["第一段"], nova: { onStuck: [] } });
 		expect(lines).toContain("第一段");
+	});
+});
+
+describe("STUCK_REMINDER_LINES", () => {
+	it("重複提醒帶「輸入 hint」字樣，不指涉性別", () => {
+		expect(STUCK_REMINDER_LINES.length).toBeGreaterThan(0);
+		expect(STUCK_REMINDER_LINES.join("\n")).toContain("輸入 hint");
+		const gendered = STUCK_REMINDER_LINES.filter((line) => /[他她]|先生|小姐|女士|男性|女性/.test(line));
+		expect(gendered).toEqual([]);
+	});
+
+	it("重複提醒的間隔比第一次的閒置門檻短，但至少一分鐘", () => {
+		expect(STUCK_REPEAT_MS).toBeLessThanOrEqual(STUCK_IDLE_MS);
+		expect(STUCK_REPEAT_MS).toBeGreaterThanOrEqual(60_000);
 	});
 });
 

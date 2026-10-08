@@ -1,12 +1,16 @@
 /**
- * 卡關偵測與環境反應階梯的純邏輯（設計文件 4.8，progress M5-3、M5-4）。
+ * 卡關偵測與環境反應階梯的純邏輯（設計文件 4.8，progress M5-3、M5-4、M10-5）。
  *
- * - **卡關偵測**：同一台終端機連續 `STUCK_ERROR_STREAK` 次錯誤，或 `STUCK_IDLE_MS` 沒有進展，
- *   NOVA 主動用劇情台詞給方向（內容等同 hint 第一段）。同一台終端機在過關前只給一次。
+ * - **卡關偵測**：同一台終端機連續 `STUCK_ERROR_STREAK` 次錯誤，或從「開啟終端機或上次輸入 hint」起
+ *   `STUCK_IDLE_MS` 還沒過關，NOVA 主動用劇情台詞給方向（內容等同 hint 第一段）。
+ *   合法但沒用的指令（反覆 ls、cd 來回）不會重設閒置計時，這是新手最常見的卡法。
+ *   第一次之後改成重複提醒（`repeat: true`，由整合者顯示 `STUCK_REMINDER_LINES`），
+ *   距離上次提醒或上次輸入 hint 至少 `STUCK_REPEAT_MS`，而且這段時間玩家有打過指令（沒打就是離開座位，不洗版）；
+ *   錯誤路徑則要重新連續錯滿 `STUCK_ERROR_STREAK` 次。
  * - **環境反應階梯**：同一台終端機「累積」錯誤次數，3 次燈閃一下、6 次遠處門關上的聲音、
  *   9 次 NOVA 說「你確定你是技師？」這類台詞。過關後歸零。
  *
- * 「錯誤」的定義是 `execution.isError`；合法指令（就算沒用）都算「有進展」，不懲罰探索。
+ * 「錯誤」的定義是 `execution.isError`；合法指令不算錯，不扣氧也不推進階梯，不懲罰探索。
  * 階梯看累積次數，卡關看連續次數：中間打對一次只會把連續次數歸零，累積次數不變。
  *
  * 這個檔案不 import React、Phaser 或 zustand，全部是回傳新物件的純函式。
@@ -17,8 +21,17 @@ import type { TerminalDefinition } from "./types";
 /** 連續幾次錯誤算卡關。 */
 export const STUCK_ERROR_STREAK = 5;
 
-/** 多久沒有進展算卡關（毫秒）。 */
+/** 從開啟終端機或上次輸入 hint 起，多久還沒過關算卡關（毫秒）。 */
 export const STUCK_IDLE_MS = 3 * 60 * 1000;
+
+/** 給過第一次卡關提示之後，重複提醒的最短間隔（毫秒），從上次提醒或上次輸入 hint 起算。 */
+export const STUCK_REPEAT_MS = 2 * 60 * 1000;
+
+/**
+ * 重複提醒的文字，整合者用系統行（不是 NOVA 台詞）顯示：提示來自遊戲系統（4.6），
+ * 而且第六章 NOVA 被終止之後的終端機也能用，不會出現 NOVA 口吻而出戲。
+ */
+export const STUCK_REMINDER_LINES: string[] = ["卡住了嗎？輸入 hint 取得提示，重複輸入會一段比一段詳細。"];
 
 /**
  * 環境反應階梯的門檻（累積錯誤次數）。
@@ -55,17 +68,20 @@ export interface PressureState {
 	errorCount: number;
 	/** 連續錯誤次數，卡關偵測用；打對一次就歸零。 */
 	errorStreak: number;
-	/** 最後一次「有進展」（合法指令或剛開啟）的時間戳，毫秒。 */
-	lastProgressAt: number;
-	/** 這台終端機這次過關前是否已給過卡關提示，只給一次。 */
+	/** 閒置計時的起點：開啟終端機、上次輸入 hint 或上次卡關提醒的時間戳，毫秒。合法指令不會重設它。 */
+	idleSince: number;
+	/** 這台終端機這次過關前是否已給過第一次卡關提示；給過之後再提醒就是重複提醒。 */
 	stuckHintGiven: boolean;
+	/** 開啟終端機或上次卡關提醒之後，玩家有沒有打過任何指令。重複提醒要求有，免得離開座位時洗版。 */
+	activeSinceReminder: boolean;
 }
 
 export type PressureReaction =
 	| { type: "flicker" }
 	| { type: "door" }
 	| { type: "nova"; lineIndex: number }
-	| { type: "stuck" };
+	/** `repeat` 為 false 是第一次（NOVA 用劇本台詞給方向），true 是之後的重複提醒（提示輸入 hint）。 */
+	| { type: "stuck"; repeat: boolean };
 
 export interface PressureResult {
 	state: PressureState;
@@ -77,8 +93,17 @@ export function createPressureState(now: number, errorCount = 0): PressureState 
 	return {
 		errorCount: Math.max(0, Math.trunc(errorCount)),
 		errorStreak: 0,
-		lastProgressAt: now,
+		idleSince: now,
 		stuckHintGiven: false,
+		activeSinceReminder: false,
+	};
+}
+
+/** 給一次卡關提醒：標記已給、閒置計時與連續錯誤從這裡重新算。 */
+function giveStuckReminder(state: PressureState, now: number): PressureResult {
+	return {
+		state: { ...state, stuckHintGiven: true, idleSince: now, errorStreak: 0, activeSinceReminder: false },
+		reactions: [{ type: "stuck", repeat: state.stuckHintGiven }],
 	};
 }
 
@@ -102,23 +127,36 @@ function ladderReaction(errorCount: number): PressureReaction | null {
 }
 
 /**
- * 指令執行後呼叫。
+ * 指令執行後呼叫。`hintUsed` 就是 `execution.hintUsed`：輸入 hint 會把閒置計時重設到 `now`。
  *
  * - `isError` 為 true：累積與連續次數各加一。新的累積次數落在階梯門檻上就回傳對應反應；
- *   連續次數達到 `STUCK_ERROR_STREAK` 且還沒給過卡關提示就回傳 `stuck` 並標記已給。
+ *   連續次數達到 `STUCK_ERROR_STREAK` 時，還沒給過卡關提示就回傳第一次的 `stuck`，
+ *   給過了則要距離上次提醒（或上次輸入 hint）滿 `STUCK_REPEAT_MS` 才回傳重複提醒。
  *   兩者可能同時發生，順序固定是階梯反應在前、`stuck` 在後。
- * - `isError` 為 false：連續次數歸零、`lastProgressAt` 更新為 `now`，不回傳反應。
+ * - `isError` 為 false：連續次數歸零，不回傳反應；沒輸入 hint 的話閒置計時不動。
  */
-export function recordExecution(state: PressureState, isError: boolean, now: number): PressureResult {
+export function recordExecution(
+	state: PressureState,
+	isError: boolean,
+	now: number,
+	hintUsed = false,
+): PressureResult {
+	let idleSince = state.idleSince;
+	if (hintUsed) {
+		idleSince = now;
+	}
+	const active: PressureState = { ...state, idleSince, activeSinceReminder: true };
+
 	if (!isError) {
 		return {
-			state: { ...state, errorStreak: 0, lastProgressAt: now },
+			state: { ...active, errorStreak: 0 },
 			reactions: [],
 		};
 	}
 
 	const errorCount = state.errorCount + 1;
 	const errorStreak = state.errorStreak + 1;
+	const counted: PressureState = { ...active, errorCount, errorStreak };
 	const reactions: PressureReaction[] = [];
 
 	const ladder = ladderReaction(errorCount);
@@ -126,31 +164,34 @@ export function recordExecution(state: PressureState, isError: boolean, now: num
 		reactions.push(ladder);
 	}
 
-	let stuckHintGiven = state.stuckHintGiven;
-	if (errorStreak >= STUCK_ERROR_STREAK && !stuckHintGiven) {
-		reactions.push({ type: "stuck" });
-		stuckHintGiven = true;
+	const reminderDue = !counted.stuckHintGiven || now - counted.idleSince >= STUCK_REPEAT_MS;
+	if (errorStreak >= STUCK_ERROR_STREAK && reminderDue) {
+		const reminded = giveStuckReminder(counted, now);
+		return { state: reminded.state, reactions: [...reactions, ...reminded.reactions] };
 	}
 
-	return {
-		state: { ...state, errorCount, errorStreak, stuckHintGiven },
-		reactions,
-	};
+	return { state: counted, reactions };
 }
 
 /**
- * 定時呼叫（例如每 10 秒）：距離 `lastProgressAt` 達到 `STUCK_IDLE_MS` 且還沒給過卡關提示，
- * 就回傳 `stuck` 並標記已給；否則原樣回傳 state 與空陣列。
+ * 定時呼叫（例如每 10 秒），沒到時間就原樣回傳 state 與空陣列：
+ * - 還沒給過卡關提示：距離 `idleSince` 滿 `STUCK_IDLE_MS` 就回傳第一次的 `stuck`。
+ * - 給過了：距離 `idleSince` 滿 `STUCK_REPEAT_MS`，而且上次提醒之後玩家有打過指令，才回傳重複提醒。
  */
 export function checkIdle(state: PressureState, now: number): PressureResult {
-	if (state.stuckHintGiven || now - state.lastProgressAt < STUCK_IDLE_MS) {
-		return { state, reactions: [] };
+	const elapsed = now - state.idleSince;
+
+	if (!state.stuckHintGiven) {
+		if (elapsed < STUCK_IDLE_MS) {
+			return { state, reactions: [] };
+		}
+		return giveStuckReminder(state, now);
 	}
 
-	return {
-		state: { ...state, stuckHintGiven: true },
-		reactions: [{ type: "stuck" }],
-	};
+	if (!state.activeSinceReminder || elapsed < STUCK_REPEAT_MS) {
+		return { state, reactions: [] };
+	}
+	return giveStuckReminder(state, now);
 }
 
 /** 過關：累積、連續次數與卡關提示全部歸零，閒置計時從 `now` 重新開始。 */

@@ -486,4 +486,6 @@ export interface ShellExecution {
 	env: Record<string, string>;
 	/** 執行後的程序清單，目標判定用（例如「nova 程序已不在」）。 */
 	processes: ProcessInfo[];
+	/** 這一行有沒有跑到 `hint`（含管線裡的），卡關偵測用它把閒置計時從這裡重新算起。 */
+	hintUsed: boolean;
 }
