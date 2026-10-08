@@ -148,7 +148,16 @@ function resolveShell(cache: Map<string, Shell>, definition: TerminalDefinition)
 
 export function PlayScreen() {
 	const hydrated = useStoreHydration();
-	if (!hydrated) {
+	const hasCharacter = useGameStore((state) => state.progress.character !== null);
+	const router = useRouter();
+	// 沒選過角就是沒有存檔（例如直接開 /play 網址）：回標題走選角、boot log 與 NOVA 第一句（G5）。等待期間不掛 Phaser
+	const missingSave = hydrated && !hasCharacter;
+	useEffect(() => {
+		if (missingSave) {
+			router.replace("/");
+		}
+	}, [missingSave, router]);
+	if (!hydrated || missingSave) {
 		return (
 			<main className="flex min-h-screen items-center justify-center bg-game-bg font-terminal text-xl text-game-dim">
 				讀取存檔中……

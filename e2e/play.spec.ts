@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { seedSave } from "./helpers/deck";
 
 /**
  * M2 完成定義：瀏覽器可玩 M1 的指令，重新整理後歷史與進度還在。
@@ -50,12 +51,24 @@ async function openCryoTerminal(page: Page): Promise<void> {
 	await expect(page.getByLabel("指令輸入")).toHaveValue("");
 }
 
+test("沒有存檔直接開 /play（例如別人分享的網址）會導回標題，不掛 Phaser", async ({ page }) => {
+	await page.goto("/");
+	await page.evaluate(() => window.localStorage.clear());
+	await page.goto("/play");
+	await expect(page).toHaveURL(/:\d+\/$/);
+	await expect(page.getByRole("heading", { name: "KEPLER-9" })).toBeVisible();
+	await expect(page.locator("canvas")).toHaveCount(0);
+});
+
 test.describe("/play 地圖與終端機", () => {
 	test.beforeEach(async ({ page }) => {
+		// 每個測試從「剛選完角、第一章開頭」的乾淨存檔開始；沒有存檔的 /play 會被導回標題（G5）
+		await seedSave(page, { chapter: 1 });
 		await page.goto("/play");
-		// 清掉上一次測試留下的存檔，確保每個測試從乾淨狀態開始
-		await page.evaluate(() => window.localStorage.clear());
-		await page.reload();
+	});
+
+	test("/play 帶 robots noindex，不給搜尋引擎收錄", async ({ page }) => {
+		await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "noindex");
 	});
 
 	test("走到冷凍艙控制台按 E 開啟終端機，打 ls 看到 wake_up.txt", async ({ page }) => {
@@ -180,7 +193,7 @@ test.describe("/play 地圖與終端機", () => {
 		const pageErrors: string[] = [];
 		page.on("pageerror", (error) => pageErrors.push(error.message));
 
-		// 先過一關讓存檔有 savedAt，回標題才看得到「繼續」
+		// 先過一關（存檔有過關紀錄與位置），再回標題按「繼續」
 		await openCryoTerminal(page);
 		const input = page.getByLabel("指令輸入");
 		await input.fill("cat wake_up.txt");
