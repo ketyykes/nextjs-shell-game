@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SAVE_STORAGE_KEY } from "@/game/store/types";
+import { SAVE_STORAGE_KEY, SAVE_VERSION } from "@/game/store/types";
 import SandboxPage from "./page";
 
 const push = vi.fn();
@@ -29,7 +29,7 @@ function runCommand(text: string): void {
 
 describe("SandboxPage", () => {
 	it("讀檔完成後顯示練習終端機，打指令與重置都不寫 localStorage", async () => {
-		const existingSave = JSON.stringify({ state: { progress: { chapter: 3 } }, version: 2 });
+		const existingSave = JSON.stringify({ state: { progress: { chapter: 3 } }, version: SAVE_VERSION });
 		localStorage.setItem(SAVE_STORAGE_KEY, existingSave);
 		const setItem = vi.spyOn(Storage.prototype, "setItem");
 
