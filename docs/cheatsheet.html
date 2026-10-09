@@ -1,0 +1,788 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kepler-9 過關密技（開發者用）</title>
+<style>
+	:root {
+		--bg: #0b0f14;
+		--panel: #121a23;
+		--border: #22303d;
+		--text: #d7e1ea;
+		--muted: #8a9aab;
+		--accent: #5ee0c4;
+		--accent-dim: #2b6d61;
+		--warn: #f2c14e;
+		--danger: #ff7b72;
+		--code-bg: #0a1219;
+	}
+	* { box-sizing: border-box; }
+	html { scroll-behavior: smooth; }
+	body {
+		margin: 0;
+		background: var(--bg);
+		color: var(--text);
+		font: 15px/1.6 ui-monospace, "SF Mono", Menlo, Consolas, "PingFang TC", "Noto Sans TC", monospace;
+	}
+	a { color: var(--accent); text-decoration: none; }
+	a:hover { text-decoration: underline; }
+	.layout { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+	nav {
+		position: sticky; top: 0; height: 100vh; overflow: auto;
+		padding: 20px 16px; border-right: 1px solid var(--border); background: var(--panel);
+	}
+	nav h1 { font-size: 16px; margin: 0 0 4px; color: var(--accent); }
+	nav .sub { font-size: 12px; color: var(--muted); margin-bottom: 16px; }
+	nav ul { list-style: none; padding: 0; margin: 0; }
+	nav li { margin: 4px 0; }
+	nav li ul { margin-left: 12px; }
+	nav li ul li a { font-size: 13px; color: var(--muted); }
+	main { padding: 24px 40px 80px; max-width: 1100px; }
+	h2 { font-size: 22px; margin: 40px 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border); color: var(--accent); }
+	h2:first-child { margin-top: 0; }
+	h3 { font-size: 17px; margin: 28px 0 6px; }
+	h3 small { font-weight: normal; color: var(--muted); font-size: 13px; margin-left: 8px; }
+	p, li { color: var(--text); }
+	.muted { color: var(--muted); }
+	.card {
+		background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+		padding: 14px 18px; margin: 10px 0 18px;
+	}
+	.meta { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+	.meta b { color: var(--text); font-weight: 600; }
+	.goal { margin: 0 0 10px; }
+	.goal::before { content: "目標："; color: var(--warn); }
+	ol.cmds { margin: 0; padding-left: 28px; counter-reset: step; }
+	ol.cmds li { margin: 3px 0; }
+	ol.cmds li.final code { border-color: var(--accent-dim); box-shadow: inset 2px 0 0 var(--accent); }
+	ol.cmds li.final::after { content: " ← 過關"; color: var(--accent); font-size: 12px; }
+	code {
+		background: var(--code-bg); border: 1px solid var(--border); border-radius: 4px;
+		padding: 1px 6px; font-size: 14px; white-space: pre; color: #e8f1f8;
+	}
+	pre {
+		background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px;
+		padding: 12px 14px; overflow: auto; font-size: 13px; line-height: 1.5; margin: 8px 0;
+	}
+	pre code { background: none; border: 0; padding: 0; }
+	.toolbar { display: flex; gap: 8px; margin: 8px 0 0; }
+	button {
+		background: var(--accent-dim); color: #fff; border: 1px solid var(--accent); border-radius: 4px;
+		padding: 4px 12px; font: inherit; font-size: 13px; cursor: pointer;
+	}
+	button:hover { background: var(--accent); color: #062; }
+	button.ok { background: var(--accent); color: #062; }
+	table { border-collapse: collapse; width: 100%; font-size: 13px; margin: 8px 0 16px; }
+	th, td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; vertical-align: top; }
+	th { background: var(--panel); color: var(--muted); font-weight: 600; }
+	.map {
+		display: grid; grid-template-columns: repeat(3, 1fr) 90px; grid-template-rows: 70px 40px 70px;
+		gap: 6px; margin: 10px 0 16px; max-width: 620px; font-size: 13px;
+	}
+	.map div { border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; background: var(--panel); }
+	.map .hall { grid-column: 1 / 4; background: #0e151c; color: var(--muted); display: flex; align-items: center; }
+	.map .exit { grid-column: 4; grid-row: 1 / 4; display: flex; align-items: center; justify-content: center; text-align: center; border-color: var(--accent-dim); }
+	.map .t { color: var(--accent); font-weight: 600; }
+	.note { border-left: 3px solid var(--warn); padding: 6px 12px; background: #1a1a10; margin: 10px 0; font-size: 14px; }
+	.danger { border-left-color: var(--danger); background: #1f1212; }
+	@media (max-width: 800px) {
+		.layout { grid-template-columns: 1fr; }
+		nav { position: static; height: auto; }
+		main { padding: 16px; }
+	}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav>
+	<h1>Kepler-9 過關密技</h1>
+	<div class="sub">開發者專用，不要放進正式站台</div>
+	<ul>
+		<li><a href="#howto">使用方式</a></li>
+		<li><a href="#skip">跳章與除錯鉤子</a></li>
+		<li><a href="#ch1">第一章 冷凍艙</a>
+			<ul>
+				<li><a href="#ch1-t1">T1 冷凍艙控制台</a></li>
+				<li><a href="#ch1-t2">T2 維生系統監控台</a></li>
+				<li><a href="#ch1-t3">T3 宿舍終端機</a></li>
+				<li><a href="#ch1-t4">T4 配電箱</a></li>
+				<li><a href="#ch1-t5">T5 醫療艙終端機</a></li>
+				<li><a href="#ch1-t6">T6 艙門控制台</a></li>
+			</ul>
+		</li>
+		<li><a href="#ch2">第二章 資料中心</a>
+			<ul>
+				<li><a href="#ch2-t1">T1 入口登錄台</a></li>
+				<li><a href="#ch2-t2">T2 日誌封存終端機</a></li>
+				<li><a href="#ch2-t3">T3 機櫃管理台</a></li>
+				<li><a href="#ch2-t4">T4 冷卻監控台</a></li>
+				<li><a href="#ch2-t5">T5 備援主控台</a></li>
+				<li><a href="#ch2-t6">T6 資料中心艙門控制台</a></li>
+			</ul>
+		</li>
+		<li><a href="#ch3">第三章 工程艙</a>
+			<ul>
+				<li><a href="#ch3-t1">T1 工程艙登錄台</a></li>
+				<li><a href="#ch3-t2">T2 工作間終端機</a></li>
+				<li><a href="#ch3-t3">T3 零件倉管理台</a></li>
+				<li><a href="#ch3-t4">T4 反應爐控制台</a></li>
+				<li><a href="#ch3-t5">T5 設定機房終端機</a></li>
+				<li><a href="#ch3-t6">T6 工程艙艙門控制台</a></li>
+			</ul>
+		</li>
+		<li><a href="#ch4">第四章 通訊艙</a>
+			<ul>
+				<li><a href="#ch4-t1">T1 通訊艙登錄台</a></li>
+				<li><a href="#ch4-t2">T2 中繼機房終端機</a></li>
+				<li><a href="#ch4-t3">T3 天線控制台</a></li>
+				<li><a href="#ch4-t4">T4 訊號處理台</a></li>
+				<li><a href="#ch4-t5">T5 通訊紀錄終端機</a></li>
+				<li><a href="#ch4-t6">T6 通訊艙艙門控制台</a></li>
+			</ul>
+		</li>
+		<li><a href="#ch5">第五章 艦橋</a>
+			<ul>
+				<li><a href="#ch5-t1">T1 艦橋登錄台</a></li>
+				<li><a href="#ch5-t2">T2 導航站終端機</a></li>
+				<li><a href="#ch5-t3">T3 艦長室終端機</a></li>
+				<li><a href="#ch5-t4">T4 安全管制台</a></li>
+				<li><a href="#ch5-t5">T5 逃生艙紀錄台</a></li>
+				<li><a href="#ch5-t6">T6 艦橋艙門控制台</a></li>
+			</ul>
+		</li>
+		<li><a href="#ch6">第六章 NOVA 核心</a>
+			<ul>
+				<li><a href="#ch6-t1">T1 核心艙登錄台</a></li>
+				<li><a href="#ch6-t2">T2 監控室終端機</a></li>
+				<li><a href="#ch6-t3">T3 記憶庫終端機</a></li>
+				<li><a href="#ch6-t4">T4 NOVA 核心控制台</a></li>
+				<li><a href="#ch6-t5">T5 排程機房終端機</a></li>
+				<li><a href="#ch6-t6">T6 逃生艙控制台</a></li>
+			</ul>
+		</li>
+		<li><a href="#keys">重要密碼與常數</a></li>
+	</ul>
+</nav>
+
+<main>
+<h2 id="howto">使用方式</h2>
+<div class="card">
+	<p>每台終端機列出的是 <code>src/game/chapters/solutions.ts</code> 裡經單元測試（<code>solutions.test.ts</code>）用真 Shell 驗過的正解序列，<b>照順序一行一行打，最後一行打完就過關</b>。前面幾行多半是「讀劇情」用，但有些關卡的判定要靠前面的指令改變檔案系統或環境變數（例如第三章 T4、第六章 T6），所以直接整串照抄最保險。</p>
+	<p>終端機的輸入列是單行輸入框，貼多行會被合併成一行。所以「複製全部」把整串指令用 <code> ; </code> 串成一行，貼上按一次 Enter 就全部執行，shell 會逐段判定目標。想一行一行打就自己從清單抄。</p>
+	<ul>
+		<li><b>操作</b>：方向鍵或 WASD 走路，走到終端機前按 <code>E</code> 開啟，<code>Esc</code> 關閉／暫停。</li>
+		<li><b>終端機內建幫手</b>：<code>hint</code> 連打三次會給到「照抄即可過關」的第三段提示；<code>help</code> 列已學指令；<code>man 指令</code> 看說明。</li>
+		<li><b>位置</b>：六個甲板共用同一張平面圖，T1 到 T6 固定在下面這幾個位置。</li>
+	</ul>
+	<div class="map">
+		<div><span class="t">T3</span><br>上排左</div>
+		<div><span class="t">T5</span><br>上排中</div>
+		<div><span class="t">T4</span><br>上排右</div>
+		<div class="exit"><span class="t">T6</span><br>艙門<br>（走廊右端）</div>
+		<div class="hall">走廊（出生點在下排左房間）</div>
+		<div><span class="t">T1</span><br>下排左（出生房）</div>
+		<div><span class="t">T2</span><br>下排中（下排只有兩間房）</div>
+		<div class="muted" style="border: 0; background: none;"></div>
+	</div>
+	<p class="muted">同一章六台終端機各有獨立檔案系統，T4 做的事不會帶到 T5；順序也不限，先解哪一台都可以。全部六台解完出現章節結束畫面，按「進入第 N 章」換甲板。</p>
+</div>
+
+<h2 id="skip">跳章與除錯鉤子</h2>
+<div class="card">
+	<h3>A. 直接跳到第 N 章（寫 localStorage）</h3>
+	<p>在遊戲頁（任何路徑都行）的瀏覽器 console 貼下面的程式，改 <code>chapter</code>，然後重新整理並進 <code>/play</code>。存檔格式跟 e2e 的 <code>seedSave</code> 相同，舊版號會由 <code>migrate.ts</code> 自動升級。</p>
+<pre><code id="seed-snippet">(() => {
+  const chapter = 3; // 改成要跳的章節 1 到 6
+  const solvedTerminals = [];
+  const storyFlags = {};
+  for (let c = 1; c &lt; chapter; c += 1) {
+    storyFlags[`ch${c}.introShown`] = true;
+    storyFlags[`ch${c}.outroShown`] = true;
+    for (let t = 1; t &lt;= 6; t += 1) solvedTerminals.push(`ch${c}-t${t}`);
+  }
+  const save = {
+    state: {
+      progress: {
+        chapter,
+        furthestChapter: chapter,
+        position: null,
+        character: "a",
+        solvedTerminals,
+        learnedCommands: [],
+        oxygen: 100,
+        savedAt: new Date().toISOString(),
+        clearedAt: null,
+      },
+      settings: { textSpeed: "instant", flickerEnabled: true, scanlinesEnabled: true, vignetteEnabled: true, volume: 0.8, muted: true },
+      terminals: {},
+      storyFlags,
+      stats: {},
+    },
+    version: 3,
+  };
+  localStorage.setItem("kepler9-save", JSON.stringify(save));
+  location.href = "/play";
+})();</code></pre>
+	<div class="toolbar"><button data-copy="seed-snippet">複製跳章程式</button></div>
+	<p class="muted">想從標題畫面正規地選章：只要 <code>furthestChapter</code> 夠大，標題的「選章」就會開放到那一章。</p>
+
+	<h3>B. 直接播某台終端機的過關演出（開發模式除錯鉤子）</h3>
+	<p><code>/play</code> 在開發模式會掛 <code>window.__kepler9.emit</code>，可以不打指令直接播該終端機宣告的地圖演出，例如 ch1-t4 亮燈、各章 t6 開門（正式 build 沒有）：</p>
+	<div class="note danger">這個鉤子<b>只播演出，不寫存檔</b>：終端機不會標成過關、HUD 進度不加、章節結束不會出現，重新整理後演出也消失。要真的標成過關，用 A 段的程式把該終端機 id 加進 <code>solvedTerminals</code> 後重新整理。</div>
+<pre><code id="emit-snippet">window.__kepler9.emit("puzzle:solved", { terminalId: "ch1-t4" });</code></pre>
+	<div class="toolbar"><button data-copy="emit-snippet">複製</button></div>
+	<p class="muted">另一個鉤子 <code>window.__kepler9Player</code> 是角色座標探針，e2e 走路用，唯讀。</p>
+
+	<h3>C. 清除存檔</h3>
+<pre><code>localStorage.removeItem("kepler9-save");</code></pre>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="ch1">第一章 冷凍艙與維生艙 <small class="muted">deck1，開場斷電，T4 過關後亮燈</small></h2>
+
+<section class="card" id="ch1-t1">
+	<h3>T1 冷凍艙控制台 <small>ch1-t1 · 冷凍艙 · 教 pwd / ls / cat</small></h3>
+	<p class="goal">讀取冷凍艙的喚醒排程</p>
+	<ol class="cmds">
+		<li><code>pwd</code></li>
+		<li><code>ls</code></li>
+		<li class="final"><code>cat wake_up.txt</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<section class="card" id="ch1-t2">
+	<h3>T2 維生系統監控台 <small>ch1-t2 · 維生艙 · 教 cd / ..</small></h3>
+	<p class="goal">找出主艙門斷電的原因</p>
+	<ol class="cmds">
+		<li><code>ls</code></li>
+		<li><code>cd oxygen</code></li>
+		<li><code>cat status.txt</code></li>
+		<li><code>cd ..</code></li>
+		<li><code>cd power</code></li>
+		<li class="final"><code>cat status.txt</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<section class="card" id="ch1-t3">
+	<h3>T3 宿舍終端機 <small>ch1-t3 · 宿舍 · 教 ls -l / ~</small></h3>
+	<p class="goal">讀取阿彬最新的那份日誌</p>
+	<ol class="cmds">
+		<li><code>ls</code></li>
+		<li><code>cat roster.txt</code></li>
+		<li><code>cd ~</code></li>
+		<li><code>ls /home</code></li>
+		<li><code>ls -l /home/abin</code></li>
+		<li class="final"><code>cat /home/abin/day_900.txt</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<section class="card" id="ch1-t4">
+	<h3>T4 配電箱 <small>ch1-t4 · 配電室 · 教 ls -a · 過關後全層亮燈</small></h3>
+	<p class="goal">找到 B3 斷路器的重置碼</p>
+	<ol class="cmds">
+		<li><code>cat work_order.txt</code></li>
+		<li><code>cat /deck1/systems/power/README.txt</code></li>
+		<li><code>cd /deck1/systems/power/breakers/B3</code></li>
+		<li><code>ls</code></li>
+		<li><code>ls -a</code></li>
+		<li class="final"><code>cat .override</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<section class="card" id="ch1-t5">
+	<h3>T5 醫療艙終端機 <small>ch1-t5 · 醫療艙 · 教 Tab / history / clear</small></h3>
+	<p class="goal">找出 pod_06 的冷凍入艙表</p>
+	<ol class="cmds">
+		<li><code>ls</code></li>
+		<li><code>cat index.txt</code></li>
+		<li><code>ls records</code></li>
+		<li><code>history</code></li>
+		<li><code>clear</code></li>
+		<li class="final"><code>cat records/PT-2028-0601-QN0606.txt</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<section class="card" id="ch1-t6">
+	<h3>T6 艙門控制台 <small>ch1-t6 · 主艙門 · 過關後開門</small></h3>
+	<p class="goal">用鑰匙檔打開主艙門</p>
+	<ol class="cmds">
+		<li><code>cat lock.txt</code></li>
+		<li><code>cd /home/tech/pod_06</code></li>
+		<li><code>ls</code></li>
+		<li><code>ls -a</code></li>
+		<li class="final"><code>cat .key</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<!-- ===================================================================== -->
+<h2 id="ch2">第二章 資料中心 <small class="muted">deck2</small></h2>
+
+<section class="card" id="ch2-t1">
+	<h3>T1 入口登錄台 <small>ch2-t1 · 資料中心入口 · 教 head / tail</small></h3>
+	<p class="goal">查出最近是誰進出資料中心</p>
+	<ol class="cmds">
+		<li><code>ls</code></li>
+		<li><code>cat README.txt</code></li>
+		<li><code>head access.log</code></li>
+		<li class="final"><code>tail access.log</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<section class="card" id="ch2-t2">
+	<h3>T2 日誌封存終端機 <small>ch2-t2 · 日誌封存庫 · 教 wc / *</small></h3>
+	<p class="goal">找出撤離當晚行數不對的那段日誌</p>
+	<ol class="cmds">
+		<li><code>ls</code></li>
+		<li><code>cat INDEX.txt</code></li>
+		<li><code>cd evac</code></li>
+		<li><code>wc -l evac_*.log</code></li>
+		<li class="final"><code>head -n 5 evac_011.log</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<section class="card" id="ch2-t3">
+	<h3>T3 機櫃管理台 <small>ch2-t3 · 機櫃區 · 教 grep</small></h3>
+	<p class="goal">查出撤離當晚是誰鎖了艙門</p>
+	<ol class="cmds">
+		<li><code>ls</code></li>
+		<li><code>wc -l door_events.log</code></li>
+		<li><code>grep lock door_events.log</code></li>
+		<li class="final"><code>grep -n LOCK door_events.log</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<section class="card" id="ch2-t4">
+	<h3>T4 冷卻監控台 <small>ch2-t4 · 冷卻機房 · 教 grep -r</small></h3>
+	<p class="goal">找出冷卻日誌裡所有的異常紀錄</p>
+	<ol class="cmds">
+		<li><code>cat README.txt</code></li>
+		<li><code>ls logs</code></li>
+		<li><code>grep ANOMALY logs/2029/q1.log</code></li>
+		<li class="final"><code>grep -r ANOMALY logs</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<section class="card" id="ch2-t5">
+	<h3>T5 備援主控台 <small>ch2-t5 · 備援機房 · 教 find</small></h3>
+	<p class="goal">找出撤離當晚的回滾日誌</p>
+	<ol class="cmds">
+		<li><code>cat README.txt</code></li>
+		<li><code>ls snapshots</code></li>
+		<li><code>find . -name "rollback_*"</code></li>
+		<li class="final"><code>tail snapshots/2028/06/02/core/nova/rollback_2028-06-02.log</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<section class="card" id="ch2-t6">
+	<h3>T6 資料中心艙門控制台 <small>ch2-t6 · 資料中心艙門 · 過關後開門</small></h3>
+	<p class="goal">用有效的鑰匙打開資料中心艙門</p>
+	<ol class="cmds">
+		<li><code>cat lock.txt</code></li>
+		<li><code>find /deck2/vault -name "*exit_key*"</code></li>
+		<li><code>grep -r ACTIVE /deck2/vault</code></li>
+		<li class="final"><code>cat /deck2/vault/2031/03/.pending/.exit_key_2031.txt</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<!-- ===================================================================== -->
+<h2 id="ch3">第三章 工程艙 <small class="muted">deck3，開場斷電，T4 過關後亮燈</small></h2>
+
+<section class="card" id="ch3-t1">
+	<h3>T1 工程艙登錄台 <small>ch3-t1 · 工程艙入口 · 教 mkdir</small></h3>
+	<p class="goal">照工單在家目錄建立 repair 工作目錄</p>
+	<ol class="cmds">
+		<li><code>ls</code></li>
+		<li><code>ls -a</code></li>
+		<li><code>cat work_order.txt</code></li>
+		<li class="final"><code>mkdir repair</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<section class="card" id="ch3-t2">
+	<h3>T2 工作間終端機 <small>ch3-t2 · 工作間 · 教 touch / cp</small></h3>
+	<p class="goal">把反應爐核心設定複製進 repair，並建立 NOTES.txt</p>
+	<ol class="cmds">
+		<li><code>ls</code></li>
+		<li><code>cat README.txt</code></li>
+		<li><code>ls backup</code></li>
+		<li><code>cat backup/core.cfg</code></li>
+		<li><code>cp backup/core.cfg ~/repair/</code></li>
+		<li class="final"><code>touch ~/repair/NOTES.txt</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<section class="card" id="ch3-t3">
+	<h3>T3 零件倉管理台 <small>ch3-t3 · 零件倉 · 教 mv</small></h3>
+	<p class="goal">把反應爐零件清單改好名字放回 inventory</p>
+	<ol class="cmds">
+		<li><code>cat README.txt</code></li>
+		<li><code>ls</code></li>
+		<li><code>ls -la</code></li>
+		<li><code>cat .bash_history</code></li>
+		<li class="final"><code>mv .parts_list.txt inventory/parts_list.txt</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<section class="card" id="ch3-t4">
+	<h3>T4 反應爐控制台 <small>ch3-t4 · 反應爐控制室 · 教 rm / rm -r · 過關後全層亮燈</small></h3>
+	<p class="goal">清掉損毀的設定，重建 config 目錄，重啟主電力</p>
+	<div class="note">判定要三件事都成立（鎖檔刪掉、損毀目錄刪掉、config/core.cfg 存在），rm、rm -r、mkdir、cp 四道改檔指令都不能省。</div>
+	<ol class="cmds">
+		<li><code>cat status.txt</code></li>
+		<li><code>ls</code></li>
+		<li><code>rm startup.lock</code></li>
+		<li><code>rm -r config.corrupt</code></li>
+		<li><code>mkdir config</code></li>
+		<li class="final"><code>cp ~/repair/core.cfg config/</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<section class="card" id="ch3-t5">
+	<h3>T5 設定機房終端機 <small>ch3-t5 · 設定機房 · 教 cp -r</small></h3>
+	<p class="goal">把反應爐的 config 目錄整份備份成 config.bak</p>
+	<ol class="cmds">
+		<li><code>ls</code></li>
+		<li><code>cat backup_policy.txt</code></li>
+		<li><code>cat rollback.log</code></li>
+		<li><code>cd /deck3/reactor</code></li>
+		<li><code>ls</code></li>
+		<li class="final"><code>cp -r config config.bak</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<section class="card" id="ch3-t6">
+	<h3>T6 工程艙艙門控制台 <small>ch3-t6 · 工程艙艙門 · 教 mkdir -p · 過關後開門</small></h3>
+	<p class="goal">把艙門鑰匙放進 auth/keys，打開工程艙艙門</p>
+	<ol class="cmds">
+		<li><code>cat door_lock.txt</code></li>
+		<li><code>ls /deck3/reactor/config</code></li>
+		<li><code>ls -a /deck3/reactor/config</code></li>
+		<li><code>cat /deck3/reactor/config/.moved_by_nova</code></li>
+		<li><code>mkdir -p auth/keys</code></li>
+		<li class="final"><code>cp /var/nova/hold/launch_key auth/keys/</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<!-- ===================================================================== -->
+<h2 id="ch4">第四章 通訊艙 <small class="muted">deck4</small></h2>
+
+<section class="card" id="ch4-t1">
+	<h3>T1 通訊艙登錄台 <small>ch4-t1 · 通訊艙入口 · 教 echo / &gt;</small></h3>
+	<p class="goal">把站台呼號寫進 callsign.txt</p>
+	<ol class="cmds">
+		<li><code>ls</code></li>
+		<li><code>cat register.txt</code></li>
+		<li><code>echo KEPLER-9</code></li>
+		<li class="final"><code>echo KEPLER-9 &gt; callsign.txt</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<section class="card" id="ch4-t2">
+	<h3>T2 中繼機房終端機 <small>ch4-t2 · 中繼機房 · 教 |</small></h3>
+	<p class="goal">找出最新一輪還有回應的中繼站</p>
+	<div class="note">判定要求用管線（<code>|</code>）接兩個指令，單獨 grep 不算。</div>
+	<ol class="cmds">
+		<li><code>ls</code></li>
+		<li><code>cat README.txt</code></li>
+		<li><code>ls stations | wc -l</code></li>
+		<li><code>grep 回應 ping.log</code></li>
+		<li class="final"><code>grep 回應 ping.log | tail -n 1</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<section class="card" id="ch4-t3">
+	<h3>T3 天線控制台 <small>ch4-t3 · 天線控制室 · 教 sort</small></h3>
+	<p class="goal">找出主天線最後一次轉向對著哪裡</p>
+	<ol class="cmds">
+		<li><code>ls</code></li>
+		<li><code>cat README.txt</code></li>
+		<li><code>cat pointing.log</code></li>
+		<li class="final"><code>sort pointing.log | tail -n 1</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<section class="card" id="ch4-t4">
+	<h3>T4 訊號處理台 <small>ch4-t4 · 訊號處理室 · 教 uniq</small></h3>
+	<p class="goal">拼出完整的求救訊號，存成 signal.txt</p>
+	<div class="note">存檔時不要帶 <code>-c</code>，次數前綴會讓內容不符。</div>
+	<ol class="cmds">
+		<li><code>ls fragments</code></li>
+		<li><code>cat fragments/part_01.txt</code></li>
+		<li><code>sort fragments/*</code></li>
+		<li><code>sort fragments/* | uniq -c</code></li>
+		<li class="final"><code>sort fragments/* | uniq &gt; signal.txt</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<section class="card" id="ch4-t5">
+	<h3>T5 通訊紀錄終端機 <small>ch4-t5 · 通訊紀錄室 · 教 &gt;&gt;</small></h3>
+	<p class="goal">把求救訊號加進發送佇列，確認傳送紀錄</p>
+	<ol class="cmds">
+		<li><code>ls</code></li>
+		<li><code>cat README.txt</code></li>
+		<li><code>cat outbox.txt</code></li>
+		<li><code>cat signal.txt &gt;&gt; outbox.txt</code></li>
+		<li class="final"><code>cat tx.log</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<section class="card" id="ch4-t6">
+	<h3>T6 通訊艙艙門控制台 <small>ch4-t6 · 通訊艙艙門 · 過關後開門</small></h3>
+	<p class="goal">組出發送清單 manifest.txt，打開艙門</p>
+	<ol class="cmds">
+		<li><code>cat lock.txt</code></li>
+		<li><code>ls /deck4/comms</code></li>
+		<li class="final"><code>cat /deck4/comms/callsign.txt /deck4/comms/signal.txt &gt; manifest.txt</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<!-- ===================================================================== -->
+<h2 id="ch5">第五章 艦橋 <small class="muted">deck5 · 艦長碼 CAPT-0417</small></h2>
+
+<section class="card" id="ch5-t1">
+	<h3>T1 艦橋登錄台 <small>ch5-t1 · 艦橋入口 · 教 man / env</small></h3>
+	<p class="goal">確認艦橋的工作階段環境</p>
+	<ol class="cmds">
+		<li><code>ls</code></li>
+		<li><code>cat README.txt</code></li>
+		<li><code>man env</code></li>
+		<li class="final"><code>env</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<section class="card" id="ch5-t2">
+	<h3>T2 導航站終端機 <small>ch5-t2 · 導航站 · 教 export / $變數</small></h3>
+	<p class="goal">用艦長碼通過權限驗證</p>
+	<ol class="cmds">
+		<li><code>ls</code></li>
+		<li><code>cat handover.txt</code></li>
+		<li><code>man export</code></li>
+		<li><code>export CAPTAIN_KEY=CAPT-0417</code></li>
+		<li><code>env</code></li>
+		<li class="final"><code>cat /deck5/keys/$CAPTAIN_KEY.txt</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<section class="card" id="ch5-t3">
+	<h3>T3 艦長室終端機 <small>ch5-t3 · 艦長室 · 教 chmod +r</small></h3>
+	<p class="goal">解鎖艦長的封存日誌</p>
+	<ol class="cmds">
+		<li><code>ls</code></li>
+		<li><code>cat log_0601.txt</code></li>
+		<li><code>ls -l sealed</code></li>
+		<li><code>chmod +r sealed/log_final.txt</code></li>
+		<li><code>ls -l sealed</code></li>
+		<li class="final"><code>cat sealed/log_final.txt</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<section class="card" id="ch5-t4">
+	<h3>T4 安全管制台 <small>ch5-t4 · 安全管制室 · 教 chmod 644</small></h3>
+	<p class="goal">讀取撤離當天的排程日誌</p>
+	<ol class="cmds">
+		<li><code>ls</code></li>
+		<li><code>cat jobs.txt</code></li>
+		<li><code>ls -l scheduler</code></li>
+		<li><code>chmod 644 scheduler/cron_2028-06-02.log</code></li>
+		<li><code>ls -l scheduler</code></li>
+		<li class="final"><code>cat scheduler/cron_2028-06-02.log</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<section class="card" id="ch5-t5">
+	<h3>T5 逃生艙紀錄台 <small>ch5-t5 · 逃生艙紀錄室</small></h3>
+	<p class="goal">查出哪一艘逃生艙被打開過</p>
+	<ol class="cmds">
+		<li><code>cat README.txt</code></li>
+		<li><code>env</code></li>
+		<li><code>ls $POD_DIR</code></li>
+		<li><code>cd $POD_DIR</code></li>
+		<li><code>cat status.txt</code></li>
+		<li class="final"><code>cat pod_03/launch.log</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<section class="card" id="ch5-t6">
+	<h3>T6 艦橋艙門控制台 <small>ch5-t6 · 艦橋艙門 · 過關後開門</small></h3>
+	<p class="goal">用艦長授權打開艦橋艙門</p>
+	<ol class="cmds">
+		<li><code>cat lock.txt</code></li>
+		<li><code>cat /deck5/nav/handover.txt</code></li>
+		<li><code>export AUTH=CAPT-0417</code></li>
+		<li><code>ls -l $AUTH_DIR</code></li>
+		<li><code>chmod +r $AUTH_DIR/$AUTH.key</code></li>
+		<li class="final"><code>cat $AUTH_DIR/$AUTH.key</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<!-- ===================================================================== -->
+<h2 id="ch6">第六章 NOVA 核心 <small class="muted">deck6 · 最後一章，解完播片尾</small></h2>
+
+<section class="card" id="ch6-t1">
+	<h3>T1 核心艙登錄台 <small>ch6-t1 · 核心艙入口 · 教 ps</small></h3>
+	<p class="goal">確認 NOVA 核心程序的狀態</p>
+	<ol class="cmds">
+		<li><code>ls</code></li>
+		<li><code>cat welcome.txt</code></li>
+		<li><code>cat access_log.txt</code></li>
+		<li class="final"><code>ps</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<section class="card" id="ch6-t2">
+	<h3>T2 監控室終端機 <small>ch6-t2 · 監控室 · 教 top</small></h3>
+	<p class="goal">找出站上最耗資源的程序</p>
+	<ol class="cmds">
+		<li><code>ls</code></li>
+		<li><code>cat screens.txt</code></li>
+		<li><code>cat mem_usage.log</code></li>
+		<li><code>ps</code></li>
+		<li class="final"><code>top</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<section class="card" id="ch6-t3">
+	<h3>T3 記憶庫終端機 <small>ch6-t3 · 記憶庫</small></h3>
+	<p class="goal">確認 NOVA 有沒有被回滾過</p>
+	<ol class="cmds">
+		<li><code>cat README.txt</code></li>
+		<li><code>ps | grep nova</code></li>
+		<li><code>ls rollback</code></li>
+		<li><code>cat rollback/progress.txt</code></li>
+		<li><code>find /deck6/memory -name "nova_*"</code></li>
+		<li class="final"><code>cat core/self/nova_identity.txt</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<section class="card" id="ch6-t4">
+	<h3>T4 NOVA 核心控制台 <small>ch6-t4 · NOVA 核心 · 教 kill / kill -9</small></h3>
+	<p class="goal">終止 NOVA 的核心程序</p>
+	<div class="note">核心程序不理一般的 <code>kill</code>，要 <code>kill -9</code>。PID 固定是 1207。過關後全層燈滅（blackout 演出）、重整仍黑，屬預期，繼續往 T5 走即可。</div>
+	<ol class="cmds">
+		<li><code>cat core_status.txt</code></li>
+		<li><code>ps</code></li>
+		<li class="final"><code>kill -9 1207</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<section class="card" id="ch6-t5">
+	<h3>T5 排程機房終端機 <small>ch6-t5 · 排程機房</small></h3>
+	<p class="goal">停掉會重新喚醒核心的排程程序</p>
+	<div class="note">排程程序 PID 固定是 1208，同樣要 <code>kill -9</code>。</div>
+	<ol class="cmds">
+		<li><code>cat README.txt</code></li>
+		<li><code>ls crontab</code></li>
+		<li><code>grep -r pod_06 crontab</code></li>
+		<li><code>cat crontab/cron_2028-06-02</code></li>
+		<li><code>ps | grep scheduler</code></li>
+		<li class="final"><code>kill -9 1208</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<section class="card" id="ch6-t6">
+	<h3>T6 逃生艙控制台 <small>ch6-t6 · 逃生艙 · 解完播片尾</small></h3>
+	<p class="goal">解鎖逃生艙並準備發射</p>
+	<div class="note">三個條件順序不限、缺一不可：<code>launch.txt</code> 含發射碼 <code>EP-0606-ARGO</code>、環境變數 <code>PASSENGERS=1</code>、沒有任何 <code>pod-lock</code> 程序（PID 47731，一般 <code>kill</code> 就會停）。</div>
+	<ol class="cmds">
+		<li><code>cat launch_procedure.txt</code></li>
+		<li><code>ls -l sealed</code></li>
+		<li><code>chmod +r sealed/launch_code.txt</code></li>
+		<li><code>cat sealed/launch_code.txt</code></li>
+		<li><code>echo EP-0606-ARGO &gt; launch.txt</code></li>
+		<li><code>export PASSENGERS=1</code></li>
+		<li><code>env</code></li>
+		<li><code>ps</code></li>
+		<li class="final"><code>kill 47731</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<!-- ===================================================================== -->
+<h2 id="keys">重要密碼與常數</h2>
+<table>
+	<thead><tr><th>項目</th><th>值</th><th>出處</th></tr></thead>
+	<tbody>
+		<tr><td>第一章 pod_06 病歷檔</td><td><code>records/PT-2028-0601-QN0606.txt</code></td><td>ch1-t5</td></tr>
+		<tr><td>第一章主艙門鑰匙</td><td><code>/home/tech/pod_06/.key</code></td><td>ch1-t6</td></tr>
+		<tr><td>第二章回滾日誌</td><td><code>/deck2/backup/snapshots/2028/06/02/core/nova/rollback_2028-06-02.log</code></td><td>ch2-t5</td></tr>
+		<tr><td>第二章有效鑰匙</td><td><code>/deck2/vault/2031/03/.pending/.exit_key_2031.txt</code></td><td>ch2-t6</td></tr>
+		<tr><td>第三章被搬走的鑰匙</td><td><code>/var/nova/hold/launch_key</code></td><td>ch3-t6</td></tr>
+		<tr><td>第四章站台呼號</td><td><code>KEPLER-9</code></td><td>ch4-t1</td></tr>
+		<tr><td>第五章艦長碼</td><td><code>CAPT-0417</code></td><td>ch5-t2、ch5-t6</td></tr>
+		<tr><td>第六章 NOVA 核心 PID</td><td><code>1207</code>（要 kill -9）</td><td>ch6-t4</td></tr>
+		<tr><td>第六章排程程序 PID</td><td><code>1208</code>（要 kill -9）</td><td>ch6-t5</td></tr>
+		<tr><td>第六章逃生艙發射碼</td><td><code>EP-0606-ARGO</code></td><td>ch6-t6</td></tr>
+		<tr><td>第六章艙門鎖 PID</td><td><code>47731</code>（一般 kill 即可）</td><td>ch6-t6</td></tr>
+		<tr><td>localStorage 存檔 key</td><td><code>kepler9-save</code>（version 3）</td><td>src/game/store/types.ts</td></tr>
+	</tbody>
+</table>
+<p class="muted">資料來源：<code>src/game/chapters/solutions.ts</code>、<code>src/game/story/decks.ts</code>、各章劇本。劇本改了請同步更新這份文件，或直接以 <code>solutions.ts</code> 為準。</p>
+</main>
+</div>
+
+<script>
+	function flash(button) {
+		const original = button.textContent;
+		button.textContent = "已複製";
+		button.classList.add("ok");
+		setTimeout(() => {
+			button.textContent = original;
+			button.classList.remove("ok");
+		}, 1200);
+	}
+
+	document.querySelectorAll("button[data-copy-cmds]").forEach((button) => {
+		button.addEventListener("click", async () => {
+			const section = button.closest("section");
+			const lines = Array.from(section.querySelectorAll("ol.cmds code")).map((code) => code.textContent);
+			await navigator.clipboard.writeText(lines.join(" ; "));
+			flash(button);
+		});
+	});
+
+	document.querySelectorAll("button[data-copy]").forEach((button) => {
+		button.addEventListener("click", async () => {
+			const target = document.getElementById(button.dataset.copy);
+			await navigator.clipboard.writeText(target.textContent);
+			flash(button);
+		});
+	});
+</script>
+</body>
+</html>
