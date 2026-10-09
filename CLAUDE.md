@@ -50,7 +50,7 @@ pnpm sprites:slice technician-d   # 只處理指定角色
 # 重新產生六張甲板地圖 deck1 到 deck6 (改 scripts/build-map.mjs 的 buildDeckLayout 後跑；deck1 必須維持不變)
 pnpm map:build
 
-# 把 codex 產的場景原圖縮成 640x360 (public/scenes) 與 256x144 預覽 (docs/assets-draft/scenes)
+# 把 codex 產的場景原圖縮成 640x360 WebP (public/scenes) 與 256x144 PNG 預覽 (docs/assets-draft/scenes)
 node scripts/resize-scenes.mjs
 
 # 重切 Fusion Pixel 字型子集 (劇本或 UI 加了新中文字、subset.test.ts 紅燈時跑；需要 fonttools 與 brotli)
@@ -122,7 +122,7 @@ scripts/resize-scenes.mjs   # 場景原圖縮圖腳本
 public/sprites/             # 四位角色的 32x48 sprite sheet (128x192，4x4 格)
 public/tiles/               # Buch Sci-fi Interior tileset (448x192，14x6 格，32px)
 public/maps/deck{1..6}.json # 六章地圖 (40x24 格、同一張平面圖、艙區名不同)，由 build-map.mjs 產生，可用 Tiled 開啟
-public/scenes/              # NOVA 立繪 (256px) 與各章場景插圖 (640x360)，原圖在 docs/assets-draft/scenes/ 不進版控
+public/scenes/              # NOVA 立繪 (256px PNG) 與各章場景插圖 (640x360 WebP)，原圖在 docs/assets-draft/scenes/ 不進版控
 public/audio/               # 五種 CC0 音效 (Kenney)，ogg 與 mp3
 docs/assets-draft/scenes/generate.sh  # 第一章八張插圖的 codex 批次產圖腳本 (M6-1)；generate-ch2-6.sh 是第二到六章的
 docs/

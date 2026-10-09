@@ -313,6 +313,13 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 
 每次 session 收工加一筆，最新在最上面。格式：日期、做了什麼、commit 範圍、下一步。
 
+### 2026-10-09（第十五場，場景插圖轉 WebP）
+
+- Danny 想部署到 Vercel，問大型素材要不要另外放。實測 `public/` 只有 8.4MB，建議直接放 Vercel、先把場景圖轉 WebP；Danny 同意轉檔並要求驗證圖片正確。
+- 轉檔與驗證見第 8 節 #101：44 張都能解碼、都是 640x360、各自跟原 PNG 比對；正式 build 回 `image/webp`、Chromium 逐張解碼成功；實際走標題流程，開場插圖卡載入 `scene-intro.webp`，沒有 404。
+- 驗證：`pnpm test --run` 2811 個全綠，`pnpm lint`、`npx tsc --noEmit`、`pnpm build` 乾淨。e2e 4 個 worker 跑時 `play.spec.ts` 兩條在走路時 30 秒逾時；單獨用 1 個 worker 重跑 12 條全綠，判斷是負載造成，跟圖片無關。
+- 下一步：部署。
+
 ### 2026-10-09（第十四場，`/loop` 自主實作 M10 到 M14）
 
 - Danny 下 `/loop`：「到 10/9 上午十點前，依照 `audit-2026-10-08.md` 的計畫開始實作，允許多開 subagent 加速，做完必須自我驗證」，之後離線。照記憶裡的自主規則，不確定的自己拍板、記進第 8 節。
@@ -606,6 +613,7 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 | 98 | `which /usr/bin/ls` 認得指令的安裝路徑；但照抄完整路徑執行不開放，回說明「直接打 ls」並算錯誤 | 開放執行的話目標判定的指令名會變成 `/usr/bin/cat`，判定全都要改；3.3 原則是不支援的寫法說清楚並給替代 | `which.commandAtInstallPath`、`messages.fullPathCommand` |
 | 99 | less 的 `/`、`?` 搜尋在狀態列放真的輸入框（接輸入法與貼上），Esc 只取消搜尋、組字中的 Enter／Esc 交給輸入法；分頁器列高改量 `offsetHeight` | 原本打不進中文；開場 scaleY 動畫中量 rect 會把一頁算成 30 列 | `Pager.tsx` |
 | 100 | 瀏覽器整個封鎖網站資料（讀取就丟 SecurityError）時當成沒有存檔、回報 `unavailable` 讓讀檔完成；存檔提示移到 `top-16`（讓開上方 HUD）、`/sandbox` 不顯示；素材提示移到 `top-28` | 原本標題、`/play`、沙盒都卡在讀取中且沒有提示；提示條蓋住操作提示與沙盒標題列 | `gameStore.safeLocalStorage`、`saveStatus.ts`、`SaveStatusNotice` |
+| 101 | 44 張場景插圖從 PNG 改成 lossy WebP 品質 85（`nova-eye`、`nova-core` 立繪仍是 PNG）；`resize-scenes.mjs` 的遊戲用輸出改成 WebP，256px 預覽維持 PNG | Danny 為了部署要求轉檔。8.0MB 降到 2.6MB（每張 31 到 87KB）。RMSE 1.6% 到 2.9%，高於 #52 的 0.8% 門檻，但逐張比對：平均每像素差 2.5 到 4.8／255、差超過 48 的像素不到 0.07%，放大三倍目視只有雜訊格稍微變柔，沒有色塊或色偏 | 嫌糊就把 `resize-scenes.mjs` 的 `quality` 調高後重壓（原圖不在的那幾張要從 git 歷史拿 PNG 再轉），或 `git revert` 這個 commit |
 
 ## 9. 第一版之後的候選工作
 
