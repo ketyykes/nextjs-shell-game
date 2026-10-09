@@ -23,7 +23,7 @@
 | 目前階段 | **M0 到 M14 全部完成**。M10 到 M14 是第十三場審計排出的優化路線（證據在 [`audit-2026-10-08.md`](./audit-2026-10-08.md)），第十四場由十幾個 agent 平行實作、我逐組合併驗證；這次的自主決策在第 8 節 #62 到 #100，**等 Danny 確認**。Danny 本人還沒玩過第二章以後，也還沒看過 M10 到 M14 的新東西 |
 | 程式碼狀態 | 標題（含觸控提示、練習模式、存檔管理、通關紀錄）→ 選角 → boot log → 六章地圖 → 片尾。`pnpm test --run` 148 個測試檔 2811 個測試全綠，`npx tsc --noEmit`、`pnpm lint`、`pnpm build` 乾淨；`PORT=3300 pnpm test:e2e` 48 個全綠、沒有 flaky（e2e 走路改成讀座標的閉環，本機 4 個 worker）。存檔格式 v3 |
 | 下一步 | 第 9 節的候選工作：Danny 試玩（特別是 M10 的引導、M13 的新指令、沙盒、存檔管理與通關紀錄）、確認第 8 節 #62 到 #100、第 4 節的試聽與潤稿、部署。審計末尾「這次沒選的項目」仍可挑 |
-| 遠端 | `origin` 是 HTTPS 網址 `https://github.com/ketyykes/nextjs-shell-game.git`，2026-10-09 Danny 親自 push 到 `4acd05e`（第十四場全部內容）；之後的 commit push 前先問 Danny |
+| 遠端 | `origin` 是 HTTPS 網址 `https://github.com/ketyykes/nextjs-shell-game.git`，2026-10-09 Danny 同意後 push 到 `86846ca`（第十五場場景插圖轉 WebP）；之後的 commit push 前先問 Danny |
 
 ## 2. 里程碑總覽
 
