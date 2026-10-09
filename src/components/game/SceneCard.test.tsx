@@ -14,14 +14,14 @@ describe("SceneCard", () => {
 	it("顯示插圖、標題與副標", () => {
 		render(
 			<SceneCard
-				card={{ id: "cryo", src: "/scenes/scene-cryo.png", title: "冷凍艙", subtitle: "Kepler-9" }}
+				card={{ id: "cryo", src: "/scenes/scene-cryo.webp", title: "冷凍艙", subtitle: "Kepler-9" }}
 				onShown={vi.fn()}
 			/>,
 		);
 		expect(screen.getByText("冷凍艙")).toBeDefined();
 		expect(screen.getByText("Kepler-9")).toBeDefined();
 		expect(screen.getByRole("img", { name: "冷凍艙的插圖" })).toBeDefined();
-		expect(document.querySelector("img")?.getAttribute("src")).toBe("/scenes/scene-cryo.png");
+		expect(document.querySelector("img")?.getAttribute("src")).toBe("/scenes/scene-cryo.webp");
 	});
 
 	it("停留時間過後呼叫 onShown 並帶上 id", async () => {

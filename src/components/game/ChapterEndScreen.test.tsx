@@ -222,7 +222,7 @@ describe("ChapterEndScreen", () => {
 		render(
 			<ChapterEndScreen
 				{...createProps({ onReturnToTitle })}
-				ending={{ lines: ["喚醒程序……完成。", "你是……"], illustrationSrc: "/scenes/scene-ending.png" }}
+				ending={{ lines: ["喚醒程序……完成。", "你是……"], illustrationSrc: "/scenes/scene-ending.webp" }}
 			/>,
 		);
 		goToRecap();
@@ -230,7 +230,7 @@ describe("ChapterEndScreen", () => {
 		expect(screen.getByTestId("chapter-end-ending")).toBeTruthy();
 		expect(screen.getByText("救援船終端機")).toBeTruthy();
 		expect(screen.getByTestId("chapter-end-outro-text").textContent).toBe("喚醒程序……完成。");
-		expect(screen.getByTestId("chapter-end-illustration").getAttribute("src")).toBe("/scenes/scene-ending.png");
+		expect(screen.getByTestId("chapter-end-illustration").getAttribute("src")).toBe("/scenes/scene-ending.webp");
 		pressEnter();
 		expect(screen.getByTestId("chapter-end-outro-text").textContent).toBe("你是……");
 		expect(screen.getByTestId("chapter-end-continue-hint").textContent).toBe("按 Enter 回標題");

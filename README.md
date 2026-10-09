@@ -2,7 +2,7 @@
 
 在廢棄太空站用真正的 shell 指令解謎的恐怖冒險遊戲。瀏覽器就能玩，專為完全沒碰過終端機的新手設計——通關的同時，你已經學會用命令列。
 
-![開場：Kepler-9 太空站](public/scenes/scene-intro.png)
+![開場：Kepler-9 太空站](public/scenes/scene-intro.webp)
 
 ## 故事
 

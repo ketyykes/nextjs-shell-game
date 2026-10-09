@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * 把 codex 產的場景原圖（`docs/assets-draft/scenes/scene-*-original.png`，約 1672x941）
- * 縮成兩種尺寸：`public/scenes/scene-*.png`（640x360，遊戲用）與 `docs/assets-draft/scenes/scene-*.png`（256x144，預覽、進版控）。
+ * 縮成兩種尺寸：`public/scenes/scene-*.webp`（640x360，遊戲用，WebP 品質 85）與 `docs/assets-draft/scenes/scene-*.png`（256x144，預覽、進版控）。
  * 已經有輸出而且比原圖新的就跳過。
  *
  * 用法：
@@ -20,10 +20,10 @@ const DRAFT_DIR = path.join(ROOT, "docs", "assets-draft", "scenes");
 /** @type {string} */
 const PUBLIC_DIR = path.join(ROOT, "public", "scenes");
 
-/** @type {{ dir: string, width: number, height: number }[]} */
+/** @type {{ dir: string, width: number, height: number, format: "webp" | "png" }[]} */
 const OUTPUTS = [
-	{ dir: PUBLIC_DIR, width: 640, height: 360 },
-	{ dir: DRAFT_DIR, width: 256, height: 144 },
+	{ dir: PUBLIC_DIR, width: 640, height: 360, format: "webp" },
+	{ dir: DRAFT_DIR, width: 256, height: 144, format: "png" },
 ];
 
 /** @type {(source: string, target: string) => Promise<boolean>} */
@@ -40,14 +40,17 @@ const isUpToDate = async (source, target) => {
 const resizeScene = async (name) => {
 	const source = path.join(DRAFT_DIR, `scene-${name}-original.png`);
 	for (const output of OUTPUTS) {
-		const target = path.join(output.dir, `scene-${name}.png`);
+		const target = path.join(output.dir, `scene-${name}.${output.format}`);
 		if (await isUpToDate(source, target)) {
 			continue;
 		}
-		await sharp(source)
-			.resize({ width: output.width, height: output.height, fit: "cover", kernel: "lanczos3" })
-			.png()
-			.toFile(target);
+		const resized = sharp(source).resize({ width: output.width, height: output.height, fit: "cover", kernel: "lanczos3" });
+		// 遊戲用的走 WebP 省流量（8 MB 降到約 2.7 MB），預覽圖維持 PNG 方便在 GitHub 與編輯器直接看
+		if (output.format === "webp") {
+			await resized.webp({ quality: 85, effort: 6 }).toFile(target);
+		} else {
+			await resized.png().toFile(target);
+		}
 		console.log(`${path.relative(ROOT, target)} ← ${output.width}x${output.height}`);
 	}
 };
