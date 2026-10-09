@@ -18,12 +18,12 @@
 
 | 項目 | 內容 |
 |---|---|
-| 更新日期 | 2026-10-09 |
+| 更新日期 | 2026-10-10 |
 | 最新 commit | 見 `git log --oneline -20`：第十四場（`/loop` 自主實作）從 `ef64bd3` 起約 120 個 commit，做完 M10 到 M14 全部 26 項，再用三個整合審查 agent 找出 12 個跨組 bug 並修掉 |
 | 目前階段 | **M0 到 M14 全部完成**。M10 到 M14 是第十三場審計排出的優化路線（證據在 [`audit-2026-10-08.md`](./audit-2026-10-08.md)），第十四場由十幾個 agent 平行實作、我逐組合併驗證；這次的自主決策在第 8 節 #62 到 #100，**等 Danny 確認**。Danny 本人還沒玩過第二章以後，也還沒看過 M10 到 M14 的新東西 |
 | 程式碼狀態 | 標題（含觸控提示、練習模式、存檔管理、通關紀錄）→ 選角 → boot log → 六章地圖 → 片尾。`pnpm test --run` 148 個測試檔 2811 個測試全綠，`npx tsc --noEmit`、`pnpm lint`、`pnpm build` 乾淨；`PORT=3300 pnpm test:e2e` 48 個全綠、沒有 flaky（e2e 走路改成讀座標的閉環，本機 4 個 worker）。存檔格式 v3 |
 | 下一步 | 第 9 節的候選工作：Danny 試玩（特別是 M10 的引導、M13 的新指令、沙盒、存檔管理與通關紀錄）、確認第 8 節 #62 到 #100、第 4 節的試聽與潤稿、部署。審計末尾「這次沒選的項目」仍可挑 |
-| 遠端 | `origin` 是 HTTPS 網址 `https://github.com/ketyykes/nextjs-shell-game.git`，2026-10-09 Danny 同意後 push 到 `86846ca`（第十五場場景插圖轉 WebP）；之後的 commit push 前先問 Danny |
+| 遠端 | `origin` 是 HTTPS 網址 `https://github.com/ketyykes/nextjs-shell-game.git`，2026-10-10 Danny 自己 push 到 `70bde04`（第十六場過關密技）；之後的 commit push 前先問 Danny |
 
 ## 2. 里程碑總覽
 
@@ -312,6 +312,13 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 ## 7. 工作日誌
 
 每次 session 收工加一筆，最新在最上面。格式：日期、做了什麼、commit 範圍、下一步。
+
+### 2026-10-10（第十六場，開發者過關密技）
+
+- Danny 要一份給開發者看的過關密技 HTML，產出 [`cheatsheet.html`](./cheatsheet.html)：六章 36 台終端機的正解序列（資料直接抄 `src/game/chapters/solutions.ts`，最後一行標「過關」）、標題／艙區／教的指令／目標、六台位置平面圖、跳章的 localStorage 程式（存檔 v3 格式）、`window.__kepler9.emit` 演出鉤子、密碼與 PID 常數表。放 `docs/`，不會被站台發布。
+- 驗證：寫臨時腳本把 HTML 裡 36 串指令跟 `solutions.ts` 逐字比對（0 處不符）；`solutions.test.ts` 72 個綠；另寫臨時 Vitest 用真 Shell 確認 36 串以 ` ; ` 串成一行也全部過關（跑完刪掉）。再開 4 個驗證 agent 加反駁 agent 對文件挑錯，確認兩件並修掉：終端機輸入列是單行 `<input>`，貼多行會合併，「複製全部」改成用 ` ; ` 串一行；`__kepler9.emit("puzzle:solved")` 只播地圖演出、不寫存檔，文件改標題並加警語。順手修四個小處（T2 是「下排中」、第三章也開場斷電、ch3-t4 是四道改檔指令、ch6-t4 過關後燈滅屬預期）。
+- commit `70bde04`，Danny 自己 push 到 origin。
+- 下一步：劇本改了要同步這份文件（或直接以 `solutions.ts` 為準）；其餘同第十五場（部署、試玩、確認第 8 節）。
 
 ### 2026-10-09（第十五場，場景插圖轉 WebP）
 
