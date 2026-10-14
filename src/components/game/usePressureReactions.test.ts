@@ -140,3 +140,47 @@ describe("usePressureReactions", () => {
 		expect(useGameStore.getState().terminals[CRYO.id]?.errorCount).toBe(0);
 	});
 });
+
+describe("usePressureReactions：第六章 NOVA 被終止之後（4.14）", () => {
+	const CHAPTER_SIX = getChapter(6);
+	const SCHEDULER = CHAPTER_SIX.terminals[4];
+	const CORE = CHAPTER_SIX.terminals[3];
+
+	function sixDialogues(terminalId: string): string[] {
+		const entries = useGameStore.getState().terminals[terminalId]?.transcript ?? [];
+		return entries.flatMap((entry) => (entry.kind === "dialogue" ? [entry.text] : []));
+	}
+
+	it("T4 過關後的終端機錯 9 次：不說 NOVA 的錯誤台詞，燈閃與門聲照舊", () => {
+		resolveShell(new Map(), SCHEDULER);
+		const { result } = renderHook(() =>
+			usePressureReactions({
+				chapter: CHAPTER_SIX,
+				openTerminal: SCHEDULER,
+				solvedTerminals: ["ch6-t1", "ch6-t2", "ch6-t3", "ch6-t4"],
+			}),
+		);
+
+		recordErrors(result.current.recordExecution, 9);
+
+		expect(sixDialogues(SCHEDULER.id)).not.toContain(novaErrorLine(CHAPTER_SIX.novaErrorLines, 0));
+		// 第一次卡關是這台劇本寫好的系統自動回覆，照舊
+		expect(sixDialogues(SCHEDULER.id)).toEqual(stuckLines(SCHEDULER));
+		expect(events.map((event) => event.name)).toEqual(["ambient:flicker", "sfx:play"]);
+	});
+
+	it("T4 過關前，核心控制台錯 9 次照樣說", () => {
+		resolveShell(new Map(), CORE);
+		const { result } = renderHook(() =>
+			usePressureReactions({
+				chapter: CHAPTER_SIX,
+				openTerminal: CORE,
+				solvedTerminals: ["ch6-t1", "ch6-t2", "ch6-t3"],
+			}),
+		);
+
+		recordErrors(result.current.recordExecution, 9);
+
+		expect(sixDialogues(CORE.id)).toContain(novaErrorLine(CHAPTER_SIX.novaErrorLines, 0));
+	});
+});
