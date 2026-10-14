@@ -5,9 +5,12 @@
  * 內容只用第一章就知道的事（設計文件 4.4）：名單上五個人、冷凍艙六個、玩家是第六個，
  * 阿彬兩天前（2031-03-10）凌晨還在站上；不提第五、六章的真相。
  *
- * - 名單上五個人的 uid 是 1001 到 1005，阿彬是名單上的第五人所以是 1005；玩家的 tech 是 1006。
- *   另外四個人的帳號名稱劇本從沒出現過，所以不列，`id` 查不到。
+ * - 名單上五個人的 uid 照冷凍艙位（第一章醫療艙的病歷索引）排 1001 到 1005：pod_01 艦長 captain、
+ *   pod_02 工程師 engineer、pod_03 醫官 medic、pod_04 通訊官 comms、pod_05 阿彬 abin；玩家的 tech 是 1006。
+ *   帳號名稱都是劇本裡出現過的：第二章資料中心的門禁紀錄與艙門事件（captain、engineer、medic、comms、abin）、
+ *   第五章艦長日誌的擁有者（captain）。
  * - 名單上的人都在 `crew` 群組裡，tech 不在（名單上沒有你）。
+ * - `eng` 是第三章零件倉的工程組共用帳號（banner 與 README），不是哪個人，uid 放在 2001 跟個人帳號分開，也不在 crew。
  * - 阿彬 2031-03-10 02:47 在通訊艙的終端機（tty4）登入、02:53 登出，對得上第四章通訊艙登錄紀錄的
  *   「02:47 登錄者：abin」與氣閘的「02:53 乘員：abin」；中間 02:51 改了第一章的 day_900.txt。
  * - tech 2031-03-12 08:15 醒來登入（第六章核心艙進出紀錄同一個時間），一直沒有登出。
@@ -25,8 +28,13 @@ const CREW_GROUP: AccountGroup = { gid: 1000, name: "crew" };
 export const STATION_ACCOUNTS: UserAccount[] = [
 	{ name: "root", uid: 0, groups: [] },
 	{ name: "nova", uid: 999, groups: [] },
+	{ name: "captain", uid: 1001, groups: [USERS_GROUP, CREW_GROUP] },
+	{ name: "engineer", uid: 1002, groups: [USERS_GROUP, CREW_GROUP] },
+	{ name: "medic", uid: 1003, groups: [USERS_GROUP, CREW_GROUP] },
+	{ name: "comms", uid: 1004, groups: [USERS_GROUP, CREW_GROUP] },
 	{ name: "abin", uid: 1005, groups: [USERS_GROUP, CREW_GROUP] },
 	{ name: "tech", uid: 1006, groups: [USERS_GROUP] },
+	{ name: "eng", uid: 2001, groups: [USERS_GROUP] },
 ];
 
 export const STATION_LOGIN_LOG: LoginLog = {

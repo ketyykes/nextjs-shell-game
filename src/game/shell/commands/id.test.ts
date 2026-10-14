@@ -28,8 +28,30 @@ describe("id 預設的站上帳號", () => {
 		expect(idCommand.run(["nova"], createContext()).lines).toEqual(["uid=999(nova) gid=999(nova) groups=999(nova)"]);
 	});
 
+	it("劇本裡出現過的船員帳號都查得到，uid 照冷凍艙位順序 1001 起，都在 crew 群組裡", () => {
+		// 艙位順序見第一章醫療艙的病歷索引；帳號名稱見第二章門禁紀錄、艙門事件與第五章艦長日誌的擁有者
+		expect(idCommand.run(["captain"], createContext()).lines).toEqual([
+			"uid=1001(captain) gid=1001(captain) groups=1001(captain),100(users),1000(crew)",
+		]);
+		expect(idCommand.run(["engineer"], createContext()).lines).toEqual([
+			"uid=1002(engineer) gid=1002(engineer) groups=1002(engineer),100(users),1000(crew)",
+		]);
+		expect(idCommand.run(["medic"], createContext()).lines).toEqual([
+			"uid=1003(medic) gid=1003(medic) groups=1003(medic),100(users),1000(crew)",
+		]);
+		expect(idCommand.run(["comms"], createContext()).lines).toEqual([
+			"uid=1004(comms) gid=1004(comms) groups=1004(comms),100(users),1000(crew)",
+		]);
+	});
+
+	it("第三章零件倉的工程組共用帳號 eng 查得到，不是名單上的人所以不在 crew", () => {
+		expect(idCommand.run(["eng"], createContext()).lines).toEqual([
+			"uid=2001(eng) gid=2001(eng) groups=2001(eng),100(users)",
+		]);
+	});
+
 	it("沒有這個帳號時回 noSuchUser，算錯誤", () => {
-		expect(idCommand.run(["captain"], createContext())).toEqual({ ok: false, lines: noSuchUser("captain") });
+		expect(idCommand.run(["ghost"], createContext())).toEqual({ ok: false, lines: noSuchUser("ghost") });
 	});
 
 	it("一次只能查一個帳號，多的回 extraOperand", () => {

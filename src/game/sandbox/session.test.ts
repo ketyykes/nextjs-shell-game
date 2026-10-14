@@ -54,6 +54,8 @@ describe("createSandboxShell", () => {
 			expect(run(shell, "id")).toEqual(["uid=1006(tech) gid=1006(tech) groups=1006(tech),100(users)"]);
 			expect(shell.execute("id abin")).toMatchObject({ isError: true, lines: noSuchUser("abin") });
 			expect(shell.execute("id nova").isError).toBe(true);
+			expect(shell.execute("id captain").isError).toBe(true);
+			expect(shell.execute("id eng").isError).toBe(true);
 			expect(run(shell, "last")[0]).toContain("Sat Aug 14 05:30   still logged in");
 		});
 
