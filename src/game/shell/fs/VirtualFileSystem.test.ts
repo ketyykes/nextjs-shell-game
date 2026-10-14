@@ -982,3 +982,66 @@ describe("寫入操作", () => {
 		});
 	});
 });
+
+describe("劇本覆蓋層的補寫（seedFile、seedDir）", () => {
+	const META = { mtime: "2029-02-14T03:30:00Z", owner: "abin", mode: "rw-r--r--" };
+
+	it("seedFile 照指定的擁有者、時間與權限寫檔，不更新既有父目錄的 mtime", () => {
+		const fs = createFs();
+		const homeBefore = fs.getDir("/", "/home/tech").mtime;
+
+		expect(fs.seedFile("/home/tech/.note", "紙條內容", META)).toBe(true);
+
+		const file = fs.getFile("/", "/home/tech/.note");
+		expect(file).toMatchObject({ content: "紙條內容", mtime: META.mtime, owner: "abin", mode: "rw-r--r--" });
+		expect(fs.getDir("/", "/home/tech").mtime).toBe(homeBefore);
+	});
+
+	it("seedFile 缺的父目錄一起建，目錄沿用檔案的擁有者與時間、權限是一般目錄的 rwxr-xr-x", () => {
+		const fs = createFs();
+
+		expect(fs.seedFile("/var/nova/hold/.abin", "放進它自己的櫃子。", META)).toBe(true);
+
+		for (const path of ["/var", "/var/nova", "/var/nova/hold"]) {
+			expect(fs.getDir("/", path)).toMatchObject({ mtime: META.mtime, owner: "abin", mode: "rwxr-xr-x" });
+		}
+		expect(fs.readFile("/", "/var/nova/hold/.abin")).toBe("放進它自己的櫃子。");
+	});
+
+	it("seedFile 路徑上已經有東西就不動它，回傳 false", () => {
+		const fs = createFs();
+
+		expect(fs.seedFile("/home/tech/wake_up.txt", "覆蓋", META)).toBe(false);
+		expect(fs.readFile("/", "/home/tech/wake_up.txt")).toBe("喚醒排程：三年後");
+		expect(fs.seedFile("/home/tech/pod_01", "覆蓋", META)).toBe(false);
+		expect(fs.getNode("/", "/home/tech/pod_01").type).toBe("dir");
+	});
+
+	it("seedFile 路徑中間是檔案時放不進去，回傳 false 而不丟例外", () => {
+		const fs = createFs();
+
+		expect(fs.seedFile("/home/tech/wake_up.txt/inner", "x", META)).toBe(false);
+		expect(fs.exists("/", "/home/tech/wake_up.txt/inner")).toBe(false);
+	});
+
+	it("seedDir 建目錄（缺的父目錄一起建）；已經是目錄就不動，是檔案就回傳 false", () => {
+		const fs = createFs();
+		const dirMeta = { mtime: "2030-06-02T04:40:00Z", owner: "abin", mode: "rwxr-xr-x" };
+
+		expect(fs.seedDir("/home/abin2/inbox", dirMeta)).toBe(true);
+		expect(fs.getDir("/", "/home/abin2")).toMatchObject({ owner: "abin", mtime: dirMeta.mtime });
+		expect(fs.getDir("/", "/home/abin2/inbox")).toMatchObject({ owner: "abin", mtime: dirMeta.mtime });
+
+		const abinBefore = fs.getDir("/", "/home/abin").mtime;
+		expect(fs.seedDir("/home/abin", dirMeta)).toBe(false);
+		expect(fs.getDir("/", "/home/abin").mtime).toBe(abinBefore);
+		expect(fs.seedDir("/home/tech/wake_up.txt", dirMeta)).toBe(false);
+	});
+
+	it("補寫的路徑必須是絕對路徑，劇本寫錯直接丟錯", () => {
+		const fs = createFs();
+
+		expect(() => fs.seedFile("home/tech/x", "x", META)).toThrow();
+		expect(() => fs.seedDir("relative", META)).toThrow();
+	});
+});

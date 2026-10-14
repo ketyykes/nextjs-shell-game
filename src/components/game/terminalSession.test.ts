@@ -1,8 +1,10 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { findTerminal } from "@/game/chapters";
 import { VirtualFileSystem } from "@/game/shell/fs";
 import { Shell } from "@/game/shell/shell";
 import type { TerminalDefinition } from "@/game/story";
+import { ABIN_REPLY_TERMINAL_ID, abinEvidenceFiles, findAbinNote } from "@/game/story/abinNotes";
 import { terminalScriptHash } from "@/game/story/scriptHash";
 import type { TerminalSessionRecord } from "@/game/store/types";
 import { createDialogueEntries, createTerminalSession, SCRIPT_UPDATED_LINES, toCommandName } from "./terminalSession";
@@ -196,6 +198,116 @@ describe("createTerminalSession", () => {
 			expect(freshRecord?.transcript).toHaveLength(200);
 			expect(freshRecord?.transcript.at(-2)).toMatchObject({ lines: SCRIPT_UPDATED_LINES });
 		});
+	});
+});
+
+describe("阿彬的留言覆蓋層", () => {
+	const MEDBAY = findTerminal("ch1-t5") as TerminalDefinition;
+	const JOKES = findAbinNote("ch1-jokes");
+	const JOKES_PATH = JOKES?.path ?? "";
+
+	/** 覆蓋層上線前就開過的醫療艙：存檔裡的檔案系統沒有留言。 */
+	function recordWithoutNote(definition: TerminalDefinition = MEDBAY): TerminalSessionRecord {
+		const shell = new Shell({
+			fs: VirtualFileSystem.fromSnapshot(definition.fs),
+			terminalId: definition.id,
+			hints: definition.hints,
+			learnedCommands: ["ls"],
+			cwd: definition.initialCwd,
+		});
+		shell.execute("ls");
+		return { shell: shell.toState(), transcript: [], scriptHash: terminalScriptHash(definition) };
+	}
+
+	it("全新建立：留言寫進檔案系統，第一筆 session 也帶著；劇本雜湊照舊只算劇本", () => {
+		const { shell, freshRecord } = createTerminalSession(MEDBAY, ["ls"], undefined, {
+			solved: false,
+			abinNotes: { found: [], reply: null },
+		});
+
+		expect(shell.fs.readFile("/", JOKES_PATH)).toBe(JOKES?.content);
+		expect(VirtualFileSystem.fromSerialized(freshRecord?.shell.fs ?? shell.toState().fs).exists("/", JOKES_PATH)).toBe(true);
+		expect(freshRecord?.scriptHash).toBe(terminalScriptHash(MEDBAY));
+	});
+
+	it("全新建立時已經找到的留言也補回去（例如重玩章節），讓玩家能重讀", () => {
+		const { shell } = createTerminalSession(MEDBAY, ["ls"], undefined, {
+			solved: false,
+			abinNotes: { found: ["ch1-jokes"], reply: null },
+		});
+
+		expect(shell.fs.exists("/", JOKES_PATH)).toBe(true);
+	});
+
+	it("沒給留言資料時當成一則都沒找到", () => {
+		const { shell } = createTerminalSession(MEDBAY, ["ls"], undefined, { solved: false });
+
+		expect(shell.fs.exists("/", JOKES_PATH)).toBe(true);
+	});
+
+	it("從存檔還原（覆蓋層上線前的老存檔、已過關）：還沒找到的補寫進去，不需要另存", () => {
+		const { shell, freshRecord } = createTerminalSession(MEDBAY, ["ls"], recordWithoutNote(), {
+			solved: true,
+			abinNotes: { found: [], reply: null },
+		});
+
+		expect(freshRecord).toBeNull();
+		expect(shell.historyEntries).toEqual(["ls"]);
+		expect(shell.fs.getFile("/", JOKES_PATH).owner).toBe("abin");
+	});
+
+	it("從存檔還原時已經找到的不補（玩家自己刪掉就尊重）", () => {
+		const { shell } = createTerminalSession(MEDBAY, ["ls"], recordWithoutNote(), {
+			solved: true,
+			abinNotes: { found: ["ch1-jokes"], reply: null },
+		});
+
+		expect(shell.fs.exists("/", JOKES_PATH)).toBe(false);
+	});
+
+	it("劇本改版重建（未過關）：新的檔案系統也有留言", () => {
+		const revised: TerminalDefinition = { ...MEDBAY, banner: ["KEPLER-9 醫療艙終端機 v3.1"] };
+		const { shell, freshRecord } = createTerminalSession(revised, ["ls"], recordWithoutNote(), {
+			solved: false,
+			abinNotes: { found: ["ch1-jokes"], reply: null },
+		});
+
+		expect(freshRecord?.scriptHash).toBe(terminalScriptHash(revised));
+		expect(shell.historyEntries).toEqual(["ls"]);
+		expect(shell.fs.exists("/", JOKES_PATH)).toBe(true);
+	});
+
+	it("存檔壞掉重建：一樣有留言", () => {
+		vi.spyOn(console, "warn").mockImplementation(() => {});
+		const broken = JSON.parse(JSON.stringify(recordWithoutNote())) as Record<string, unknown>;
+		broken.transcript = "壞掉";
+
+		const { shell } = createTerminalSession(MEDBAY, ["ls"], broken, { solved: false });
+
+		expect(shell.fs.exists("/", JOKES_PATH)).toBe(true);
+	});
+
+	it("回信的證據：有回信時第六章記憶庫補上記憶檔，連已過關的老存檔也補", () => {
+		const memory = findTerminal("ch6-t3") as TerminalDefinition;
+		const evidence = abinEvidenceFiles("我醒了").find((file) => file.terminalId === memory.id);
+
+		const { shell } = createTerminalSession(memory, ["ls"], recordWithoutNote(memory), {
+			solved: true,
+			abinNotes: { found: [], reply: "我醒了" },
+		});
+
+		expect(shell.fs.readFile("/", evidence?.path ?? "")).toContain("「我醒了」");
+	});
+
+	it("回信那台：還原時 /home/abin 一定在，echo 寫得進 reply.txt", () => {
+		const comms = findTerminal(ABIN_REPLY_TERMINAL_ID) as TerminalDefinition;
+
+		const { shell } = createTerminalSession(comms, ["echo"], recordWithoutNote(comms), {
+			solved: true,
+			abinNotes: { found: ["ch4-reply"], reply: null },
+		});
+
+		expect(shell.execute("echo 我醒了 > /home/abin/reply.txt").isError).toBe(false);
 	});
 });
 

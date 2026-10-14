@@ -4,7 +4,7 @@
 
 import type { FsDirNode, FsFileNode, FsNode, FsSnapshot, SerializedFs, VirtualFs } from "../types";
 import { canRead, FsError, HOME_DIR, isValidMode, PLAYER_USER } from "../types";
-import { cloneNode, createDirNode, createFileNode, deleteChild, getChild, setChild } from "./node";
+import { cloneNode, createDirNode, createFileNode, DEFAULT_DIR_MODE, deleteChild, getChild, setChild } from "./node";
 import { ROOT_PATH, basename, dirname, joinPath, resolvePath, splitPath } from "./path";
 import { buildRootFromSnapshot } from "./snapshot";
 
@@ -36,6 +36,15 @@ export interface RemoveOptions {
 export interface CopyOptions {
 	/** `cp -r`：允許複製目錄（整棵子樹）。 */
 	recursive?: boolean;
+}
+
+/**
+ * `seedFile`、`seedDir` 的節點屬性：劇本覆蓋層補寫的東西要像劇本寫的一樣，擁有者與時間不能是玩家與現在。
+ */
+export interface SeedMeta {
+	mtime: string;
+	owner: string;
+	mode: string;
 }
 
 /** `move`、`copy` 解析出來的目的地：放進哪個目錄、叫什麼名字，以及完整的絕對路徑。 */
@@ -498,6 +507,48 @@ export class VirtualFileSystem implements VirtualFs {
 		return names.sort((a, b) => a.localeCompare(b, "en"));
 	}
 
+	/**
+	 * 劇本覆蓋層專用（阿彬的隱藏留言，`@/game/story/abinNotes`）：在既有的檔案系統上補寫一個檔案。
+	 *
+	 * - 路徑必須是絕對路徑（劇本寫錯直接丟 `Error`）。
+	 * - 路徑上已經有東西、或中間某一段是檔案時什麼都不做，回傳 false；寫進去了回傳 true。
+	 * - 缺的父目錄一起建，目錄的擁有者與時間沿用 `meta`、權限是一般目錄的 `rwxr-xr-x`。
+	 * - 跟 `writeFile` 不同：既有目錄的 mtime 不動，看起來像本來就在那裡，不像剛剛才被寫進去。
+	 */
+	seedFile(absolutePath: string, content: string, meta: SeedMeta): boolean {
+		const parent = this.seedParents(absolutePath, meta);
+		if (parent === null) {
+			return false;
+		}
+
+		const name = basename(absolutePath);
+		if (getChild(parent, name) !== undefined) {
+			return false;
+		}
+
+		setChild(parent, name, createFileNode(name, content, meta));
+		return true;
+	}
+
+	/**
+	 * 劇本覆蓋層專用：補建一個目錄（例如回信要寫進去的 `/home/abin`），規則同 `seedFile`。
+	 * 已經是目錄或路徑上有檔案時回傳 false。
+	 */
+	seedDir(absolutePath: string, meta: SeedMeta): boolean {
+		const parent = this.seedParents(absolutePath, meta);
+		if (parent === null) {
+			return false;
+		}
+
+		const name = basename(absolutePath);
+		if (getChild(parent, name) !== undefined) {
+			return false;
+		}
+
+		setChild(parent, name, createDirNode(name, {}, meta));
+		return true;
+	}
+
 	serialize(): SerializedFs {
 		return {
 			version: SERIALIZED_VERSION,
@@ -571,6 +622,38 @@ export class VirtualFileSystem implements VirtualFs {
 
 			throw new FsError("ENOTDIR", displayPath);
 		}
+	}
+
+	/**
+	 * `seedFile`、`seedDir` 共用：沿路建好 `absolutePath` 的父目錄，回傳父目錄節點；
+	 * 中間某一段是檔案（玩家可能自己放了東西擋在那裡）時回傳 null。
+	 */
+	private seedParents(absolutePath: string, meta: SeedMeta): FsDirNode | null {
+		if (!absolutePath.startsWith(ROOT_PATH) || absolutePath === ROOT_PATH) {
+			throw new Error(`覆蓋層的路徑必須是根目錄以外的絕對路徑：${absolutePath}`);
+		}
+
+		const segments = splitPath(absolutePath);
+		let current = this.root;
+
+		for (const segment of segments.slice(0, -1)) {
+			const child = getChild(current, segment);
+
+			if (child === undefined) {
+				const created = createDirNode(segment, {}, { mtime: meta.mtime, owner: meta.owner, mode: DEFAULT_DIR_MODE });
+				setChild(current, segment, created);
+				current = created;
+				continue;
+			}
+
+			if (child.type !== "dir") {
+				return null;
+			}
+
+			current = child;
+		}
+
+		return current;
 	}
 
 	/**

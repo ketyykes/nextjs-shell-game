@@ -157,6 +157,20 @@ describe("resolveShell", () => {
 		expect(useGameStore.getState().terminals[CRYO.id]?.scriptHash).not.toBe("0000000000000000");
 	});
 
+	it("阿彬的留言照存檔的收集進度補寫：全新建立時寫進去並跟著第一筆 session 存起來；已找到又被刪掉的，重整後不補", () => {
+		const medbay = getChapter(1).terminals[4];
+		const notePath = "/deck1/medbay/.abin_jokes.txt";
+		const first = resolveShell(new Map(), medbay);
+		expect(first.fs.exists("/", notePath)).toBe(true);
+
+		first.execute(`rm ${notePath}`);
+		useGameStore.getState().saveTerminalSession(medbay.id, { shell: first.toState(), transcript: [] });
+		useGameStore.getState().markAbinNotesFound(["ch1-jokes"]);
+
+		const restored = resolveShell(new Map(), medbay);
+		expect(restored.fs.exists("/", notePath)).toBe(false);
+	});
+
 	it("store 裡的 session 壞掉：丟掉重建並寫回一筆新的（M12-5）", () => {
 		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 		useGameStore.setState({

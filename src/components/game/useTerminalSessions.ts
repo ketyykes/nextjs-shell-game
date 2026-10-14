@@ -10,6 +10,7 @@ import { createTerminalSession, toCommandName } from "./terminalSession";
 
 /**
  * 取得某台終端機的 Shell，沒有就建一個並記進快取；第一次開、存檔壞掉或劇本改版（未過關）重建時寫一筆新的 session 進 store。
+ * 阿彬的留言覆蓋層依存檔裡的收集進度與回信補寫（見 `terminalSession.ts`）。
  * 只在事件 handler 裡呼叫（透過 `useGameStore.getState()` 讀寫 store）。
  */
 export function resolveShell(cache: Map<string, Shell>, definition: TerminalDefinition): Shell {
@@ -21,6 +22,7 @@ export function resolveShell(cache: Map<string, Shell>, definition: TerminalDefi
 	const commandNames = store.progress.learnedCommands.map(toCommandName);
 	const { shell, freshRecord } = createTerminalSession(definition, commandNames, store.terminals[definition.id], {
 		solved: store.progress.solvedTerminals.includes(definition.id),
+		abinNotes: store.abinNotes,
 	});
 	if (freshRecord !== null) {
 		store.saveTerminalSession(definition.id, freshRecord);

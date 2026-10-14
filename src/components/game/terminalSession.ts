@@ -10,11 +10,16 @@
  *   而且這台**還沒過關**時，用新版劇本重建檔案系統、工作目錄、env 與程序清單，
  *   保留指令歷史、hint 計數、錯誤計數與輸出紀錄，輸出區再補一行系統說明與新版 banner。
  *   已過關的終端機不動：玩家的成果都在那份檔案系統裡，而且過關後劇本內容對進度沒有影響。
+ * - 阿彬的隱藏留言（設計文件 4.12）不寫在劇本快照裡，三種情況都在這裡用覆蓋層補寫（`@/game/story/abinNotes`）：
+ *   全新建立（含壞掉重建、改版重建）時整台的留言都寫，已經找到的也寫，讓玩家能重讀；
+ *   從存檔還原時只補還沒找到而且不見了的，已經找到的不補（玩家刪掉就尊重）。補寫不算進劇本雜湊，也不另存，
+ *   下一道指令執行後連同 shell 狀態一起存；之前重新整理就再補一次（冪等）。
  */
 
 import { VirtualFileSystem } from "@/game/shell/fs";
 import { Shell } from "@/game/shell/shell";
 import type { TerminalDefinition } from "@/game/story";
+import { applyAbinOverlay } from "@/game/story/abinNotes";
 import { terminalScriptHash } from "@/game/story/scriptHash";
 import { isTerminalSessionRecord } from "@/game/store/sessionRecord";
 import { TRANSCRIPT_LIMIT } from "@/game/store/types";
@@ -31,10 +36,20 @@ export interface ResolvedTerminalSession {
 	freshRecord: TerminalSessionRecord | null;
 }
 
+/** 覆蓋層需要的存檔資料：已找到的留言與回信（存檔 v4 的 `abinNotes`）。 */
+export interface TerminalAbinNotes {
+	found: readonly string[];
+	reply: string | null;
+}
+
 export interface TerminalSessionOptions {
 	/** 這台是否已經過關；過關的不因劇本改版重建。 */
 	solved: boolean;
+	/** 阿彬的留言收集進度與回信；沒給視為一則都沒找到、沒有回信。 */
+	abinNotes?: TerminalAbinNotes;
 }
+
+const NO_ABIN_NOTES: TerminalAbinNotes = { found: [], reply: null };
 
 /** `teaches` 可能是 `ls -a` 這種帶參數的字串，shell 的已學清單只認指令名。 */
 export function toCommandName(teach: string): string {
@@ -60,14 +75,17 @@ interface CarriedShellState {
 	hintCount?: number;
 }
 
-/** 用劇本的初始快照建一個全新的 Shell；改版重建時帶入舊的歷史與 hint 計數。 */
+/** 用劇本的初始快照建一個全新的 Shell（補上整台的阿彬留言）；改版重建時帶入舊的歷史與 hint 計數。 */
 function createInitialShell(
 	definition: TerminalDefinition,
 	commandNames: string[],
+	abinNotes: TerminalAbinNotes,
 	carried: CarriedShellState = {},
 ): Shell {
+	const fs = VirtualFileSystem.fromSnapshot(definition.fs);
+	applyAbinOverlay(fs, definition.id, { found: abinNotes.found, includeFound: true, reply: abinNotes.reply });
 	return new Shell({
-		fs: VirtualFileSystem.fromSnapshot(definition.fs),
+		fs,
 		terminalId: definition.id,
 		hints: definition.hints,
 		learnedCommands: commandNames,
@@ -79,14 +97,20 @@ function createInitialShell(
 	});
 }
 
-/** 從存檔還原 Shell；序列化版本不支援這類只有還原時才知道的問題用 try/catch 接，壞掉回傳 null。 */
+/**
+ * 從存檔還原 Shell，補上還沒找到而且不見了的阿彬留言；
+ * 序列化版本不支援這類只有還原時才知道的問題用 try/catch 接，壞掉回傳 null。
+ */
 function restoreShell(
 	definition: TerminalDefinition,
 	commandNames: string[],
 	record: TerminalSessionRecord,
+	abinNotes: TerminalAbinNotes,
 ): Shell | null {
 	try {
-		const shell = Shell.fromState(record.shell, VirtualFileSystem.fromSerialized(record.shell.fs), definition.hints);
+		const fs = VirtualFileSystem.fromSerialized(record.shell.fs);
+		applyAbinOverlay(fs, definition.id, { found: abinNotes.found, includeFound: false, reply: abinNotes.reply });
+		const shell = Shell.fromState(record.shell, fs, definition.hints);
 		for (const name of commandNames) {
 			shell.learn(name);
 		}
@@ -102,8 +126,9 @@ function rebuildForRevisedScript(
 	commandNames: string[],
 	record: TerminalSessionRecord,
 	scriptHash: string,
+	abinNotes: TerminalAbinNotes,
 ): ResolvedTerminalSession {
-	const shell = createInitialShell(definition, commandNames, {
+	const shell = createInitialShell(definition, commandNames, abinNotes, {
 		history: record.shell.history,
 		hintCount: record.shell.hintCount,
 	});
@@ -138,15 +163,16 @@ export function createTerminalSession(
 	options: TerminalSessionOptions,
 ): ResolvedTerminalSession {
 	const scriptHash = terminalScriptHash(definition);
+	const abinNotes = options.abinNotes ?? NO_ABIN_NOTES;
 
 	if (record !== undefined) {
 		// 形狀先用 schema 擋，對得上才看雜湊或還原
 		if (isTerminalSessionRecord(record)) {
 			const revised = record.scriptHash !== scriptHash;
 			if (revised && !options.solved) {
-				return rebuildForRevisedScript(definition, commandNames, record, scriptHash);
+				return rebuildForRevisedScript(definition, commandNames, record, scriptHash, abinNotes);
 			}
-			const restored = restoreShell(definition, commandNames, record);
+			const restored = restoreShell(definition, commandNames, record, abinNotes);
 			if (restored !== null) {
 				return { shell: restored, freshRecord: null };
 			}
@@ -154,7 +180,7 @@ export function createTerminalSession(
 		console.warn(`[terminalSession] 終端機 ${definition.id} 的存檔壞掉了，丟掉這台的紀錄並用劇本初始狀態重建。`);
 	}
 
-	const shell = createInitialShell(definition, commandNames);
+	const shell = createInitialShell(definition, commandNames, abinNotes);
 	const freshRecord: TerminalSessionRecord = {
 		shell: shell.toState(),
 		transcript: createBannerEntries(definition),

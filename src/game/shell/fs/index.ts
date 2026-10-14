@@ -18,4 +18,11 @@ export {
 export type { NodeMetaOptions } from "./node";
 export { buildRootFromSnapshot, ROOT_NAME } from "./snapshot";
 export { VirtualFileSystem } from "./VirtualFileSystem";
-export type { CopyOptions, ListOptions, MkdirOptions, RemoveOptions, VirtualFileSystemOptions } from "./VirtualFileSystem";
+export type {
+	CopyOptions,
+	ListOptions,
+	MkdirOptions,
+	RemoveOptions,
+	SeedMeta,
+	VirtualFileSystemOptions,
+} from "./VirtualFileSystem";

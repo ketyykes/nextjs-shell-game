@@ -1,5 +1,5 @@
 /**
- * 劇本模組的公開入口：型別契約、目標判定、schema 驗證、劇情旗標、卡關偵測與環境反應階梯。
+ * 劇本模組的公開入口：型別契約、目標判定、schema 驗證、劇情旗標、卡關偵測與環境反應階梯、阿彬的隱藏留言。
  */
 
 export type {
@@ -45,6 +45,23 @@ export {
 } from "./flags";
 export type { NovaPortrait } from "./flags";
 export { isRoomId, ROOM_IDS } from "./rooms";
+export {
+	ABIN_NOTE_TOTAL,
+	ABIN_NOTES,
+	ABIN_OWNER,
+	ABIN_REPLY_MAX_LENGTH,
+	ABIN_REPLY_PATH,
+	ABIN_REPLY_TERMINAL_ID,
+	abinEvidenceFiles,
+	abinNotesByTime,
+	applyAbinOverlay,
+	countFoundAbinNotes,
+	findAbinNote,
+	readAbinReply,
+	revealedAbinNotes,
+	sanitizeReplyText,
+} from "./abinNotes";
+export type { AbinEvidenceFile, AbinNote, AbinOverlayOptions } from "./abinNotes";
 export { deckTerminal, deckTerminalIdentity, deckTerminals, TERMINAL_SLOTS } from "./decks";
 export type { DeckTerminal, TerminalIndex } from "./decks";
 export {
