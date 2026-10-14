@@ -357,3 +357,16 @@ describe("createTerminalSession：劇本的唯讀變數（readonlyEnv）", () =>
 		expect([...(loginTerminal.readonlyEnv ?? [])].sort()).toEqual(Object.keys(loginTerminal.env ?? {}).sort());
 	});
 });
+
+describe("createTerminalSession：第五章路徑變數也是唯讀（第三段提示靠它們）", () => {
+	it.each([
+		["ch5-t5", "POD_DIR"],
+		["ch5-t6", "AUTH_DIR"],
+	])("%s 的 %s unset 拿不掉，照提示打 $變數 仍然展開成劇本的路徑", (terminalId, name) => {
+		const definition = findTerminal(terminalId) as TerminalDefinition;
+		const { shell } = createTerminalSession(definition, [], undefined, { solved: false });
+
+		expect(shell.execute(`unset ${name}`).isError).toBe(true);
+		expect(shell.env[name]).toBe(definition.env?.[name]);
+	});
+});

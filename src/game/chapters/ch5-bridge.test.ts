@@ -295,7 +295,7 @@ describe("第五章正解序列", () => {
 		expect(shell.fs.exists("/", "/deck5/security/scheduler/cron_2028-06-02.log")).toBe(true);
 	});
 
-	it("T4 的稽核備註給線索：環境是回滾當下的，要重現就把 rm 換成 echo", () => {
+	it("T4 的稽核備註給線索：環境是回滾當下的，要重現就用 echo 印出那個參數", () => {
 		const terminal = terminalById("ch5-t4");
 		const shell = openTerminal(terminal);
 		expect(runStep(shell, terminal, "ls").lines.join("\n")).toContain("audit_note.txt");

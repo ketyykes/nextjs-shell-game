@@ -43,7 +43,7 @@ test("第五章安全管制台：echo 看到 /opt/nova/，unset NOVA_DIR 之後�
 	}
 
 	await run("cat audit_note.txt");
-	await expect(modal).toContainText("把 rm 換成 echo");
+	await expect(modal).toContainText("會把展開後的路徑原樣印出來");
 
 	await run('echo "$NOVA_DIR/"');
 	await expect(modal).toContainText("/opt/nova/");

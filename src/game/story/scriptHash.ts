@@ -82,6 +82,8 @@ export function terminalScriptHash(definition: TerminalDefinition): string {
 		banner: definition.banner,
 		initialCwd: definition.initialCwd,
 		env: definition.env,
+		// 唯讀清單不存檔，但它決定玩家改不改得動 env：清單變了，未過關的終端機要用新版重建
+		readonlyEnv: definition.readonlyEnv,
 		processes: definition.processes,
 	};
 	return fnv1a64(stableStringify(content));

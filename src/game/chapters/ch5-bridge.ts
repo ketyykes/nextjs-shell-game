@@ -380,8 +380,8 @@ const securityTerminal: TerminalDefinition = {
 					content: lines(
 						"稽核備註（自動產生）",
 						"本管制台保留了 rollback.sh 開始執行時（04:36:58）的工作階段環境，NOVA_DIR 還是當時的值，env 查得到。",
-						"要確認排程日誌裡的指令當時展開成什麼路徑，把 rm 換成 echo 照順序再執行一次：",
-						"echo 只印出路徑，不會刪任何東西。",
+						"要確認排程日誌裡的指令當時展開成什麼路徑，照排程日誌的順序用 echo 印出那個參數：",
+						"echo \"$NOVA_DIR/\" 會把展開後的路徑原樣印出來，不會刪任何東西。",
 					),
 				},
 				"jobs.txt": {
@@ -461,6 +461,8 @@ const escapeTerminal: TerminalDefinition = {
 	env: {
 		POD_DIR: "/deck5/pods",
 	},
+	// 第三段提示靠 $POD_DIR 找路徑：unset 掉的話照抄提示會走錯地方，所以跟 T1 一樣設唯讀
+	readonlyEnv: ["POD_DIR"],
 	nova: {
 		onEnterRoom: ["逃生艙區。四艘，都還在。", "我是說，都還停在原位。"],
 		onOpen: ["技師，變數不只能讀，還能直接放進路徑。cd $POD_DIR 跟打出完整路徑是一樣的。"],
@@ -556,6 +558,8 @@ const exitTerminal: TerminalDefinition = {
 	env: {
 		AUTH_DIR: "/deck5/exit/auth",
 	},
+	// 第三段提示靠 $AUTH_DIR 找路徑：unset 掉的話照抄提示會走錯地方，所以跟 T1 一樣設唯讀
+	readonlyEnv: ["AUTH_DIR"],
 	nova: {
 		onEnterRoom: ["艦橋艙門。門後是往核心的電梯。"],
 		onOpen: ["門鎖要艦長授權。技師，這一層學到的東西，全部用得上。"],

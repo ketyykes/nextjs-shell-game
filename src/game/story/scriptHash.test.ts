@@ -59,6 +59,8 @@ describe("terminalScriptHash", () => {
 		["初始工作目錄", { initialCwd: "/home/tech/logs" }],
 		["環境變數", { env: { LOG_DIR: "/var/log" } }],
 		["程序清單", { processes: [] }],
+		// 唯讀清單變了，未過關的終端機要重建：不然修正前已經被 unset 掉的變數，還原後連 export 都補不回來
+		["唯讀變數", { env: { LOG_DIR: "/home/tech/logs" }, readonlyEnv: ["LOG_DIR"] }],
 	] as const)("%s改了雜湊就不同", (_label, patch) => {
 		expect(terminalScriptHash({ ...BASE, ...patch } as TerminalDefinition)).not.toBe(terminalScriptHash(BASE));
 	});
