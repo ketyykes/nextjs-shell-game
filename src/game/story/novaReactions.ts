@@ -307,6 +307,11 @@ export interface NovaReactionDecisionInput {
 	detected: readonly NovaReactionTrigger[];
 	/** 這道指令 NOVA 已經說過話：過關台詞、第一次卡關台詞或第 9 次錯誤的台詞。 */
 	novaAlreadySpoke: boolean;
+	/**
+	 * 這道指令執行完的工作目錄。`abinHome` 的台詞說「這裡是阿彬的家目錄」，跟地點有關：
+	 * 已經不在 `/home/abin` 底下（例如延後到別台終端機）就丟掉。沒給時不檢查。
+	 */
+	cwd?: string;
 }
 
 export interface NovaReactionDecision {
@@ -334,6 +339,9 @@ export function decideNovaReaction(input: NovaReactionDecisionInput): NovaReacti
 			continue;
 		}
 		if (novaReactionLines(trigger, input.chapter, input.phase) === null) {
+			continue;
+		}
+		if (trigger.kind === "abinHome" && input.cwd !== undefined && !isInAbinHome(input.cwd)) {
 			continue;
 		}
 		candidates.push(trigger);

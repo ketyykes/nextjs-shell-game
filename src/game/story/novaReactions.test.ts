@@ -283,6 +283,31 @@ describe("決定這道指令要不要說", () => {
 		expect(decision.pending).toEqual([identity]);
 	});
 
+	it("「這裡是阿彬的家目錄」跟地點有關：執行完已經不在 /home/abin 底下就丟掉，不延後", () => {
+		const abinHome: NovaReactionTrigger = { kind: "abinHome" };
+		const elsewhere = decideNovaReaction({
+			chapter: 1,
+			phase: "acting",
+			storyFlags: {},
+			pending: [abinHome],
+			detected: [],
+			novaAlreadySpoke: false,
+			cwd: "/home/tech",
+		});
+		expect(elsewhere).toEqual({ say: null, pending: [] });
+
+		const stillThere = decideNovaReaction({
+			chapter: 1,
+			phase: "acting",
+			storyFlags: {},
+			pending: [abinHome],
+			detected: [],
+			novaAlreadySpoke: false,
+			cwd: "/home/abin",
+		});
+		expect(stillThere.say?.kind).toBe("abinHome");
+	});
+
 	it("這一章說過的（旗標在）不再說", () => {
 		const decision = decideNovaReaction({
 			chapter: 5,

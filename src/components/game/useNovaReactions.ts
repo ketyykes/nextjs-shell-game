@@ -93,6 +93,7 @@ export function useNovaReactions({ chapter, onExecuted }: UseNovaReactionsOption
 				pending: pendingRef.current,
 				detected,
 				novaAlreadySpoke,
+				cwd: execution.cwd,
 			});
 			pendingRef.current = decision.pending;
 
