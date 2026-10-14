@@ -565,6 +565,39 @@ describe("PlayScreen HUD 與目標", () => {
 	});
 });
 
+describe("PlayScreen 阿彬的留言面板", () => {
+	/** 在 window 上按 Alt＋字母（面板快捷鍵比對 event.code）。 */
+	function pressAlt(letter: string): void {
+		act(() => {
+			window.dispatchEvent(new KeyboardEvent("keydown", { code: `Key${letter}`, key: letter.toLowerCase(), altKey: true, bubbles: true }));
+		});
+	}
+
+	it("第一章宿舍（T3）過關前沒有標籤，Alt+A 也不會打開", () => {
+		seedSave({ progress: { solvedTerminals: ["ch1-t1", "ch1-t2"] } });
+		render(<PlayScreen />);
+
+		expect(screen.queryByRole("button", { name: /阿彬的留言/ })).toBeNull();
+		pressAlt("A");
+		expect(screen.queryByTestId("side-panel")).toBeNull();
+	});
+
+	it("T3 過關後出現標籤，Alt+A 打開面板，顯示存檔裡找到幾則", () => {
+		seedSave({ progress: { solvedTerminals: ["ch1-t1", "ch1-t2", "ch1-t3"] } });
+		useGameStore.setState({ abinNotes: { found: ["ch1-jokes"], reply: null } });
+		render(<PlayScreen />);
+
+		expect(screen.getByRole("button", { name: /阿彬的留言/ })).toBeDefined();
+		pressAlt("A");
+		const panel = screen.getByTestId("side-panel");
+		expect(within(panel).getByRole("heading", { name: "阿彬的留言" })).toBeDefined();
+		expect(within(panel).getByTestId("abin-notes-count").textContent).toBe("1/8");
+		// 收起時面板有滑出動畫，看標籤的展開狀態就好
+		pressAlt("A");
+		expect(screen.getByRole("button", { name: /阿彬的留言/ }).getAttribute("aria-expanded")).toBe("false");
+	});
+});
+
 describe("PlayScreen 暫停選單", () => {
 	it("地圖上按 Esc 開暫停選單並停住 Phaser，選繼續後恢復", () => {
 		const events = recordEvents(["game:pause", "game:resume"]);

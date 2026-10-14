@@ -23,7 +23,9 @@
  * 只在主線（`/play`）生效，沙盒練習模式不會呼叫這裡。
  */
 
-import { dirname, type SeedMeta, type VirtualFileSystem } from "@/game/shell/fs";
+import type { SeedMeta, VirtualFileSystem } from "@/game/shell/fs";
+// 直接從 path 拿，不經 fs 的 index：標題畫面的通關紀錄也會用到這個模組，不必帶進整個虛擬檔案系統
+import { dirname } from "@/game/shell/fs/path";
 import { FsError, type ShellExecution, type VirtualFs } from "@/game/shell/types";
 
 /** 一則隱藏留言。 */

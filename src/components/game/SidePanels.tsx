@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * 地圖右側的面板組：「已學指令」與「對話紀錄」兩個垂直標籤疊在一起，同時只開一個面板。
+ * 地圖右側的面板組：「已學指令」「對話紀錄」與「阿彬的留言」垂直標籤疊在一起，同時只開一個面板。
+ * 「阿彬的留言」要等第一次知道阿彬之後才出現（父層決定，見 `isAbinNotesTabUnlocked`），沒給資料就不顯示那個標籤。
  *
  * 收起時只有右緣一排窄標籤；打開時面板從右邊滑出，標籤跟著貼在面板左側，兩個標籤都一直點得到。
  * 鍵盤快捷鍵由父層用 `useSidePanelShortcuts` 處理，這裡只顯示提示。
@@ -12,6 +13,7 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { useId, type MouseEvent } from "react";
+import { AbinNotesPanel, type AbinNotesPanelProps } from "./AbinNotesPanel";
 import { CommandCheatSheet } from "./CommandCheatSheet";
 import { NovaLogPanel } from "./NovaLogPanel";
 import type { NovaLogEntry } from "./useNovaQueue";
@@ -27,6 +29,8 @@ export interface SidePanelsProps {
 	novaLog: NovaLogEntry[];
 	/** Apple 鍵盤時快捷鍵提示顯示 ⌥ 而不是 Alt */
 	appleKeyboard?: boolean;
+	/** 阿彬的留言（存檔 v4）；沒給就不顯示這個標籤 */
+	abinNotes?: AbinNotesPanelProps;
 }
 
 interface SidePanelTab {
@@ -34,10 +38,12 @@ interface SidePanelTab {
 	label: string;
 }
 
-const TABS: readonly SidePanelTab[] = [
+const BASE_TABS: readonly SidePanelTab[] = [
 	{ id: "commands", label: "已學指令" },
 	{ id: "log", label: "對話紀錄" },
 ];
+
+const NOTES_TAB: SidePanelTab = { id: "notes", label: "阿彬的留言" };
 
 /**
  * 擋掉 mousedown 的預設行為：瀏覽器就不會把焦點移到按鈕或面板上，終端機輸入框保持焦點、打字不中斷。
@@ -47,9 +53,20 @@ function keepFocusWhereItIs(event: MouseEvent) {
 	event.preventDefault();
 }
 
-export function SidePanels({ active, onActiveChange, learnedCommands, novaLog, appleKeyboard = false }: SidePanelsProps) {
+export function SidePanels({
+	active,
+	onActiveChange,
+	learnedCommands,
+	novaLog,
+	appleKeyboard = false,
+	abinNotes,
+}: SidePanelsProps) {
 	const panelId = useId();
-	const activeTab = TABS.find((tab) => tab.id === active);
+	let tabs = BASE_TABS;
+	if (abinNotes !== undefined) {
+		tabs = [...BASE_TABS, NOTES_TAB];
+	}
+	const activeTab = tabs.find((tab) => tab.id === active);
 
 	function handleTabClick(id: SidePanelId) {
 		if (active === id) {
@@ -66,7 +83,7 @@ export function SidePanels({ active, onActiveChange, learnedCommands, novaLog, a
 			onMouseDown={keepFocusWhereItIs}
 		>
 			<div className="flex flex-col gap-2">
-				{TABS.map((tab) => (
+				{tabs.map((tab) => (
 					<SideTab
 						key={tab.id}
 						tab={tab}
@@ -96,6 +113,7 @@ export function SidePanels({ active, onActiveChange, learnedCommands, novaLog, a
 						<PanelHeader label={activeTab.label} shortcut={formatShortcut(activeTab.id, appleKeyboard)} />
 						{activeTab.id === "commands" && <CommandCheatSheet learnedCommands={learnedCommands} />}
 						{activeTab.id === "log" && <NovaLogPanel entries={novaLog} />}
+						{activeTab.id === "notes" && abinNotes !== undefined && <AbinNotesPanel {...abinNotes} />}
 					</motion.div>
 				)}
 			</AnimatePresence>

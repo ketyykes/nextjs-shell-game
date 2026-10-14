@@ -7,20 +7,21 @@
  * - 地圖的鍵是方向鍵、WASD、E、Esc、Enter；終端機吃一般字元、Tab、↑↓、Enter、Esc，Alt 組合兩邊都沒用到，
  *   所以終端機開著時也能直接按，輸入框焦點不動、打到一半的字也不會被吃掉。
  * - Ctrl＋字母大多是瀏覽器保留鍵或真 shell 的編輯鍵（Ctrl+C、Ctrl+L、Ctrl+R），F 鍵在 Mac 筆電要多按 fn。
- * - 字母避開 Firefox 選單列的 Alt 加速鍵（F、E、V、S、B、T、H）與 Mac Option 的組字死鍵（E、I、N、U）。
- *   C 取 Commands（已學指令）、L 取 Log（對話紀錄）。
+ * - 字母避開 Firefox 選單列的 Alt 加速鍵（F、E、V、S、B、T、H）與 Mac Option 的組字死鍵（E、I、N、U、`）。
+ *   C 取 Commands（已學指令）、L 取 Log（對話紀錄）、A 取 Abin（阿彬的留言；Mac 的 Option+A 是 å，不是死鍵）。
  *
  * 比對用 `event.code`（實體鍵位）：Mac 按 Option+L 的 `event.key` 是「¬」，比 key 會認不得。
  */
 
 import { useEffect, useRef } from "react";
 
-export type SidePanelId = "commands" | "log";
+export type SidePanelId = "commands" | "log" | "notes";
 
 /** 每個面板的快捷鍵字母，搭配 Alt。 */
 const SHORTCUT_LETTERS: Record<SidePanelId, string> = {
 	commands: "C",
 	log: "L",
+	notes: "A",
 };
 
 /** 依 keydown 事件找出要切換的面板；不是面板快捷鍵回 null。 */

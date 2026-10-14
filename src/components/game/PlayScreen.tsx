@@ -16,6 +16,7 @@ import { AnimatePresence } from "motion/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { isAbinNotesTabUnlocked } from "@/components/game/AbinNotesPanel";
 import { ChapterEndScreen } from "@/components/game/ChapterEndScreen";
 import { shouldShowControlsHint } from "@/components/game/ControlsHint";
 import { CrtOverlay } from "@/components/game/CrtOverlay";
@@ -45,7 +46,7 @@ import { ENDING_LINES } from "@/game/chapters/ending";
 import { ROOM_NAMES, type GameEventMap, type RoomId } from "@/game/phaser/events";
 import { novaPortraitFor, type TerminalDefinition } from "@/game/story";
 import { endingImage, outroImageForChapter, sceneImageForRoom } from "@/game/story/scenes";
-import { selectOxygen, selectSettings, useGameStore, useStoreHydration } from "@/game/store";
+import { selectAbinNotes, selectOxygen, selectSettings, useGameStore, useStoreHydration } from "@/game/store";
 import type { CharacterId } from "@/game/store/types";
 
 export function PlayScreen() {
@@ -80,12 +81,16 @@ function PlayScreenReady({ character }: PlayScreenReadyProps) {
 	// 按「進入下一章」到頁面真的卸載之間 store 已是下一章，若跟著訂閱會提前說掉下一章開場、重建 Phaser
 	const [chapterNumber] = useState(() => useGameStore.getState().progress.chapter);
 	// 只訂閱用得到的欄位：角色停下存位置、存檔時間這些 progress 變動不會讓整頁重新 render（A4）
-	const { solvedTerminals, learnedCommands } = useGameStore(
+	const { solvedTerminals, learnedCommands, furthestChapter } = useGameStore(
 		useShallow((state) => ({
 			solvedTerminals: state.progress.solvedTerminals,
 			learnedCommands: state.progress.learnedCommands,
+			furthestChapter: state.progress.furthestChapter,
 		})),
 	);
+	// 阿彬的留言（存檔 v4）：右側面板與片尾加段用
+	const abinNotes = useGameStore(selectAbinNotes);
+	const abinTabUnlocked = isAbinNotesTabUnlocked({ furthestChapter, solvedTerminals, found: abinNotes.found });
 	const settings = useGameStore(selectSettings);
 	const oxygen = useGameStore(selectOxygen);
 	const updateSettings = useGameStore((state) => state.updateSettings);
@@ -108,7 +113,7 @@ function PlayScreenReady({ character }: PlayScreenReadyProps) {
 	const [currentRoom, setCurrentRoom] = useState<RoomId | null>(savedPosition?.roomId ?? null);
 	const [sceneReady, setSceneReady] = useState(false);
 	const [sceneCard, setSceneCard] = useState<SceneCardMessage | null>(null);
-	// 右側面板組目前打開哪一個（已學指令或對話紀錄），同時只開一個
+	// 右側面板組目前打開哪一個（已學指令、對話紀錄或阿彬的留言），同時只開一個
 	const [sidePanel, setSidePanel] = useState<SidePanelId | null>(null);
 	// 讀檔完成後才掛載，已經在瀏覽器裡，可以直接讀 navigator
 	const [appleKeyboard] = useState(() => isAppleUserAgent(window.navigator.userAgent));
@@ -173,10 +178,17 @@ function PlayScreenReady({ character }: PlayScreenReadyProps) {
 		onRoomEnter: handleRoomEnter,
 	});
 
-	// 右側面板組的 Alt 快捷鍵（4.6）：地圖上與終端機裡都能按（面板疊在彈窗之上），暫停、設定與章節結束畫面開著時不處理
-	const toggleSidePanel = useCallback((id: SidePanelId) => {
-		setSidePanel((current) => (current === id ? null : id));
-	}, []);
+	// 右側面板組的 Alt 快捷鍵（4.6）：地圖上與終端機裡都能按（面板疊在彈窗之上），暫停、設定與章節結束畫面開著時不處理。
+	// 「阿彬的留言」標籤還沒出現時 Alt+A 不做事
+	const toggleSidePanel = useCallback(
+		(id: SidePanelId) => {
+			if (id === "notes" && !abinTabUnlocked) {
+				return;
+			}
+			setSidePanel((current) => (current === id ? null : id));
+		},
+		[abinTabUnlocked],
+	);
 	useSidePanelShortcuts({
 		enabled: !pauseMenu.menuOpen && !chapterNavigation.showChapterEnd,
 		onToggle: toggleSidePanel,
@@ -232,6 +244,9 @@ function PlayScreenReady({ character }: PlayScreenReadyProps) {
 				learnedCommands={learnedCommands}
 				novaLog={nova.history}
 				appleKeyboard={appleKeyboard}
+				abinNotes={
+					abinTabUnlocked ? { found: abinNotes.found, furthestChapter, reply: abinNotes.reply } : undefined
+				}
 			/>
 			<NovaDialogue queue={nova.queue} textSpeed={settings.textSpeed} onShown={nova.dismiss} portrait={novaPortrait} />
 

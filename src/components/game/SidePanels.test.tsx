@@ -95,8 +95,31 @@ describe("SidePanels", () => {
 		expect(screen.getByText("⌥L 收起")).toBeDefined();
 	});
 
-	it("標籤不進 Tab 順序（鍵盤留給遊戲與終端機）", () => {
+	it("沒給阿彬的留言時只有兩個標籤", () => {
 		renderPanels();
+		expect(screen.queryByRole("button", { name: /阿彬的留言/ })).toBeNull();
+	});
+
+	it("給了阿彬的留言就多一個標籤（Alt+A），點了切到留言面板，標題列帶找到幾則", () => {
+		const onActiveChange = vi.fn();
+		renderPanels({ onActiveChange, abinNotes: { found: ["ch1-jokes"], furthestChapter: 1, reply: null } });
+		const notesTab = tab(/阿彬的留言/);
+		expect(notesTab.textContent).toContain("Alt+A");
+		expect(notesTab.getAttribute("aria-keyshortcuts")).toBe("Alt+A");
+		fireEvent.click(notesTab);
+		expect(onActiveChange).toHaveBeenLastCalledWith("notes");
+
+		cleanup();
+		renderPanels({ active: "notes", abinNotes: { found: ["ch1-jokes"], furthestChapter: 1, reply: null } });
+		expect(screen.getByRole("heading", { name: "阿彬的留言" })).toBeDefined();
+		expect(screen.getByTestId("abin-notes-panel")).toBeDefined();
+		expect(screen.getByTestId("abin-notes-count").textContent).toBe("1/8");
+		expect(screen.getByText("Alt+A 收起")).toBeDefined();
+		expect(screen.queryByTestId("nova-log-panel")).toBeNull();
+	});
+
+	it("標籤不進 Tab 順序（鍵盤留給遊戲與終端機）", () => {
+		renderPanels({ abinNotes: { found: [], furthestChapter: 1, reply: null } });
 		for (const button of screen.getAllByRole("button")) {
 			expect(button.getAttribute("tabindex")).toBe("-1");
 		}

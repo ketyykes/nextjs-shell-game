@@ -1,6 +1,8 @@
 "use client";
 
+import { useGameStore } from "@/game/store";
 import { formatPlayTime, totalStats } from "@/game/store/stats";
+import { ABIN_NOTE_TOTAL, countFoundAbinNotes } from "@/game/story/abinNotes";
 import type { ChapterStats, PlayStats } from "@/game/store/types";
 import type { ChapterOption } from "./ChapterSelectPanel";
 import { MenuOption } from "./MenuOption";
@@ -46,6 +48,7 @@ function StatCells({ stats }: StatCellsProps) {
 /**
  * 標題畫面的「通關紀錄」（M14-1）：每章用時、指令出錯與看提示次數，加總計。
  * 只陳述數字不評分（4.8 不懲罰探索）。Enter、Esc 或點「返回」回標題選單。
+ * 表格下面一行「阿彬的留言 n/8」（存檔 v4，設計文件 4.12），直接讀存檔，標題畫面已經讀完檔才會打開這裡。
  */
 export function ClearRecordPanel({ record, onBack }: ClearRecordPanelProps) {
 	const { selectedIndex, setSelectedIndex } = useMenuNavigation({
@@ -54,6 +57,7 @@ export function ClearRecordPanel({ record, onBack }: ClearRecordPanelProps) {
 		onCancel: onBack,
 	});
 	const total = totalStats(record.stats);
+	const abinNotesFound = useGameStore((state) => countFoundAbinNotes(state.abinNotes.found));
 
 	return (
 		<section
@@ -85,6 +89,9 @@ export function ClearRecordPanel({ record, onBack }: ClearRecordPanelProps) {
 					</tr>
 				</tfoot>
 			</table>
+			<p className="text-base text-game-dim" data-testid="clear-record-abin-notes">
+				{`阿彬的留言 ${abinNotesFound}/${ABIN_NOTE_TOTAL}`}
+			</p>
 			<MenuOption selected={selectedIndex === 0} onHover={() => setSelectedIndex(0)} onClick={onBack}>
 				返回
 			</MenuOption>

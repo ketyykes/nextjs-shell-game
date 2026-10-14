@@ -40,6 +40,16 @@ describe("useSidePanelShortcuts", () => {
 		expect(event.defaultPrevented).toBe(true);
 	});
 
+	it("Alt+A 切換阿彬的留言；Mac 的 Option+A 打出 å 也照實體鍵位認得", () => {
+		const onToggle = vi.fn();
+		renderHook(() => useSidePanelShortcuts({ enabled: true, onToggle }));
+		const event = pressKey({ key: "å", code: "KeyA", altKey: true });
+		expect(onToggle).toHaveBeenCalledWith("notes");
+		expect(event.defaultPrevented).toBe(true);
+		expect(formatShortcut("notes", false)).toBe("Alt+A");
+		expect(formatShortcut("notes", true)).toBe("⌥A");
+	});
+
 	it("Mac 的 Option+L 打出的是 ¬，照實體鍵位一樣認得", () => {
 		const onToggle = vi.fn();
 		renderHook(() => useSidePanelShortcuts({ enabled: true, onToggle }));
