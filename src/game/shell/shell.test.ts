@@ -4,6 +4,7 @@ import { ALL_COMMANDS } from "./commands";
 import { CH1_TEST_SNAPSHOT, createTestFs, OVERRIDE_CONTENT } from "./commands/testFixtures";
 import { VirtualFileSystem } from "./fs";
 import {
+	cannotExit,
 	cdTooManyArguments,
 	commandIsLowercase,
 	commandNotFound,
@@ -17,6 +18,7 @@ import {
 	pathNotFound,
 	programNotInstalled,
 	similarCommand,
+	sudoDenied,
 	unsupportedSyntax,
 } from "./messages";
 import { Shell } from "./shell";
@@ -1039,6 +1041,51 @@ describe("M13-3 新指令", () => {
 
 		expect(shell.execute("which ls")).toMatchObject({ isError: false, lines: ["/usr/bin/ls"] });
 		expect(shell.execute("help").lines.join("\n")).not.toMatch(/^(less|tree|cut|diff|which) /m);
+	});
+});
+
+describe("帳號與登入的彩蛋（第十七場）", () => {
+	it("whoami 的輸出只有一行，可以接管線", () => {
+		const shell = createShell();
+		expect(shell.execute("whoami").lines).toEqual(["tech"]);
+		expect(shell.execute("whoami | wc -l").lines).toEqual(shell.execute("echo tech | wc -l").lines);
+	});
+
+	it("改了環境變數 USER，whoami 照樣是 tech", () => {
+		const shell = createShell();
+		shell.execute("export USER=abin");
+		expect(shell.execute("whoami").lines).toEqual(["tech"]);
+	});
+
+	it("id 顯示 uid 1006，last 的輸出可以用 grep 挑", () => {
+		const shell = createShell();
+		expect(shell.execute("id").lines[0]).toMatch(/^uid=1006\(tech\) /);
+		const abin = shell.execute("last | grep abin").lines;
+		expect(abin).toHaveLength(1);
+		expect(abin[0]).toContain("Mon Mar 10 02:47 - 02:53");
+	});
+
+	it("sudo 被拒絕不算錯誤（不扣氧），但 && 右邊不會執行", () => {
+		const shell = createShell();
+		expect(shell.execute("sudo cat wake_up.txt")).toMatchObject({ isError: false, lines: sudoDenied("tech") });
+		expect(shell.execute("sudo ls && pwd").lines).toEqual(sudoDenied("tech"));
+	});
+
+	it("exit 與 logout 關不掉終端機，只說明要按 Esc，不算錯誤", () => {
+		const shell = createShell();
+		expect(shell.execute("exit")).toMatchObject({ isError: false, lines: cannotExit("exit") });
+		expect(shell.execute("logout")).toMatchObject({ isError: false, lines: cannotExit("logout") });
+		expect(shell.execute("exit && pwd").lines).toEqual(cannotExit("exit"));
+	});
+
+	it("沒學過也能用、Tab 補得到、man 查得到，但 help 不列出", () => {
+		const shell = createShell();
+		expect(shell.complete("whoa").completed).toBe("whoami ");
+		expect(shell.complete("sud").completed).toBe("sudo ");
+		for (const name of ["whoami", "id", "last", "sudo", "exit", "logout"]) {
+			expect(shell.execute(`man ${name}`).isError).toBe(false);
+		}
+		expect(shell.execute("help").lines.join("\n")).not.toMatch(/^(whoami|id|last|sudo|exit|logout) /m);
 	});
 });
 

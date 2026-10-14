@@ -7,7 +7,10 @@ import { HOME_DIR } from "../types";
 import { DEFAULT_PATH, whichCommand } from "./which";
 import { createContext as createBaseContext } from "./testFixtures";
 
-const COMMANDS = ["ls", "cat", "cd", "export", "unset", "help", "history", "hint", "which", "grep"];
+const COMMANDS = [
+	"ls", "cat", "cd", "export", "unset", "help", "history", "hint", "which", "grep",
+	"whoami", "id", "last", "sudo", "exit", "logout",
+];
 
 function createContext(overrides: Partial<CommandContext> = {}): CommandContext {
 	return createBaseContext({
@@ -31,6 +34,15 @@ describe("which 找指令的路徑", () => {
 
 	it("一般指令在 /usr/bin", () => {
 		expect(whichCommand.run(["ls"], createContext())).toEqual({ ok: true, lines: ["/usr/bin/ls"] });
+	});
+
+	it("帳號與登入的彩蛋指令也在 /usr/bin", () => {
+		expect(whichCommand.run(["whoami", "id", "last", "sudo"], createContext()).lines).toEqual([
+			"/usr/bin/whoami",
+			"/usr/bin/id",
+			"/usr/bin/last",
+			"/usr/bin/sudo",
+		]);
 	});
 
 	it("可以一次查好幾個", () => {
@@ -74,7 +86,7 @@ describe("which 找不到", () => {
 	});
 
 	it("shell 內建指令沒有程式檔，說明它照樣能用", () => {
-		for (const name of ["cd", "export", "unset", "help", "history"]) {
+		for (const name of ["cd", "export", "unset", "help", "history", "exit", "logout"]) {
 			expect(whichCommand.run([name], createContext())).toEqual({ ok: true, lines: whichBuiltin(name), exitStatus: 1 });
 		}
 	});

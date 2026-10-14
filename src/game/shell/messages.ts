@@ -499,3 +499,25 @@ export function diffDirectories(first: string, second: string): string[] {
 		`先用 ls 看看兩邊有哪些檔案，再一個一個比，例如 diff ${first}/檔名 ${second}/檔名。`,
 	];
 }
+
+// ---------------------------------------------------------------------------
+// 第十七場：帳號與登入（id、sudo、exit、logout）
+// ---------------------------------------------------------------------------
+
+/** `id` 查的帳號不存在（id：no such user）。 */
+export function noSuchUser(name: string): string[] {
+	return [`這座站沒有叫 \`${name}\` 的帳號。不加名稱直接打 id，會顯示你自己的帳號。`];
+}
+
+/**
+ * `sudo` 被拒絕。第一行照真的 sudo（user is not in the sudoers file. This incident will be reported.），
+ * 第二行告訴玩家權限的問題要怎麼處理。
+ */
+export function sudoDenied(user: string): string[] {
+	return [`${user} 不在 sudoers 名單中。這件事會被回報。`, "這座站的工作都用不到 sudo；讀不到的檔案先用 ls -l 看權限，再用 chmod 改。"];
+}
+
+/** `exit`、`logout` 關不掉遊戲的終端機，要按 Esc。 */
+export function cannotExit(command: string): string[] {
+	return [`這台終端機不能用 ${command} 關掉，要離開請按 Esc，或點「[Esc] 關閉」。`, "按 Esc 只是把畫面關上，工作階段不會登出。"];
+}

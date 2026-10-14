@@ -1,7 +1,7 @@
 /**
  * 沙盒練習模式的資料（M14-3，設計文件 4.11）。
  *
- * 一組讓所有指令都有東西可以練的檔案系統、環境變數、程序清單，加上開場的歡迎行與 `hint` 的練習建議。
+ * 一組讓所有指令都有東西可以練的檔案系統、環境變數、程序清單、帳號與登入紀錄，加上開場的歡迎行與 `hint` 的練習建議。
  * 設定成站上給技師用的「訓練模擬環境」，時間落在站點正常運作的 2027 年，不碰主線劇情。
  *
  * 寫作規則：
@@ -10,7 +10,7 @@
  * - 檔案數與大小不受劇本的 40 檔／20 KB 限制（沙盒不存檔），但測試仍設上限保持合理。
  */
 
-import type { FsSnapshot, FsSnapshotFile, ProcessInfo } from "@/game/shell/types";
+import type { FsSnapshot, FsSnapshotFile, LoginLog, ProcessInfo, UserAccount } from "@/game/shell/types";
 import { HOME_DIR } from "@/game/shell/types";
 
 /** 把多行文字接成檔案內容，結尾補換行，跟真的文字檔一樣。 */
@@ -308,6 +308,26 @@ export const SANDBOX_PROCESSES: ProcessInfo[] = [
 	},
 	{ pid: 902, user: "tech", cpu: 12.7, mem: 0.4, started: DRILL_TIME, command: "/opt/drill/log_spammer" },
 ];
+
+// ---------------------------------------------------------------------------
+// 帳號與登入紀錄（第十七場的 id、last）
+// ---------------------------------------------------------------------------
+
+/** 練習機只有 root 與 tech，`id` 查得到的就這兩個。tech 的編號跟站上一樣。 */
+export const SANDBOX_ACCOUNTS: UserAccount[] = [
+	{ name: "root", uid: 0, groups: [] },
+	{ name: "tech", uid: 1006, groups: [{ gid: 100, name: "users" }] },
+];
+
+/** 練習機的登入紀錄：這次是 2027-08-14 05:30 登入（對得上 /var/log/system.log），前兩天各練過一次。 */
+export const SANDBOX_LOGIN_LOG: LoginLog = {
+	records: [
+		{ user: "tech", tty: "tty1", login: "2027-08-14T05:30:00Z", logout: null },
+		{ user: "tech", tty: "tty1", login: "2027-08-13T21:00:00Z", logout: "2027-08-13T22:10:00Z" },
+		{ user: "tech", tty: "tty1", login: "2027-08-12T15:30:00Z", logout: "2027-08-12T16:05:00Z" },
+	],
+	begins: "2027-08-01T00:00:00Z",
+};
 
 // ---------------------------------------------------------------------------
 // 開場與 hint

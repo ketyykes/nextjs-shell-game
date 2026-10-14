@@ -15,6 +15,7 @@ import { cutCommand } from "./cut";
 import { diffCommand } from "./diff";
 import { echoCommand } from "./echo";
 import { envCommand } from "./env";
+import { exitCommand, logoutCommand } from "./exit";
 import { exportCommand } from "./export";
 import { findCommand } from "./find";
 import { grepCommand } from "./grep";
@@ -22,7 +23,9 @@ import { headCommand } from "./head";
 import { helpCommand } from "./help";
 import { hintCommand } from "./hint";
 import { historyCommand } from "./history";
+import { idCommand } from "./id";
 import { killCommand } from "./kill";
+import { lastCommand } from "./last";
 import { lessCommand } from "./less";
 import { lsCommand } from "./ls";
 import { manCommand } from "./man";
@@ -32,6 +35,7 @@ import { psCommand } from "./ps";
 import { pwdCommand } from "./pwd";
 import { rmCommand } from "./rm";
 import { sortCommand } from "./sort";
+import { sudoCommand } from "./sudo";
 import { tailCommand } from "./tail";
 import { topCommand } from "./top";
 import { touchCommand } from "./touch";
@@ -40,9 +44,13 @@ import { uniqCommand } from "./uniq";
 import { unsetCommand } from "./unset";
 import { wcCommand } from "./wc";
 import { whichCommand } from "./which";
+import { whoamiCommand } from "./whoami";
 import type { CommandDefinition } from "../types";
 
-/** 全部指令：六章依章節排列，最後是 M13-3 只開放使用的指令。順序不影響行為，只是方便閱讀。 */
+/**
+ * 全部指令：六章依章節排列，接著是 M13-3 只開放使用的指令，最後是第十七場的帳號與登入彩蛋。
+ * 順序決定打錯字時同分的建議誰優先（見 `suggestSimilarCommand`），別的行為不受影響。
+ */
 export const ALL_COMMANDS: CommandDefinition[] = [
 	// 第一章
 	pwdCommand,
@@ -86,6 +94,13 @@ export const ALL_COMMANDS: CommandDefinition[] = [
 	diffCommand,
 	whichCommand,
 	lessCommand,
+	// 第十七場：帳號與登入的彩蛋，只開放使用，不在劇本裡
+	whoamiCommand,
+	idCommand,
+	lastCommand,
+	sudoCommand,
+	exitCommand,
+	logoutCommand,
 ];
 
 export { catCommand, cdCommand, clearCommand, helpCommand, hintCommand, historyCommand, lsCommand, manCommand, pwdCommand };

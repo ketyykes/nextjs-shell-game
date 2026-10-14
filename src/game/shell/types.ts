@@ -382,6 +382,37 @@ export interface ProcessInfo {
 	protected?: boolean;
 }
 
+/** 一個群組（`id` 用），例如 `{ gid: 100, name: "users" }`。 */
+export interface AccountGroup {
+	gid: number;
+	name: string;
+}
+
+/**
+ * 主機上的帳號（第十七場，`id` 用）。
+ * 主群組跟帳號同名、同編號（Debian 的 user private group），不另外存；`groups` 是主群組以外的群組，照順序印。
+ */
+export interface UserAccount {
+	name: string;
+	uid: number;
+	groups: AccountGroup[];
+}
+
+/** 一筆登入紀錄（第十七場，`last` 用）。時間是 ISO 8601（UTC）；`logout` 是 null 代表還沒登出。 */
+export interface LoginRecord {
+	user: string;
+	/** 終端機，例如 `tty1`。 */
+	tty: string;
+	login: string;
+	logout: string | null;
+}
+
+/** 整份登入紀錄（`last` 用）：`records` 最新的在前，`begins` 是紀錄從什麼時候開始記（`wtmp begins`）。 */
+export interface LoginLog {
+	records: LoginRecord[];
+	begins: string;
+}
+
 /** 分頁器（`less`，M13-3）要翻的一份內容。`name` 是玩家打的檔名，管線輸入是 null。 */
 export interface PagerFile {
 	name: string | null;

@@ -2,9 +2,11 @@
 import { describe, expect, it } from "vitest";
 import type { FsSnapshot, FsSnapshotEntry } from "@/game/shell/types";
 import {
+	SANDBOX_ACCOUNTS,
 	SANDBOX_BANNER,
 	SANDBOX_ENV,
 	SANDBOX_FS,
+	SANDBOX_LOGIN_LOG,
 	SANDBOX_PROCESSES,
 	SANDBOX_TIPS,
 } from "./practice";
@@ -46,7 +48,7 @@ function collectFileContents(snapshot: FsSnapshot): string[] {
 	return contents;
 }
 
-/** 沙盒裡玩家看得到的所有文字：檔案內容、檔名、歡迎行、練習建議、環境變數、程序指令列。 */
+/** 沙盒裡玩家看得到的所有文字：檔案內容、檔名、歡迎行、練習建議、環境變數、程序指令列、帳號與登入紀錄。 */
 function collectSandboxTexts(): string[] {
 	return [
 		...collectFileContents(SANDBOX_FS),
@@ -55,6 +57,8 @@ function collectSandboxTexts(): string[] {
 		...SANDBOX_TIPS,
 		...Object.values(SANDBOX_ENV),
 		...SANDBOX_PROCESSES.map((process) => process.command),
+		JSON.stringify(SANDBOX_ACCOUNTS),
+		JSON.stringify(SANDBOX_LOGIN_LOG),
 	];
 }
 

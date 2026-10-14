@@ -41,6 +41,9 @@ import {
 	similarCommand,
 	commandIsLowercase,
 	programNotInstalled,
+	noSuchUser,
+	sudoDenied,
+	cannotExit,
 } from "./messages";
 import type { FsErrorCode, ParseErrorCode, RegexErrorCode } from "./types";
 
@@ -367,6 +370,9 @@ describe("所有訊息的共通規則", () => {
 			commandIsLowercase("X", "x"),
 			programNotInstalled("x", { kind: "editor" }),
 			programNotInstalled("x", { kind: "windows", equivalent: "y" }),
+			noSuchUser("x"),
+			sudoDenied("tech"),
+			cannotExit("exit"),
 			missingSpace("cd", "x"),
 			fullwidthChar("，"),
 			unclosedQuote('"'),
@@ -405,6 +411,31 @@ describe("所有訊息的共通規則", () => {
 				expect(line.trim()).not.toBe("");
 			}
 		}
+	});
+});
+
+describe("帳號與登入（第十七場）", () => {
+	it("noSuchUser 放進帳號名稱，並說不加名稱就是查自己", () => {
+		const text = joinLines(noSuchUser("captain"));
+		expect(text).toContain("`captain`");
+		expect(text).toContain("id");
+	});
+
+	it("sudoDenied 照真的 sudo 說不在 sudoers 名單、這件事會被回報，再告訴玩家權限問題怎麼處理", () => {
+		const text = joinLines(sudoDenied("tech"));
+		expect(text).toContain("tech 不在 sudoers 名單中。這件事會被回報。");
+		expect(text).toContain("ls -l");
+	});
+
+	it("cannotExit 說明這裡要按 Esc", () => {
+		const text = joinLines(cannotExit("logout"));
+		expect(text).toContain("logout");
+		expect(text).toContain("Esc");
+	});
+
+	it("不指涉性別", () => {
+		const text = joinLines([...noSuchUser("x"), ...sudoDenied("tech"), ...cannotExit("exit")]);
+		expect(text).not.toMatch(/[他她]/);
 	});
 });
 
