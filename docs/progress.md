@@ -18,11 +18,11 @@
 
 | 項目 | 內容 |
 |---|---|
-| 更新日期 | 2026-10-10 |
-| 最新 commit | 見 `git log --oneline -20`：第十四場（`/loop` 自主實作）從 `ef64bd3` 起約 120 個 commit，做完 M10 到 M14 全部 26 項，再用三個整合審查 agent 找出 12 個跨組 bug 並修掉 |
-| 目前階段 | **M0 到 M14 全部完成**。M10 到 M14 是第十三場審計排出的優化路線（證據在 [`audit-2026-10-08.md`](./audit-2026-10-08.md)），第十四場由十幾個 agent 平行實作、我逐組合併驗證；這次的自主決策在第 8 節 #62 到 #100，**等 Danny 確認**。Danny 本人還沒玩過第二章以後，也還沒看過 M10 到 M14 的新東西 |
-| 程式碼狀態 | 標題（含觸控提示、練習模式、存檔管理、通關紀錄）→ 選角 → boot log → 六章地圖 → 片尾。`pnpm test --run` 148 個測試檔 2811 個測試全綠，`npx tsc --noEmit`、`pnpm lint`、`pnpm build` 乾淨；`PORT=3300 pnpm test:e2e` 48 個全綠、沒有 flaky（e2e 走路改成讀座標的閉環，本機 4 個 worker）。存檔格式 v3 |
-| 下一步 | 第 9 節的候選工作：Danny 試玩（特別是 M10 的引導、M13 的新指令、沙盒、存檔管理與通關紀錄）、確認第 8 節 #62 到 #100、第 4 節的試聽與潤稿、部署。審計末尾「這次沒選的項目」仍可挑 |
+| 更新日期 | 2026-10-15 |
+| 最新 commit | 見 `git log --oneline 9fc5286..HEAD`：第十七場（`/goal` 自主實作 M15）42 個 commit，五組 agent 平行實作八項遊戲化功能，兩輪唯讀審查找出的問題都修掉 |
+| 目前階段 | **M0 到 M15 全部完成**。M15 是第十七場依「遊戲化實戰全書」八角框架挑的八項功能（第 3 節），自主決策在第 8 節 #102 起，**等 Danny 確認**。M10 到 M14 是第十三場審計排出的優化路線（證據在 [`audit-2026-10-08.md`](./audit-2026-10-08.md)），第十四場由十幾個 agent 平行實作、我逐組合併驗證；這次的自主決策在第 8 節 #62 到 #100，**等 Danny 確認**。Danny 本人還沒玩過第二章以後，也還沒看過 M10 到 M14 的新東西 |
+| 程式碼狀態 | 標題（含觸控提示、練習模式、存檔管理、通關紀錄）→ 選角 → boot log → 六章地圖 → 片尾。`pnpm test --run` 167 個測試檔 3318 個測試全綠，`npx tsc --noEmit`、`pnpm lint`、`pnpm build` 乾淨；`PORT=3330 pnpm test:e2e` 58 個全綠、沒有 flaky（e2e 走路是讀座標的閉環，本機 4 個 worker）。存檔格式 v4 |
+| 下一步 | 第 9 節的候選工作：Danny 試玩（特別是 M15 的阿彬留言、NOVA 反應、除役倒數與 M10 到 M14 的新東西）、確認第 8 節 #62 起的自主決策、第 4 節的試聽與潤稿（M15 新增的留言、NOVA 反應台詞、片尾加段也是 agent 初稿）、部署。審計末尾「這次沒選的項目」仍可挑 |
 | 遠端 | `origin` 是 HTTPS 網址 `https://github.com/ketyykes/nextjs-shell-game.git`，2026-10-10 Danny 自己 push 到 `70bde04`（第十六場過關密技）；之後的 commit push 前先問 Danny |
 
 ## 2. 里程碑總覽
@@ -46,6 +46,7 @@
 | M12 | 效能與存檔穩健：預取、插圖預載、瘦身相依、劇本改版偵測、存檔寫入失敗與損毀、素材載入失敗 | ✅ | 3.2、4.7 |
 | M13 | shell 擴充：不支援語法提示、`;` `&&` 與 `~` 展開、less／tree／cut／diff／which | ✅ | 3.3、4.8 |
 | M14 | 新功能：通關狀態與遊玩統計（存檔 v3）、存檔匯出匯入、沙盒練習模式 | ✅ | 4.7 |
+| M15 | 遊戲化（八角框架）：shell 彩蛋、拼字建議、unset、提前用上的認可、阿彬的隱藏留言與回信（存檔 v4）、除役倒數、NOVA 看狀態 | ✅ | 3.3、4.8、4.9、4.12、4.13、4.14 |
 
 ## 3. 任務清單
 
@@ -245,6 +246,23 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 | M14-2 存檔匯出匯入 | A45、A49 | ✅ | 匯入要走 migrate 與 schema 驗證 |
 | M14-3 沙盒練習模式：標題新入口，預載一組練習檔案、可重置、所有指令開放、不存檔不扣氧 | A40 | ✅ | 擴充 4.7 標題選單；`Terminal` 元件本身不綁 store，可直接用 |
 
+### M15 遊戲化：八角框架 ✅
+
+2026-10-15 第十七場。Danny 先請我依「遊戲化實戰全書」的八角框架（Octalysis）盤點功能，再下 `/goal` 要求八項都做、指揮 Opus 5.5 平行實作並自我驗證。八角框架的診斷：右下角（稀缺、不確定、損失）很重，左上與右側（發展與成就、賦予創造力、所有權、社會影響力）偏空，所以這批以右腦與白帽動力為主，不做徽章、排名這類外在獎勵（4.7「只陳述不評分」）。
+
+| 任務 | 八角動力 | 狀態 | 產出 |
+|---|---|---|---|
+| M15-1 shell 彩蛋 | 7 不確定性與好奇心 | ✅ | `whoami`、`id`（你是 uid 1006、不在 crew 群組）、`last`（阿彬 3/10 凌晨登入過）、`sudo`（「這件事會被回報」）、`exit`／`logout`；只開放使用、不扣氧，沙盒有自己的一份帳號與登入紀錄 |
+| M15-2 拼字建議 | 2 發展與成就（新手不卡） | ✅ | `parser/suggest.ts` 的 Damerau–Levenshtein、大小寫提示、站上沒有的程式（vim、apt、python、ssh、Windows 的 dir 等）專屬說明 |
+| M15-3 `unset` 指令 | 7 好奇心（劇情核心） | ✅ | `commands/unset.ts`；劇本可用 `readonlyEnv` 設唯讀變數（第五章 T1） |
+| M15-4 提前用上的認可 | 3 賦予創造力與回饋 | ✅ | `story/solutionInsight.ts`：過關那一行用了還沒教的指令、旗標或語法，插一行 ☆ 認可，整份存檔每樣只認一次 |
+| M15-5 阿彬的隱藏留言 | 4 所有權、7 好奇心 | ✅ | `story/abinNotes.ts`：八則留言以覆蓋層補寫進終端機（已過關的也拿得到），右側面板第三個標籤（Alt+A），集滿片尾多一段 |
+| M15-6 回信 | 5 社會影響力與同理心 | ✅ | 第四章寫 `/home/abin/reply.txt`，第五章稽核紀錄、第六章 NOVA 記憶檔引用；存檔 v4 |
+| M15-7 除役倒數可見化 | 1 重大使命、6 稀缺 | ✅ | HUD 左上 O2 下方的倒數，前四章標「站務排程」，第五章 T1 後「遠端除役」，第六章 T4 後「目標無回應」；boot log 一行 |
+| M15-8 NOVA 看狀態 | 7 好奇心、8 損失與避免（被監看） | ✅ | `story/novaReactions.ts`：讀留言、回信、走進阿彬的家目錄、查自己的帳號、hint 用太多、`unset NOVA_DIR` 各有一句；第五章 T4 可親手重現那三秒；章節開場依前一章找到的留言多一句 |
+
+**完成定義**：八項都有單元測試、e2e 與實際瀏覽器操作驗證；兩輪唯讀審查找到的問題都已修正（第 8 節 #106、#111、#112、#118、#123、#125），接受不修的列在 #124、#125。新文字（留言、反應台詞、片尾加段）是 agent 初稿，待 Danny 潤稿與試玩。
+
 ## 4. 待處理雜項
 
 不屬於任何里程碑，但會影響接手的人，做完就勾掉。
@@ -312,6 +330,16 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 ## 7. 工作日誌
 
 每次 session 收工加一筆，最新在最上面。格式：日期、做了什麼、commit 範圍、下一步。
+
+### 2026-10-15（第十七場，`/goal` 自主實作 M15 遊戲化）
+
+- Danny 先請我盤點還能加什麼功能，再請我用「遊戲化實戰全書」的八角框架重新思考；接著下 `/goal`：shell 彩蛋、多解法認可、阿彬留言收集與回信、除役倒數、拼字建議、unset、隱藏留言收集、NOVA 看狀態全部做，指揮 Opus 5.5 平行實作、必須自我驗證。照記憶裡的自主規則，不確定的自己拍板、記進第 8 節 #102 到 #124。
+- 中途 Danny 問：留言寫在終端機檔案裡，存檔中已過關的終端機不會更新、找不到怎麼辦？改成「覆蓋層」：留言不進劇本快照，每台終端機建立、還原、改版重建時補寫（#108）。
+- 做法：第一波四個 agent 各開 worktree 平行做（A shell 三項、B 認可、C 阿彬留言與回信與存檔 v4、D 除役倒數），我逐組審 diff、快轉合併、在 main 重切字型子集並跑全部驗證；第二波 E 組在 A、C 合併後做 NOVA 看狀態（依賴 unset 與留言事件）。兩輪唯讀審查：第一輪對第一波找到 8 項，修 7 項（Alt+A 讓角色往左走、帳號表與劇本矛盾、`last` 時間線、面板線索劇透、提示蓋住倒數、沙盒 exit 說明、回信讀檔清理），第 8 項 unset 讓第五章 T1 卡關由我用唯讀變數修掉（#123）；第二輪對 NOVA 看狀態與唯讀變數沒有找到阻擋遊玩的問題，修了四項（第五章 T5、T6 的路徑變數也設唯讀、唯讀清單算進劇本雜湊、延後的「這裡是阿彬的家目錄」換台後丟掉、稽核備註的 echo 寫法），文件一項（#125）。
+- 我自己另外修：sudo、exit、logout 被認可成解法；面板未到過的章節重複同一句。實際開正式 build 在沙盒打過拼字錯誤、unset、彩蛋，在 `/play` 種存檔看過倒數跳秒、標籤切換與留言面板，頁面零錯誤。
+- 坑：（1）我有一次用 `pnpm test ... | grep` 串 `&&` 提交，grep 成功讓失敗的測試也被提交，立刻補正並 amend（本機未 push）；之後先把測試輸出寫進檔案、用結束碼判斷再提交。（2）`cd` 進 agent 的 worktree 會讓 session 的工作目錄跟著換過去，之後的指令一律帶絕對路徑。（3）字型子集照第十四場的做法只在 main 重切一次，agent 都沒提交字型檔。
+- 結果：`9fc5286..HEAD` 42 個 commit、約 120 個檔案（約 7700 行）；單元測試 2811 → 3318；e2e 48 → 58，整套在 main 上全綠、沒有 flaky；存檔升 v4。
+- 沒做：審計「這次沒選的項目」；第 4 節的潤稿與試聽；push 照規則沒做，本機領先 origin。
 
 ### 2026-10-10（第十六場，開發者過關密技）
 
@@ -621,6 +649,30 @@ commit `722bf56`。元件在 `src/components/title/`，流程容器是 `TitleFlo
 | 99 | less 的 `/`、`?` 搜尋在狀態列放真的輸入框（接輸入法與貼上），Esc 只取消搜尋、組字中的 Enter／Esc 交給輸入法；分頁器列高改量 `offsetHeight` | 原本打不進中文；開場 scaleY 動畫中量 rect 會把一頁算成 30 列 | `Pager.tsx` |
 | 100 | 瀏覽器整個封鎖網站資料（讀取就丟 SecurityError）時當成沒有存檔、回報 `unavailable` 讓讀檔完成；存檔提示移到 `top-16`（讓開上方 HUD）、`/sandbox` 不顯示；素材提示移到 `top-28` | 原本標題、`/play`、沙盒都卡在讀取中且沒有提示；提示條蓋住操作提示與沙盒標題列 | `gameStore.safeLocalStorage`、`saveStatus.ts`、`SaveStatusNotice` |
 | 101 | 44 張場景插圖從 PNG 改成 lossy WebP 品質 85（`nova-eye`、`nova-core` 立繪仍是 PNG）；`resize-scenes.mjs` 的遊戲用輸出改成 WebP，256px 預覽維持 PNG | Danny 為了部署要求轉檔。8.0MB 降到 2.6MB（每張 31 到 87KB）。RMSE 1.6% 到 2.9%，高於 #52 的 0.8% 門檻，但逐張比對：平均每像素差 2.5 到 4.8／255、差超過 48 的像素不到 0.07%，放大三倍目視只有雜訊格稍微變柔，沒有色塊或色偏 | 嫌糊就把 `resize-scenes.mjs` 的 `quality` 調高後重壓（原圖不在的那幾張要從 git 歷史拿 PNG 再轉），或 `git revert` 這個 commit |
+| 102 | 拼字建議用 Damerau–Levenshtein（相鄰對調算一次），2 到 5 個字只接受距離 1、6 個字以上接受 2，單一字元與含非英文字母的不猜，同分時已學的優先再照註冊順序；判斷順序是完整路徑 → 忘記空格 → 站上沒有的程式 → 大小寫 → 拼字，全部仍算錯誤、照舊扣氧 | 避免亂猜；精確的程式名比模糊比對可靠；`lss` 會先被「忘記空格」攔成 `ls s` 是既有順序，沒改 | `parser/suggest.ts`、`shell.ts` 的 `describeUnknownCommand` |
+| 103 | 「站上沒有的程式」清單含編輯器、套件管理、程式語言、網路工具與 Windows 命令提示字元的 cls、dir、del、copy、move、ren、md，各給專屬說明 | 台灣新手常從 cmd 過來；說法寫「這台終端機沒有」，因為真的 Linux 其實有 `dir` | `suggest.ts` 的 `findUnavailableProgram`、`messages.programNotInstalled` |
+| 104 | `unset` 只開放使用、不進任何章節 `teaches`；不存在的名稱靜默成功、`-v` 接受、`-f` 與其他選項回「沒有這個選項」；`which unset` 回內建；沙盒第 9 則練習建議改成提到 unset | bash 行為；劇情核心但不改既有課表 | `commands/unset.ts`、`sandbox/practice.ts` |
+| 105 | 彩蛋做 whoami、id、last、sudo、exit、logout；sudo、exit、logout 是 `ok: true` 加結束碼 1（不扣氧，`&&` 右邊不跑）；帳號表與登入紀錄可注入，沙盒換成自己的一份（只有 root、tech）；沒做 date、hostname、uname、who | 各章劇本的「現在」不同（喚醒 08:15、第二章 09:12、第四章 14:02），shell 沒有各章時鐘，固定時間會矛盾；其餘幾個不夠發毛 | `commands/{whoami,id,last,sudo,exit,accounts}.ts` |
+| 106 | 帳號表：captain 1001、engineer 1002、medic 1003、comms 1004、abin 1005（都在 crew 群組）、tech 1006（不在 crew）、共用帳號 eng 2001；`last` 裡阿彬那次登入是 3/10 02:38 到 02:53 | 審查發現劇本出現過這些帳號；登入區間要包住阿彬那天凌晨留下的所有檔案時間（有測試掃六章劇本與留言） | `commands/accounts.ts`、`accounts.test.ts` |
+| 107 | 提前用上的認可沿用 `tone: "success"`、用 ☆ 開頭；偵測指令名、帶旗標的教學（從各章 `teaches` 自動收集）、語法 `\|` `>` `>>` `*` `~` `$變數` `;` `&&`，全部看 token；旗標 `insight.<概念>` 不以 `ch<n>.` 開頭，整份存檔每樣只認一次；不認 hint、help、sudo、exit、logout 與教學位置在前面章節的；一次最多兩行、每行最多三項 | 認可是遊戲系統的肯定、不是 NOVA 說的，所以不用全息藍；會 bash 的玩家每台都用 grep，不能洗版；sudo 這類被拒絕的不算解法 | `story/solutionInsight.ts`、`solvedFeedback.createInsightEntry` |
+| 108 | 阿彬的留言不寫進劇本快照，改成「覆蓋層」：每台終端機新建、從存檔還原、劇本改版重建時都補寫還沒找到又不存在的留言；全新建立時已找到的也補（重玩讀得到），還原時尊重玩家刪除；不算進劇本雜湊；VFS 新增只增不改的 `seedFile`、`seedDir` | 寫進快照的話，老存檔裡已過關的終端機不會重建，永遠找不到（Danny 提出的疑慮） | `story/abinNotes.ts`、`terminalSession.ts` |
+| 109 | 八則留言的位置與找法見 `abinNotes.ts` 的 `ABIN_NOTES`（第一章 1、第二章 2、第三章 1、第四章 2、第五章 1、第六章 1），時間都早於 day_900（4.3：那是阿彬留給玩家的最後一則）；「找到」是這次看得到的輸出（含各段與 less）有一行含該則的 signature，只看放在這台的留言 | 劇情規則；grep 只撈到別行不算，只列檔名的 ls、find 不算 | `abinNotes.ts`、`useAbinNotes.ts` |
+| 110 | 回信：第四章通訊紀錄台的留言請玩家寫 `/home/abin/reply.txt`，取第一個非空行、去控制字元、最多 40 字，之後改就用最新的，刪掉或改空白保留上一次；讀檔與匯入也套同樣的清理；有回信時第五章 T4 多一份稽核紀錄（abin 讀過）、第六章 T3 多一份 NOVA 記憶檔引用原文，不算收集品，回信改了之後已生成的證據不跟著改 | day_900 仍是最後一則留言，所以回應寫成「證據」不是新留言；稽核紀錄說 abin 上一次登入是 3/10，留白是誰讀的 | `abinNotes.ts`、`gameStore.sanitizeAbinNotes`、`saveImport.ts` |
+| 111 | 「阿彬的留言」是右側面板第三個標籤，快捷鍵 Alt+A（Mac ⌥A），第一章宿舍那台過關後出現（或到過第二章、找到過任何一則）；未到過的章節不給線索、每章一行標則數；找到時插一行暗色系統行；通關紀錄多一行收集數 | A 取 Abin，避開 Firefox 選單加速鍵與 Mac 死鍵；線索不能劇透那一章才揭露的事（審查後改了第三章那則） | `AbinNotesPanel.tsx`、`SidePanels.tsx`、`ClearRecordPanel.tsx` |
+| 112 | 面板快捷鍵改在 window 的 capture 階段攔截 | 審查發現 A 也是往左走的鍵，開關過暫停選單後監聽順序排到 Phaser 後面，按 Alt+A 角色會往左走 | `useSidePanelShortcuts.ts` |
+| 113 | 集滿八則時片尾在「你是……」之後多一段：救援船解壓縮第六章那筆「目的地 ARGO」的上傳，認得出八份 abin 的文字檔，有回信時多一行引用 | 維持「阿彬的下落不明說」「NOVA 沒死透」的留白（4.3） | `chapters/ending.ts` |
+| 114 | 存檔 v4：頂層多 `abinNotes: { found, reply }`，v3 → v4 補空的；新遊戲清、重玩與選章保留；匯出也帶這個欄位 | 收集品跨重玩保留；回信要存字串，旗標只能存 true | `store/types.ts`、`migrate.ts`、`gameStore.ts`、`saveImport.ts`、`saveExport.ts` |
+| 115 | 除役倒數在 HUD 左上 O2 下方，格式 `T-81d 20:25:00`；遊戲內時間＝喚醒時間 2031-03-12 08:15 加第一章到目前章節的 `playTimeMs`，再加本次前景計時（停的條件同用時）；前四章與第五章 T1 前「站務排程」、第五章 T1 過關後與第六章「遠端除役」（琥珀）、第六章 T4 後「遠端除役 · 目標無回應」（數字全息藍）、已逃離不顯示；終端機開著時留在黑幕下 | 不先講破第五章的揭露；不加存檔欄位；劇本「82 天」是日期相減，跟精確剩餘 81 天多不衝突 | `components/game/decommission.ts`、`DecommissionCountdown.tsx` |
+| 116 | 倒數的已知限制：重玩章節會清該章統計，倒數「倒回」那一章開始的時間；倒數只算遊玩時間，跟各章劇本裡的「現在」（第二章 09:12、第四章 14:02）不同步 | 要只減不增得加存檔欄位；差幾小時玩家幾乎察覺不到 | 同上 |
+| 117 | 開場 boot log 在「主電源離線」之後加一行暗色「站務排程：1 項待執行（T-81d 20:25:00）」 | 跟 HUD 同一個詞，看得出是同一件事，不提除役 | `BootLog.tsx` |
+| 118 | 存檔失敗提示移到 `top-24`、音效失敗提示移到 `top-44` | 審查發現存檔提示蓋住倒數、兩個提示在 768 寬互疊 | `SaveStatusNotice.tsx`、`AssetLoadErrorNotice.tsx` |
+| 119 | NOVA 看狀態：六種反應依序 unsetNovaDir、abinReply、abinNote、abinHome、identity（whoami／id 查自己）、hintHeavy（本章 6 次或同台第 4 次）；旗標 `ch<n>.nova.<種類>` 每章一次；同一道指令最多一句，這道已有 NOVA 台詞（過關、第一次卡關、第 9 次錯誤）就延到下一道，pending 只在記憶體；第六章 T3 過關後換「不演了」的口吻，T4 過關後一句都不說；阿彬事件用 `handleExecuted` 的回傳值而不是 callback | 一次性事件直接跳過就永遠聽不到；callback 在過關流程前觸發，不知道這道指令 NOVA 有沒有說話；hint 台詞可以酸但不否定 hint（4.6） | `story/novaReactions.ts`、`useNovaReactions.ts` |
+| 120 | 第五章 T4 安全管制台的 env 加 `NOVA_DIR=/opt/nova`，同目錄加 `audit_note.txt` 線索，玩家可以 `echo "$NOVA_DIR/"`、`unset NOVA_DIR` 再 echo 親手看到只剩 `/`；不是過關條件；第五章起 `unset NOVA_DIR` 才有 NOVA 反應並燈閃（關閉閃爍時不閃） | 排程日誌就在這台；前四章說了就劇透 | `ch5-bridge.ts`、`novaReactions.ts` |
+| 121 | 第六章 T4 過關（NOVA 核心被終止）後，T5、T6 錯第 9 次不再說 NOVA 的錯誤台詞，燈閃與門聲照舊 | 既有穿幫，E 組順手修 | `usePressureReactions.ts` |
+| 122 | 章節開場（第二到六章）依前一章找到的留言多一句，第五章有回信時換一句；跟著 `introShown` 每章一次 | 讓「它一直在看」延伸到地圖上 | `useNovaTriggers.ts` |
+| 123 | 劇本可用 `readonlyEnv` 把自己 `env` 的變數設成唯讀（bash 的 readonly）：`unset` 拿不掉、`export 名稱=值` 改不了值，`export` 列表標 `declare -rx`；唯讀清單不存檔、建立與還原時從劇本帶入；第五章 T1 的五個站務變數、T5 的 `POD_DIR`、T6 的 `AUTH_DIR`；唯讀清單算進劇本雜湊 | 審查發現 `unset STATION_MODE` 之後 T1 永遠過不了關（判定要 env 印出它）；T5、T6 unset 後照抄第三段提示會走錯路徑；清單不算進雜湊的話，修正前就 unset 過的舊存檔還原後連 export 都補不回來 | `story/types.ts`、`schema.ts`、`shell.ts`、`unset.ts`、`export.ts`、`ch5-bridge.ts` |
+| 124 | 審查列為「接受、不修」：`if` 被建議成 `id` 這類拼字雜訊；`cat 留言 ; clear` 畫面上沒看到也算找到；`rm -r` 掉留言目錄後補回的父目錄擁有者是 abin；同一頁面內刪掉留言後關開終端機不補（要重整）；每次升級存檔多留一份舊版備份 | 影響小，修的成本比效益高 | 見各項 |
+| 125 | 第二輪審查修正：延後的 `abinHome`（「這裡是阿彬的家目錄」）在要說的那一道指令跑完時已經不在 `/home/abin` 底下就丟掉；第五章 T4 稽核備註改成明寫 `echo "$NOVA_DIR/"`；設計文件 4.14 註明 `abinNote`、`abinReply` 重玩不會再說；接受不修：第六章玩家可以 `kill` 掉自己的 `-sh`（原本就有的行為），之後查帳號的那句「ps 裡也有你」不成立 | 跟地點有關的台詞只有這一句；照字面「把 rm 換成 echo」會印出 `-rf /` | `novaReactions.decideNovaReaction` 的 `cwd`、`ch5-bridge.ts` |
 
 ## 9. 第一版之後的候選工作
 
