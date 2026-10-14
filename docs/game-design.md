@@ -86,6 +86,7 @@
   - `which`：照環境變數 `PATH` 的目錄順序找（沒有 `PATH` 時用 `/usr/local/bin:/usr/bin:/bin`），一般指令在 `/usr/bin`（`/bin` 視為同一目錄）、`hint` 在 `/usr/local/bin`，`cd`、`export`、`unset`、`help`、`history`、`exit`、`logout` 是內建指令、沒有程式檔；`-a` 列出全部。名稱含 `/` 時，指令的安裝位置（`/usr/bin/ls`、`/bin/ls`、`/usr/local/bin/hint`）照印，其他路徑看虛擬檔案系統裡那個檔案能不能執行。找不到時印說明、不算錯誤（結束碼 1）。shell 不接受用完整路徑執行指令，照抄 `/usr/bin/ls` 會說明不支援、請直接打 `ls`。`PATH` 只影響 which，不影響指令能不能執行。
 - 第十七場加的指令，一樣不編進任何章節、不在 `teaches` 裡（`help` 不列、`man` 查得到、Tab 補得到，沙盒全部列出）：
   - `unset 名稱...`：拿掉環境變數，`$名稱` 之後展開成空字串、`env` 列不出；不存在的名稱靜默成功（bash 行為）。`-v` 接受（就是預設行為），`-f`（函式）與別的選項回「沒有這個選項」，名稱不合法沿用 export 的訊息，不合法的不影響合法的。`which` 視為內建。
+  - 唯讀變數（bash 的 `readonly`）：終端機劇本可以用 `readonlyEnv` 把自己 `env` 裡的變數設成唯讀，`unset` 拿不掉、`export 名稱=值` 改不了值（都算錯誤），`export 名稱` 不改值照樣允許，`export` 列表標成 `declare -rx`。唯讀清單不存檔，建立與還原 session 時都從劇本帶入。目前只有第五章艦橋登錄台的五個站務變數是唯讀：它的過關判定要 `env` 印出 `STATION_MODE`，玩家看到除役倒數後很可能試著 `unset STATION_MODE`，不設唯讀就再也過不了關。
   - 帳號與登入的彩蛋：真的指令、輸出格式照真的工具、可以接管線，發毛感只來自內容；只用第一章就知道的事，不碰第五、六章的真相，也不在輸出裡冒充 NOVA 說話。
     - `whoami`：印 `tech` 一行，看登入的帳號而不是環境變數 `USER`（`export USER=abin` 之後照樣是 tech）。
     - `id [帳號]`：GNU 格式。自己是 `uid=1006(tech) gid=1006(tech) groups=1006(tech),100(users)`：名單上五個人是 1001 到 1005，你是第六個；`id abin` 是 1005，而且多一個 `1000(crew)` 群組，你不在 crew 裡。帳號表是 root、nova、名單上五個人與 tech，外加第三章零件倉的工程組共用帳號 `eng`（uid 2001，不是個人所以不在 crew）。名單上五個人的 uid 照冷凍艙位（第一章醫療艙的病歷索引）排：captain 1001、engineer 1002、medic 1003、comms 1004、abin 1005，帳號名稱都是劇本出現過的（第二章門禁紀錄與艙門事件、第五章艦長日誌的擁有者），沒出現過的不發明。查不到回錯誤。
