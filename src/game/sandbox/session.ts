@@ -1,19 +1,22 @@
 /**
  * 沙盒練習模式的 shell session（M14-3）。
  *
- * 跟遊戲裡的終端機用同一個 `Shell`，差別只有四個：
+ * 跟遊戲裡的終端機用同一個 `Shell`，差別只有五個：
  * - 檔案系統、環境變數、程序清單來自 `practice.ts`，每次呼叫都重新建一份，重置就是再呼叫一次。
  * - 所有已註冊的指令都算學過，`help` 全部列出。
  * - `hint` 換成沙盒版，輪流給練習建議，不會說「提示已經全部給過了」。
  * - `id`、`last` 換成練習機的帳號與登入紀錄，不碰主線（設計文件 4.11）。
+ * - `exit`、`logout` 換成沙盒版說明：這裡按 Esc 會先問要不要回標題，回去之後全部重來，不是「只關畫面、不會登出」。
  *
  * 這個檔案跟 shell 引擎一樣不 import React 或 Phaser。
  */
 
 import { ALL_COMMANDS } from "@/game/shell/commands";
+import { createExitLikeCommand } from "@/game/shell/commands/exit";
 import { createIdCommand } from "@/game/shell/commands/id";
 import { createLastCommand } from "@/game/shell/commands/last";
 import { VirtualFileSystem } from "@/game/shell/fs";
+import { sandboxCannotExit } from "@/game/shell/messages";
 import { Shell } from "@/game/shell/shell";
 import type { CommandDefinition, CommandResult } from "@/game/shell/types";
 import {
@@ -43,9 +46,11 @@ const SANDBOX_OVERRIDES: CommandDefinition[] = [
 	sandboxHintCommand,
 	createIdCommand(SANDBOX_ACCOUNTS),
 	createLastCommand(SANDBOX_LOGIN_LOG),
+	createExitLikeCommand("exit", sandboxCannotExit),
+	createExitLikeCommand("logout", sandboxCannotExit),
 ];
 
-/** 全部指令，只把 `hint`、`id`、`last` 換成沙盒版。 */
+/** 全部指令，只把 `hint`、`id`、`last`、`exit`、`logout` 換成沙盒版。 */
 const SANDBOX_COMMANDS: CommandDefinition[] = ALL_COMMANDS.map((command) => {
 	const override = SANDBOX_OVERRIDES.find((candidate) => candidate.name === command.name);
 	if (override !== undefined) {

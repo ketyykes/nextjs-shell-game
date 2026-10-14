@@ -37,6 +37,12 @@ describe("ACCOUNT_COMMAND_DOCS", () => {
 		}
 	});
 
+	it("man exit 的說明在主線與練習模式都成立：不說按 Esc 一律不會登出，講明練習模式會先問要不要離開", () => {
+		const text = ACCOUNT_COMMAND_DOCS.exit.description.join("\n");
+		expect(text).not.toContain("工作階段不會登出");
+		expect(text).toContain("練習模式");
+	});
+
 	it("不指涉性別，也不提主線的人名（沙盒的 man 也看得到）", () => {
 		const text = JSON.stringify(ACCOUNT_COMMAND_DOCS);
 		expect(text).not.toMatch(/[他她]/);

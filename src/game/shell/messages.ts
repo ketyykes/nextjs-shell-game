@@ -521,3 +521,11 @@ export function sudoDenied(user: string): string[] {
 export function cannotExit(command: string): string[] {
 	return [`這台終端機不能用 ${command} 關掉，要離開請按 Esc，或點「[Esc] 關閉」。`, "按 Esc 只是把畫面關上，工作階段不會登出。"];
 }
+
+/** 練習模式的 `exit`、`logout`：按 Esc 會先問要不要回標題，回去之後全部重來，所以不說「不會登出」。 */
+export function sandboxCannotExit(command: string): string[] {
+	return [
+		`練習模式不能用 ${command} 關掉，要離開請按 Esc，或點「[Esc] 關閉」，會先問你要不要回標題。`,
+		"回標題之後，練習的內容不會保留。",
+	];
+}

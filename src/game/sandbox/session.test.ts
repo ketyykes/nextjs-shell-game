@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { ALL_COMMANDS } from "@/game/shell/commands";
-import { noSuchUser } from "@/game/shell/messages";
+import { noSuchUser, sandboxCannotExit } from "@/game/shell/messages";
 import { createSandboxShell, SANDBOX_TERMINAL_ID } from "./session";
 
 /** 執行一行並回傳輸出，順便確認沒有失敗。 */
@@ -57,6 +57,17 @@ describe("createSandboxShell", () => {
 			expect(shell.execute("id captain").isError).toBe(true);
 			expect(shell.execute("id eng").isError).toBe(true);
 			expect(run(shell, "last")[0]).toContain("Sat Aug 14 05:30   still logged in");
+		});
+
+		it("exit 與 logout 說明練習模式要按 Esc、會先問要不要離開，不說「工作階段不會登出」", () => {
+			const shell = createSandboxShell();
+			for (const name of ["exit", "logout"]) {
+				const execution = shell.execute(name);
+				expect(execution).toMatchObject({ isError: false, lines: sandboxCannotExit(name) });
+				expect(execution.lines.join("\n")).not.toContain("不會登出");
+			}
+			// 跟主線一樣，exit 之後什麼都不會執行
+			expect(shell.execute("exit && pwd").lines).toEqual(sandboxCannotExit("exit"));
 		});
 
 		it("彩蛋指令的輸出與說明都不劇透主線", () => {

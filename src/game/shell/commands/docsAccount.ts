@@ -72,7 +72,7 @@ export const ACCOUNT_COMMAND_DOCS: Record<string, CommandDoc> = {
 		description: [
 			"在一般的終端機裡，exit 會結束目前的 shell，視窗跟著關掉。",
 			"這個遊戲的終端機不能用 exit 關，要離開請按 Esc，或點「[Esc] 關閉」。",
-			"按 Esc 只是把畫面關上，工作階段不會登出。",
+			"站上的終端機按 Esc 只是把畫面關上，下次打開工作目錄與檔案都還在；練習模式按 Esc 會先問要不要回標題，回去之後練習的內容不會保留。",
 		],
 		examples: [
 			{ command: "exit", explanation: "在這裡只會提醒你按 Esc" },
