@@ -6,17 +6,27 @@
  *
  * - 讀到：這次看得到的輸出裡有某則還沒找到的留言的 signature（定義見 `@/game/story/abinNotes`）。
  *   收進存檔、在終端機輸出區插一行系統行「［已收進「阿彬的留言」n/8　Alt+A 打開］」，再通知外面。
+ * - 回信：只在第四章通訊紀錄終端機（請玩家回信的那則留言所在的那台），每道指令執行後讀 `/home/abin/reply.txt`，
+ *   有非空白內容就把第一個非空行（整理過）存進存檔；之後再改就用最新的，刪掉或改成空白保留上一次的。
+ *   不插系統行：回信的回應是第五、六章才出現的證據（`abinEvidenceFiles`）。
  * - 只在主線生效：沙盒不經過 PlayScreen，不會呼叫這裡。
  *
  * 給第二波（NOVA 對這些事的反應）的介面：`onAbinEvent` callback 與 `handleExecuted` 的回傳值是同一個 `AbinNotesEvent`，
- * 只有這次真的有事（新找到留言）才不是 null。
+ * 只有這次真的有事（新找到留言、回信被寫入或改寫）才不是 null。
  */
 
 import { useCallback, useMemo } from "react";
 import type { Shell } from "@/game/shell/shell";
 import type { ShellExecution } from "@/game/shell/types";
 import type { TerminalDefinition } from "@/game/story";
-import { ABIN_NOTE_TOTAL, countFoundAbinNotes, revealedAbinNotes, type AbinNote } from "@/game/story/abinNotes";
+import {
+	ABIN_NOTE_TOTAL,
+	ABIN_REPLY_TERMINAL_ID,
+	countFoundAbinNotes,
+	readAbinReply,
+	revealedAbinNotes,
+	type AbinNote,
+} from "@/game/story/abinNotes";
 import { useGameStore } from "@/game/store";
 import type { OutputEntry } from "@/game/store/types";
 
@@ -40,7 +50,7 @@ export interface UseAbinNotesOptions {
 	onExecuted: ExecutedHandler;
 	/** 系統行裡的快捷鍵文字，例如 `Alt+A`，Apple 鍵盤是 `⌥A`。 */
 	shortcutLabel: string;
-	/** 這次有新找到的留言時呼叫，在原本的 `onExecuted` 之前。 */
+	/** 這次有新找到的留言、或回信被寫入／改寫時呼叫，在原本的 `onExecuted` 之前。 */
 	onAbinEvent?: (event: AbinNotesEvent) => void;
 }
 
@@ -67,13 +77,26 @@ export function useAbinNotes({ onExecuted, shortcutLabel, onAbinEvent }: UseAbin
 		(definition: TerminalDefinition, shell: Shell, execution: ShellExecution): AbinNotesEvent | null => {
 			const store = useGameStore.getState();
 			const revealed = revealedAbinNotes(definition.id, execution, store.abinNotes.found);
-
-			let event: AbinNotesEvent | null = null;
 			if (revealed.length > 0) {
 				store.markAbinNotesFound(revealed.map((note) => note.id));
+			}
+
+			let reply: string | null = null;
+			if (definition.id === ABIN_REPLY_TERMINAL_ID) {
+				const written = readAbinReply(shell.fs);
+				if (written !== null && written !== store.abinNotes.reply) {
+					store.setAbinReply(written);
+					reply = written;
+				}
+			}
+
+			let event: AbinNotesEvent | null = null;
+			if (revealed.length > 0 || reply !== null) {
 				const foundCount = countFoundAbinNotes(useGameStore.getState().abinNotes.found);
-				store.appendTranscript(definition.id, [createAbinFoundEntry(revealed, foundCount, shortcutLabel)]);
-				event = { terminalId: definition.id, found: revealed, foundCount, reply: null };
+				if (revealed.length > 0) {
+					store.appendTranscript(definition.id, [createAbinFoundEntry(revealed, foundCount, shortcutLabel)]);
+				}
+				event = { terminalId: definition.id, found: revealed, foundCount, reply };
 				onAbinEvent?.(event);
 			}
 

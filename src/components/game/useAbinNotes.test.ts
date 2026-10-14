@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { findTerminal } from "@/game/chapters";
 import type { Shell } from "@/game/shell/shell";
 import type { TerminalDefinition } from "@/game/story";
-import { ABIN_NOTES, findAbinNote } from "@/game/story/abinNotes";
+import { ABIN_NOTES, ABIN_REPLY_PATH, ABIN_REPLY_TERMINAL_ID, findAbinNote } from "@/game/story/abinNotes";
 import { createInitialSaveData, useGameStore } from "@/game/store";
 import type { OutputEntry } from "@/game/store/types";
 import { useAbinNotes, type AbinNotesEvent, type ExecutedHandler } from "./useAbinNotes";
@@ -11,6 +11,8 @@ import { resolveShell } from "./useTerminalSessions";
 
 const MEDBAY = findTerminal("ch1-t5") as TerminalDefinition;
 const CRYO = findTerminal("ch1-t1") as TerminalDefinition;
+const COMMS_ARCHIVE = findTerminal(ABIN_REPLY_TERMINAL_ID) as TerminalDefinition;
+const COMMS_ENTRY = findTerminal("ch4-t1") as TerminalDefinition;
 
 function setup(shortcutLabel = "Alt+A") {
 	const onExecuted = vi.fn<ExecutedHandler>();
@@ -113,5 +115,63 @@ describe("useAbinNotes：讀到留言", () => {
 
 		expect(event?.foundCount).toBe(8);
 		expect(transcriptOf("ch1-t5").at(-1)).toMatchObject({ lines: ["［已收進「阿彬的留言」8/8，全部找齊了　⌥A 打開］"] });
+	});
+});
+
+describe("useAbinNotes：回信", () => {
+	it("在通訊紀錄終端機把字寫進 reply.txt：存進存檔、通知外面，不插系統行（證據留到第五、六章）", () => {
+		const { result, onAbinEvent, onExecuted } = setup();
+		const shell = resolveShell(new Map(), COMMS_ARCHIVE);
+		const before = transcriptOf(ABIN_REPLY_TERMINAL_ID).length;
+
+		const event = run(result.current.handleExecuted, COMMS_ARCHIVE, shell, `echo 我醒了 > ${ABIN_REPLY_PATH}`);
+
+		expect(event).toEqual({ terminalId: ABIN_REPLY_TERMINAL_ID, found: [], foundCount: 0, reply: "我醒了" });
+		expect(onAbinEvent).toHaveBeenCalledWith(event);
+		expect(useGameStore.getState().abinNotes.reply).toBe("我醒了");
+		expect(transcriptOf(ABIN_REPLY_TERMINAL_ID)).toHaveLength(before);
+		expect(onExecuted).toHaveBeenCalledTimes(1);
+	});
+
+	it("內容沒變（例如只是讀它）不通知；再改就換成最新的；改成只有空白不算，保留上一次的", () => {
+		const { result, onAbinEvent } = setup();
+		const shell = resolveShell(new Map(), COMMS_ARCHIVE);
+		run(result.current.handleExecuted, COMMS_ARCHIVE, shell, `echo 我醒了 > ${ABIN_REPLY_PATH}`);
+		onAbinEvent.mockClear();
+
+		expect(run(result.current.handleExecuted, COMMS_ARCHIVE, shell, `cat ${ABIN_REPLY_PATH}`)).toBeNull();
+		expect(run(result.current.handleExecuted, COMMS_ARCHIVE, shell, `echo "   " > ${ABIN_REPLY_PATH}`)).toBeNull();
+		expect(useGameStore.getState().abinNotes.reply).toBe("我醒了");
+		expect(onAbinEvent).not.toHaveBeenCalled();
+
+		const changed = run(result.current.handleExecuted, COMMS_ARCHIVE, shell, `echo 你在哪 > ${ABIN_REPLY_PATH}`);
+		expect(changed?.reply).toBe("你在哪");
+		expect(useGameStore.getState().abinNotes.reply).toBe("你在哪");
+	});
+
+	it("同一行讀到留言又寫了回信：一個事件裡兩件事都有", () => {
+		const { result } = setup();
+		const shell = resolveShell(new Map(), COMMS_ARCHIVE);
+
+		const event = run(
+			result.current.handleExecuted,
+			COMMS_ARCHIVE,
+			shell,
+			`cat /home/abin/.plan ; echo 我是真的 > ${ABIN_REPLY_PATH}`,
+		);
+
+		expect(event?.found.map((note) => note.id)).toEqual(["ch4-reply"]);
+		expect(event?.reply).toBe("我是真的");
+	});
+
+	it("別台終端機寫同一個路徑不算回信", () => {
+		const { result, onAbinEvent } = setup();
+		const shell = resolveShell(new Map(), COMMS_ENTRY);
+		run(result.current.handleExecuted, COMMS_ENTRY, shell, "mkdir -p /home/abin");
+
+		expect(run(result.current.handleExecuted, COMMS_ENTRY, shell, `echo 我醒了 > ${ABIN_REPLY_PATH}`)).toBeNull();
+
+		expect(onAbinEvent).not.toHaveBeenCalled();
+		expect(useGameStore.getState().abinNotes.reply).toBeNull();
 	});
 });

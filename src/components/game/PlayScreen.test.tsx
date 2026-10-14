@@ -612,6 +612,19 @@ describe("PlayScreen 阿彬的留言面板", () => {
 		pressAlt("A");
 		expect(within(screen.getByTestId("side-panel")).getByTestId("abin-notes-count").textContent).toBe("1/8");
 	});
+
+	it("第四章通訊紀錄終端機：用 echo 寫進 /home/abin/reply.txt 的那句話存進存檔，面板接在那則留言下面", () => {
+		seedSave({ progress: { chapter: 4, furthestChapter: 4 } });
+		useGameStore.setState({ abinNotes: { found: ["ch4-reply"], reply: null } });
+		render(<PlayScreen />);
+		openTerminal("ch4-t5");
+
+		runCommand("echo 我醒了 > /home/abin/reply.txt");
+
+		expect(useGameStore.getState().abinNotes.reply).toBe("我醒了");
+		pressAlt("A");
+		expect(within(screen.getByTestId("side-panel")).getByTestId("abin-reply").textContent).toContain("「我醒了」");
+	});
 });
 
 describe("PlayScreen 暫停選單", () => {
