@@ -758,6 +758,58 @@ describe("PlayScreen 章節結束", () => {
 	});
 });
 
+describe("PlayScreen 片尾", () => {
+	const CHAPTER_SIX = getChapter(6);
+
+	/** 第六章全解、outro 播過：從回顧卡開始，按「繼續」進片尾，一路按 Enter 記下每一句。 */
+	function readEnding(): string[] {
+		render(<PlayScreen />);
+		fireEvent.click(screen.getByText("繼續"));
+		const ending = screen.getByTestId("chapter-end-ending");
+		const seen: string[] = [];
+		for (let presses = 0; presses < 30; presses += 1) {
+			const line = ending.querySelector(".sr-only")?.textContent ?? "";
+			if (seen.at(-1) !== line) {
+				seen.push(line);
+			}
+			if (screen.queryByTestId("chapter-end-continue-hint") !== null) {
+				break;
+			}
+			fireEvent.keyDown(window, { key: "Enter" });
+		}
+		return seen;
+	}
+
+	function seedFinalChapter(): void {
+		seedSave({
+			progress: { chapter: 6, furthestChapter: 6, solvedTerminals: CHAPTER_SIX.terminals.map((terminal) => terminal.id) },
+			storyFlags: { [introShownFlag(6)]: true, [outroShownFlag(6)]: true },
+		});
+	}
+
+	it("阿彬的留言沒集滿：片尾停在「你是……」", () => {
+		seedFinalChapter();
+		useGameStore.setState({ abinNotes: { found: ["ch1-jokes"], reply: null } });
+
+		expect(readEnding().at(-1)).toBe("你是……");
+	});
+
+	it("集滿八則而且有回信：片尾在「你是……」之後多一段，帶著玩家寫的那句話", () => {
+		seedFinalChapter();
+		useGameStore.setState({
+			abinNotes: {
+				found: ["ch1-jokes", "ch2-backup", "ch2-vault", "ch3-hold", "ch4-relay", "ch4-reply", "ch5-rations", "ch6-shift"],
+				reply: "我醒了",
+			},
+		});
+
+		const lines = readEnding();
+		expect(lines).toContain("你是……");
+		expect(lines.some((line) => line.includes("「我醒了」"))).toBe(true);
+		expect(lines.at(-1)).toBe("其餘內容無法辨識。仍在解壓縮。");
+	});
+});
+
 describe("PlayScreen 訂閱穩定性（A4、A19）", () => {
 	it("Phaser 事件只在掛載時訂閱一次，之後的 render 不會拆掉重掛", () => {
 		seedSave({ storyFlags: {} });

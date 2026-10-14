@@ -49,7 +49,7 @@ import { useSolveFlow } from "@/components/game/useSolveFlow";
 import { useTerminalSessions } from "@/components/game/useTerminalSessions";
 import { SettingsMenu } from "@/components/title/SettingsMenu";
 import { chapterTeaches, findTerminal, getChapter, isChapterComplete } from "@/game/chapters";
-import { ENDING_LINES } from "@/game/chapters/ending";
+import { endingLinesFor } from "@/game/chapters/ending";
 import { ROOM_NAMES, type GameEventMap, type RoomId } from "@/game/phaser/events";
 import { novaPortraitFor, type TerminalDefinition } from "@/game/story";
 import { endingImage, outroImageForChapter, sceneImageForRoom } from "@/game/story/scenes";
@@ -288,7 +288,11 @@ function PlayScreenReady({ character }: PlayScreenReadyProps) {
 							? null
 							: { number: nextChapter.chapter, title: nextChapter.title, deckName: nextChapter.deckName }
 					}
-					ending={nextChapter === null ? { lines: ENDING_LINES, illustrationSrc: endingImage() } : undefined}
+					ending={
+						nextChapter === null
+							? { lines: endingLinesFor(abinNotes.found, abinNotes.reply), illustrationSrc: endingImage() }
+							: undefined
+					}
 					onMounted={chapterNavigation.handleChapterEndMounted}
 					onReturnToTitle={chapterNavigation.handleReturnToTitle}
 					onNextChapter={chapterNavigation.handleNextChapter}
