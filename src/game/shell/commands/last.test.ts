@@ -13,12 +13,12 @@ describe("last 預設的站上登入紀錄", () => {
 		expect(lastCommand.name).toBe("last");
 	});
 
-	it("最新的在前：自己還沒登出，阿彬兩天前凌晨在通訊艙登入過六分鐘", () => {
+	it("最新的在前：自己還沒登出，阿彬兩天前凌晨在通訊艙登入過十五分鐘", () => {
 		expect(lastCommand.run([], createContext())).toEqual({
 			ok: true,
 			lines: [
 				`tech     tty1         ${EMPTY_HOST} Wed Mar 12 08:15   still logged in`,
-				`abin     tty4         ${EMPTY_HOST} Mon Mar 10 02:47 - 02:53  (00:06)`,
+				`abin     tty4         ${EMPTY_HOST} Mon Mar 10 02:38 - 02:53  (00:15)`,
 				"",
 				"wtmp begins Sat Mar  1 00:00:00 2031",
 			],
@@ -27,7 +27,7 @@ describe("last 預設的站上登入紀錄", () => {
 
 	it("給帳號名稱只列那個帳號的紀錄", () => {
 		expect(lastCommand.run(["abin"], createContext()).lines).toEqual([
-			`abin     tty4         ${EMPTY_HOST} Mon Mar 10 02:47 - 02:53  (00:06)`,
+			`abin     tty4         ${EMPTY_HOST} Mon Mar 10 02:38 - 02:53  (00:15)`,
 			"",
 			"wtmp begins Sat Mar  1 00:00:00 2031",
 		]);

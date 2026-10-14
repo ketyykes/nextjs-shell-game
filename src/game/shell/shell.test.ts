@@ -1062,7 +1062,7 @@ describe("帳號與登入的彩蛋（第十七場）", () => {
 		expect(shell.execute("id").lines[0]).toMatch(/^uid=1006\(tech\) /);
 		const abin = shell.execute("last | grep abin").lines;
 		expect(abin).toHaveLength(1);
-		expect(abin[0]).toContain("Mon Mar 10 02:47 - 02:53");
+		expect(abin[0]).toContain("Mon Mar 10 02:38 - 02:53");
 	});
 
 	it("sudo 被拒絕不算錯誤（不扣氧），但 && 右邊不會執行", () => {
