@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { COUNTDOWN_LABELS, formatCountdown, remainingMs } from "@/components/game/decommission";
 import { DialogueBlock } from "@/components/terminal/DialogueBlock";
 import { TerminalFrame } from "@/components/terminal/TerminalFrame";
 import { useTypewriter } from "@/components/terminal/useTypewriter";
@@ -45,6 +46,8 @@ export const BOOT_LINES: readonly BootLine[] = [
 	{ text: "重試 3/3……查無此人", tone: "amber" },
 	{ text: "略過。", tone: "normal" },
 	{ text: "主電源離線。低功率模式。", tone: "normal" },
+	// HUD 左上倒數的第一次出現（4.13）：剛醒來還沒玩，倒數是完整的；只說「站務排程」，第五章才揭露是除役
+	{ text: `${COUNTDOWN_LABELS.schedule}：1 項待執行（${formatCountdown(remainingMs(0))}）`, tone: "dim" },
 	{ text: "移交站務系統……", tone: "dim" },
 ];
 

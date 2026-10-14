@@ -20,6 +20,17 @@ describe("BOOT_LINES", () => {
 			expect(BOOT_LINES[index]?.text).not.toBe(BOOT_LINES[index - 1]?.text);
 		}
 	});
+
+	it("移交站務系統前有一行站務排程，倒數跟 HUD 的起點一樣，不提除役（第五章才揭露，4.13）", () => {
+		const texts = BOOT_LINES.map((line) => line.text);
+		const scheduleIndex = texts.indexOf("站務排程：1 項待執行（T-81d 20:25:00）");
+		expect(scheduleIndex).toBeGreaterThan(-1);
+		expect(BOOT_LINES[scheduleIndex]?.tone).toBe("dim");
+		expect(texts[scheduleIndex + 1]).toBe("移交站務系統……");
+		for (const text of texts) {
+			expect(text).not.toContain("除役");
+		}
+	});
 });
 
 describe("BootLog（instant）", () => {
