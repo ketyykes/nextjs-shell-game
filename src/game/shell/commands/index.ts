@@ -81,9 +81,9 @@ export const ALL_COMMANDS: CommandDefinition[] = [
 	// 第五章
 	exportCommand,
 	envCommand,
+	chmodCommand,
 	// 第十七場：只開放使用，不在任何章節的 teaches 裡
 	unsetCommand,
-	chmodCommand,
 	// 第六章
 	psCommand,
 	topCommand,
