@@ -265,6 +265,49 @@ describe("第五章正解序列", () => {
 		expect(output.indexOf("04:37:09")).toBeLessThan(output.indexOf("04:37:12"));
 	});
 
+	it("T4 保留回滾當下的環境：NOVA_DIR 跟第三章 .bash_history 的 export 一樣是 /opt/nova", () => {
+		const terminal = terminalById("ch5-t4");
+		expect(terminal.env?.NOVA_DIR).toBe("/opt/nova");
+		const shell = openTerminal(terminal);
+		expect(runStep(shell, terminal, "env").lines).toContain("NOVA_DIR=/opt/nova");
+	});
+
+	it("T4 重現那三秒：unset NOVA_DIR 之前 echo 出 /opt/nova/，之後只剩 /，都不算過關", () => {
+		const terminal = terminalById("ch5-t4");
+		const shell = openTerminal(terminal);
+		const beforeUnset = runStep(shell, terminal, 'echo "$NOVA_DIR/"');
+		expect(beforeUnset.lines).toEqual(["/opt/nova/"]);
+		expect(beforeUnset.solved).toBe(false);
+
+		expect(runStep(shell, terminal, "unset NOVA_DIR").solved).toBe(false);
+
+		const afterUnset = runStep(shell, terminal, 'echo "$NOVA_DIR/"');
+		expect(afterUnset.lines).toEqual(["/"]);
+		expect(afterUnset.solved).toBe(false);
+		expect(runStep(shell, terminal, "env").lines.join("\n")).not.toContain("NOVA_DIR");
+	});
+
+	it("T4 真的照抄那行 rm：根目錄刪不掉，檔案都還在", () => {
+		const terminal = terminalById("ch5-t4");
+		const shell = openTerminal(terminal);
+		runStep(shell, terminal, "unset NOVA_DIR");
+		expect(runFailingStep(shell, terminal, 'rm -rf "$NOVA_DIR/"')).toBe(false);
+		expect(shell.fs.exists("/", "/deck5/security/scheduler/cron_2028-06-02.log")).toBe(true);
+	});
+
+	it("T4 的稽核備註給線索：環境是回滾當下的，要重現就把 rm 換成 echo", () => {
+		const terminal = terminalById("ch5-t4");
+		const shell = openTerminal(terminal);
+		expect(runStep(shell, terminal, "ls").lines.join("\n")).toContain("audit_note.txt");
+		const note = runStep(shell, terminal, "cat audit_note.txt").lines.join("\n");
+		expect(note).toContain("NOVA_DIR");
+		expect(note).toContain("echo");
+		// 線索不是 hint：三段提示只為過關服務，不提 NOVA_DIR 的重現
+		for (const hint of terminal.hints) {
+			expect(hint).not.toContain("unset");
+		}
+	});
+
 	it("T5 pod_03 有阿彬留下的隱藏檔，ls -a 才看得到", () => {
 		const terminal = terminalById("ch5-t5");
 		const shell = openTerminal(terminal);

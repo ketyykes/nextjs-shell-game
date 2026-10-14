@@ -323,6 +323,14 @@ const captainTerminal: TerminalDefinition = {
 
 const SCHEDULER_LOG = "/deck5/security/scheduler/cron_2028-06-02.log";
 
+/**
+ * 稽核系統記下「路徑展開為 /」之後一分鐘自動產生的備註。
+ * 這台保留了回滾當下的環境（`NOVA_DIR=/opt/nova`，跟第三章 `.bash_history` 的 export 一樣），
+ * 讀完排程日誌的玩家可以自己重現那三秒：`echo "$NOVA_DIR/"` → `unset NOVA_DIR` → 再 echo 一次只剩 `/`（設計文件 4.14）。
+ * 選讀，不是過關條件，三段提示也不提。
+ */
+const AUDIT_NOTE_MTIME = "2028-06-02T04:38:12Z";
+
 const securityTerminal: TerminalDefinition = {
 	...deckTerminalIdentity(5, 4),
 	teaches: ["chmod 644"],
@@ -340,6 +348,10 @@ const securityTerminal: TerminalDefinition = {
 	},
 	// NOVA 說「排程系統的 bug」的時候，燈閃了一下
 	effect: { kind: "flicker" },
+	// 回滾當下的環境，見 AUDIT_NOTE_MTIME 的說明
+	env: {
+		NOVA_DIR: "/opt/nova",
+	},
 	nova: {
 		onEnterRoom: ["安全管制室。所有自動排程都在這裡留紀錄。"],
 		onOpen: [
@@ -359,6 +371,17 @@ const securityTerminal: TerminalDefinition = {
 		},
 		deck5: {
 			security: {
+				"audit_note.txt": {
+					$type: "file",
+					owner: "root",
+					mtime: AUDIT_NOTE_MTIME,
+					content: lines(
+						"稽核備註（自動產生）",
+						"本管制台保留了 rollback.sh 開始執行時（04:36:58）的工作階段環境，NOVA_DIR 還是當時的值，env 查得到。",
+						"要確認排程日誌裡的指令當時展開成什麼路徑，把 rm 換成 echo 照順序再執行一次：",
+						"echo 只印出路徑，不會刪任何東西。",
+					),
+				},
 				"jobs.txt": {
 					$type: "file",
 					owner: "nova",
