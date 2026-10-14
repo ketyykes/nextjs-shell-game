@@ -16,6 +16,7 @@ export function toSaveData(state: SaveData): SaveData {
 		terminals: state.terminals,
 		storyFlags: state.storyFlags,
 		stats: state.stats,
+		abinNotes: state.abinNotes,
 	};
 }
 

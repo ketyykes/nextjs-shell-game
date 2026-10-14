@@ -11,14 +11,22 @@ const SAVE: SaveData = {
 	terminals: {},
 	storyFlags: { "ch1.outroShown": true },
 	stats: { "1": { playTimeMs: 90_000, errors: 5, hints: 3 } },
+	abinNotes: { found: ["ch1-jokes"], reply: "我醒了" },
 };
 
 describe("toSaveData", () => {
-	it("只留五個資料欄位，丟掉 action 之類的其他東西", () => {
+	it("只留六個資料欄位（v4 多了阿彬的留言），丟掉 action 之類的其他東西", () => {
 		const withExtras = { ...SAVE, loseOxygen: () => {}, extra: 1 };
 
 		expect(toSaveData(withExtras)).toEqual(SAVE);
-		expect(Object.keys(toSaveData(withExtras)).sort()).toEqual(["progress", "settings", "stats", "storyFlags", "terminals"]);
+		expect(Object.keys(toSaveData(withExtras)).sort()).toEqual([
+			"abinNotes",
+			"progress",
+			"settings",
+			"stats",
+			"storyFlags",
+			"terminals",
+		]);
 	});
 });
 

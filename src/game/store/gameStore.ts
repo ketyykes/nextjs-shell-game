@@ -18,6 +18,7 @@ import { migrateSaveData } from "./migrate";
 import { toSaveData } from "./saveExport";
 import { getSaveIssue, setSaveIssue } from "./saveStatus";
 import {
+	DEFAULT_ABIN_NOTES,
 	DEFAULT_PROGRESS,
 	DEFAULT_SETTINGS,
 	OXYGEN_MAX,
@@ -27,6 +28,7 @@ import {
 	TRANSCRIPT_LIMIT,
 } from "./types";
 import type {
+	AbinNotesProgress,
 	ChapterStats,
 	GameStore,
 	PlayStats,
@@ -52,6 +54,7 @@ export function createInitialSaveData(): SaveData {
 		terminals: {},
 		storyFlags: {},
 		stats: {},
+		abinNotes: { ...DEFAULT_ABIN_NOTES, found: [] },
 	};
 }
 
@@ -171,6 +174,29 @@ const safeLocalStorage: StateStorage = {
 };
 
 /**
+ * 存檔裡的阿彬留言紀錄（v4）：形狀不對的部分用預設值。`found` 只留字串並去掉重複，
+ * 不認得的 id 照樣留著（之後的版本可能多了留言），算數量時由畫面只算認得的。
+ */
+function sanitizeAbinNotes(value: unknown): AbinNotesProgress {
+	if (!isRecord(value)) {
+		return { ...DEFAULT_ABIN_NOTES, found: [] };
+	}
+	const found: string[] = [];
+	if (Array.isArray(value.found)) {
+		for (const id of value.found) {
+			if (typeof id === "string" && !found.includes(id)) {
+				found.push(id);
+			}
+		}
+	}
+	let reply: string | null = null;
+	if (typeof value.reply === "string") {
+		reply = value.reply;
+	}
+	return { found, reply };
+}
+
+/**
  * 把讀回來的存檔合併到目前狀態。
  *
  * zustand 預設是淺層合併，`progress` 或 `settings` 之後新增欄位時，舊存檔會整包蓋掉預設值；
@@ -205,6 +231,10 @@ function mergeSaveData(persistedState: unknown, currentState: GameStore): GameSt
 
 	if (isRecord(persisted.stats)) {
 		merged.stats = persisted.stats;
+	}
+
+	if ("abinNotes" in persisted) {
+		merged.abinNotes = sanitizeAbinNotes(persisted.abinNotes);
 	}
 
 	return merged;
@@ -413,6 +443,7 @@ export const useGameStore = create<GameStore>()(
 					terminals: initial.terminals,
 					storyFlags: initial.storyFlags,
 					stats: initial.stats,
+					abinNotes: initial.abinNotes,
 				});
 			},
 
@@ -497,6 +528,29 @@ export const useGameStore = create<GameStore>()(
 						playTimeMs: current.playTimeMs + rounded,
 					})),
 				}));
+			},
+
+			// 阿彬的留言 -------------------------------------------------------
+
+			markAbinNotesFound: (noteIds) => {
+				const current = get().abinNotes;
+				const added: string[] = [];
+				for (const id of noteIds) {
+					if (!current.found.includes(id) && !added.includes(id)) {
+						added.push(id);
+					}
+				}
+				if (added.length === 0) {
+					return;
+				}
+				set((state) => ({ abinNotes: { ...state.abinNotes, found: [...state.abinNotes.found, ...added] } }));
+			},
+
+			setAbinReply: (reply) => {
+				if (get().abinNotes.reply === reply) {
+					return;
+				}
+				set((state) => ({ abinNotes: { ...state.abinNotes, reply } }));
 			},
 		}),
 		{

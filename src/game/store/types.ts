@@ -122,6 +122,26 @@ export interface ChapterStats {
 export type PlayStats = Record<string, ChapterStats>;
 
 // ---------------------------------------------------------------------------
+// 阿彬的留言（v4 起，設計文件 4.12）
+// ---------------------------------------------------------------------------
+
+/**
+ * 阿彬藏在各章終端機裡的隱藏留言收集進度與第四章的回信。留言本身的資料在 `@/game/story/abinNotes`，
+ * 這裡只存 id 與玩家寫的字。新遊戲會清；重玩本章與選章保留（找到過就是找到過）。
+ */
+export interface AbinNotesProgress {
+	/** 已找到的留言 id，依找到的順序。 */
+	found: string[];
+	/** 玩家在第四章 `/home/abin/reply.txt` 寫的第一個非空行（已清理過），沒寫過是 null。之後再改就換成最新的。 */
+	reply: string | null;
+}
+
+export const DEFAULT_ABIN_NOTES: AbinNotesProgress = {
+	found: [],
+	reply: null,
+};
+
+// ---------------------------------------------------------------------------
 // 終端機 session 與輸出紀錄
 // ---------------------------------------------------------------------------
 
@@ -191,11 +211,13 @@ export interface SaveData {
 	storyFlags: StoryFlags;
 	/** 每章的遊玩統計（v3 起）。 */
 	stats: PlayStats;
+	/** 阿彬的隱藏留言與回信（v4 起）。 */
+	abinNotes: AbinNotesProgress;
 }
 
 /** localStorage 的 key 與格式版本。格式有破壞性變更時版本加一並寫 migrate（`./migrate.ts`）。 */
 export const SAVE_STORAGE_KEY = "kepler9-save";
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 // ---------------------------------------------------------------------------
 // store 動作
@@ -254,6 +276,12 @@ export interface GameActions {
 	recordCommandStats: (chapter: number, execution: { isError: boolean; hintUsed: boolean }) => void;
 	/** 累加某章的遊玩時間（毫秒，取整數）；0、負數與非有限數略過。 */
 	addPlayTime: (chapter: number, ms: number) => void;
+
+	// 阿彬的留言（v4）
+	/** 依找到的順序記下新找到的留言 id；已記過的略過，全部都記過就不寫檔。 */
+	markAbinNotesFound: (noteIds: string[]) => void;
+	/** 記下回信（呼叫端先清理過）；跟目前相同就不寫檔。 */
+	setAbinReply: (reply: string) => void;
 }
 
 export type GameStore = SaveData & GameActions;

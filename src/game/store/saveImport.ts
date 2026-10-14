@@ -65,12 +65,18 @@ const chapterStatsSchema = z.looseObject({
 	hints: z.number().int().min(0),
 });
 
+const abinNotesSchema = z.looseObject({
+	found: z.array(z.string()),
+	reply: z.string().nullable(),
+});
+
 const saveDataSchema = z.looseObject({
 	progress: progressSchema,
 	settings: settingsSchema,
 	terminals: z.record(z.string(), terminalSessionRecordSchema),
 	storyFlags: z.record(z.string(), z.literal(true)),
 	stats: z.record(z.string(), chapterStatsSchema),
+	abinNotes: abinNotesSchema,
 });
 
 const MESSAGES = {

@@ -75,6 +75,7 @@ describe("初始狀態", () => {
 		expect(state.settings).toEqual(DEFAULT_SETTINGS);
 		expect(state.terminals).toEqual({});
 		expect(state.storyFlags).toEqual({});
+		expect(state.abinNotes).toEqual({ found: [], reply: null });
 	});
 
 	it("初始資料的陣列不和 DEFAULT_PROGRESS 共用參考", () => {
@@ -314,6 +315,8 @@ describe("resetSave", () => {
 
 		state.recordCommandStats(1, { isError: true, hintUsed: false });
 		state.markGameCleared();
+		state.markAbinNotesFound(["ch1-jokes"]);
+		state.setAbinReply("我醒了");
 
 		useGameStore.getState().resetSave();
 
@@ -323,6 +326,7 @@ describe("resetSave", () => {
 		expect(after.terminals).toEqual({});
 		expect(after.storyFlags).toEqual({});
 		expect(after.stats).toEqual({});
+		expect(after.abinNotes).toEqual({ found: [], reply: null });
 		expect(after.settings).toEqual({ ...DEFAULT_SETTINGS, flickerEnabled: false, volume: 0.3 });
 	});
 });
@@ -519,6 +523,52 @@ describe("通關與遊玩統計", () => {
 	});
 });
 
+describe("阿彬的留言（v4）", () => {
+	it("markAbinNotesFound 依找到的順序記下，已記過的不重複", () => {
+		const { markAbinNotesFound } = useGameStore.getState();
+		markAbinNotesFound(["ch2-vault"]);
+		markAbinNotesFound(["ch1-jokes", "ch2-vault"]);
+
+		expect(useGameStore.getState().abinNotes.found).toEqual(["ch2-vault", "ch1-jokes"]);
+		expect(readStoredSave().state.abinNotes).toEqual({ found: ["ch2-vault", "ch1-jokes"], reply: null });
+	});
+
+	it("markAbinNotesFound 全部都記過時不改狀態也不寫檔", () => {
+		useGameStore.getState().markAbinNotesFound(["ch1-jokes"]);
+		const before = useGameStore.getState().abinNotes;
+		localStorage.clear();
+
+		useGameStore.getState().markAbinNotesFound(["ch1-jokes"]);
+		useGameStore.getState().markAbinNotesFound([]);
+
+		expect(useGameStore.getState().abinNotes).toBe(before);
+		expect(localStorage.getItem(SAVE_STORAGE_KEY)).toBeNull();
+	});
+
+	it("setAbinReply 記下回信，之後再改就用最新的；跟目前相同時不寫檔", () => {
+		const { setAbinReply } = useGameStore.getState();
+		setAbinReply("我醒了");
+		setAbinReply("我在冷凍艙");
+		expect(useGameStore.getState().abinNotes.reply).toBe("我在冷凍艙");
+
+		localStorage.clear();
+		useGameStore.getState().setAbinReply("我在冷凍艙");
+		expect(localStorage.getItem(SAVE_STORAGE_KEY)).toBeNull();
+	});
+
+	it("重玩本章與選章都保留找到的留言與回信", () => {
+		useGameStore.setState({ progress: { ...DEFAULT_PROGRESS, chapter: 4, furthestChapter: 4 } });
+		const state = useGameStore.getState();
+		state.markAbinNotesFound(["ch1-jokes", "ch4-reply"]);
+		state.setAbinReply("我醒了");
+
+		useGameStore.getState().resetChapter(4);
+		useGameStore.getState().selectChapter(1);
+
+		expect(useGameStore.getState().abinNotes).toEqual({ found: ["ch1-jokes", "ch4-reply"], reply: "我醒了" });
+	});
+});
+
 describe("角色位置", () => {
 	it("預設沒有位置，savePlayerPosition 存下章節、座標與艙區", () => {
 		expect(useGameStore.getState().progress.position).toBeNull();
@@ -580,9 +630,9 @@ describe("persist", () => {
 
 		const stored = readStoredSave();
 		expect(stored.version).toBe(SAVE_VERSION);
-		expect(stored.version).toBe(3);
+		expect(stored.version).toBe(4);
 		expect(stored.state.progress).toEqual({ ...DEFAULT_PROGRESS, learnedCommands: ["pwd"] });
-		expect(Object.keys(stored.state).sort()).toEqual(["progress", "settings", "stats", "storyFlags", "terminals"]);
+		expect(Object.keys(stored.state).sort()).toEqual(["abinNotes", "progress", "settings", "stats", "storyFlags", "terminals"]);
 		expect(stored.state).not.toHaveProperty("learnCommand");
 		expect(stored.state).not.toHaveProperty("resetSave");
 	});
@@ -601,6 +651,7 @@ describe("persist", () => {
 			terminals: { "ch1-t1": { ...createRecord([createSystemEntry(1)]), scriptHash: "0123456789abcdef" } },
 			storyFlags: { "ch1.sawShadow": true },
 			stats: { "1": { playTimeMs: 61000, errors: 3, hints: 1 } },
+			abinNotes: { found: ["ch1-jokes", "ch2-backup"], reply: "我醒了" },
 		};
 		localStorage.setItem(SAVE_STORAGE_KEY, JSON.stringify({ state: save, version: SAVE_VERSION }));
 
@@ -612,6 +663,7 @@ describe("persist", () => {
 		expect(state.terminals).toEqual(save.terminals);
 		expect(state.storyFlags).toEqual(save.storyFlags);
 		expect(state.stats).toEqual(save.stats);
+		expect(state.abinNotes).toEqual(save.abinNotes);
 		expect(typeof state.learnCommand).toBe("function");
 		expect(useGameStore.persist.hasHydrated()).toBe(true);
 	});
@@ -631,7 +683,7 @@ describe("persist", () => {
 		expect(useGameStore.getState().settings).toEqual({ ...DEFAULT_SETTINGS, textSpeed: "slow" });
 	});
 
-	it("v1 存檔一路升級到 v3：最遠章節等於目前章節、沒有位置、沒通關、統計是空的，其他資料原樣保留", async () => {
+	it("v1 存檔一路升級到 v4：最遠章節等於目前章節、沒有位置、沒通關、統計與阿彬留言是空的，其他資料原樣保留", async () => {
 		const v1Progress = {
 			chapter: 3,
 			character: "d",
@@ -654,7 +706,8 @@ describe("persist", () => {
 		expect(state.progress).toEqual({ ...v1Progress, furthestChapter: 3, position: null, clearedAt: null });
 		expect(state.storyFlags).toEqual({ "ch2.outroShown": true });
 		expect(state.stats).toEqual({});
-		expect(readStoredSave().version).toBe(3);
+		expect(state.abinNotes).toEqual({ found: [], reply: null });
+		expect(readStoredSave().version).toBe(4);
 	});
 
 	it("v2 存檔升級到 v3：看完片尾的算已通關，終端機紀錄原樣保留", async () => {
@@ -696,6 +749,21 @@ describe("persist", () => {
 		await useGameStore.persist.rehydrate();
 
 		expect(useGameStore.getState().stats).toEqual({});
+	});
+
+	it.each([
+		["不是物件", "壞掉", { found: [], reply: null }],
+		["found 不是陣列、回信不是字串", { found: "ch1-jokes", reply: 42 }, { found: [], reply: null }],
+		["found 混了非字串與重複的 id", { found: ["ch1-jokes", 7, "ch1-jokes", "ch2-vault"], reply: "我醒了" }, { found: ["ch1-jokes", "ch2-vault"], reply: "我醒了" }],
+	])("存檔的阿彬留言紀錄壞掉（%s）時用預設值補", async (_label, abinNotes, expected) => {
+		localStorage.setItem(
+			SAVE_STORAGE_KEY,
+			JSON.stringify({ state: { ...createInitialSaveData(), abinNotes }, version: SAVE_VERSION }),
+		);
+
+		await useGameStore.persist.rehydrate();
+
+		expect(useGameStore.getState().abinNotes).toEqual(expected);
 	});
 
 	it("最遠章節比目前章節小的壞存檔會被拉回至少等於目前章節", async () => {

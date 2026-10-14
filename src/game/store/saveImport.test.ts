@@ -32,6 +32,7 @@ function createSave(): SaveData {
 		terminals: { "ch3-t1": createRecord() },
 		storyFlags: { "ch1.outroShown": true },
 		stats: { "3": { playTimeMs: 1000, errors: 2, hints: 0 } },
+		abinNotes: { found: ["ch1-jokes"], reply: "我醒了" },
 	};
 }
 
@@ -42,6 +43,7 @@ interface MutableSave {
 	terminals: Record<string, { shell: { fs: { root?: unknown } } }>;
 	storyFlags: Record<string, unknown>;
 	stats: Record<string, Record<string, unknown>>;
+	abinNotes?: Record<string, unknown>;
 }
 
 /** 跟遊戲匯出的檔案同格式：persist 的 `{ state, version }`。 */
@@ -87,6 +89,21 @@ describe("parseSaveImport", () => {
 		expect(result.data.progress).toMatchObject({ chapter: 2, furthestChapter: 2, position: null, clearedAt: null });
 		expect(result.data.stats).toEqual({});
 		expect(JSON.parse(result.json).version).toBe(SAVE_VERSION);
+	});
+
+	it("v3 存檔匯入：升到 v4，補上空的阿彬留言紀錄", () => {
+		const v3 = JSON.parse(JSON.stringify(createSave())) as MutableSave;
+		delete v3.abinNotes;
+
+		const result = parseSaveImport(exported(v3, 3));
+
+		expect(result.ok).toBe(true);
+		if (!result.ok) {
+			return;
+		}
+		expect(result.data.abinNotes).toEqual({ found: [], reply: null });
+		expect(result.data.stats).toEqual(createSave().stats);
+		expect(JSON.parse(result.json)).toEqual({ state: { ...createSave(), abinNotes: { found: [], reply: null } }, version: SAVE_VERSION });
 	});
 
 	it("已通關的存檔摘要標記 cleared", () => {
@@ -135,6 +152,9 @@ describe("parseSaveImport", () => {
 		["旗標不是 true", (save: MutableSave) => (save.storyFlags["ch1.outroShown"] = "yes")],
 		["統計次數是負數", (save: MutableSave) => (save.stats["3"].errors = -1)],
 		["沒有 progress", (save: MutableSave) => delete save.progress],
+		["目前版本卻沒有阿彬留言紀錄", (save: MutableSave) => delete save.abinNotes],
+		["找到的留言不是字串陣列", (save: MutableSave) => (save.abinNotes!.found = "ch1-jokes")],
+		["回信不是字串也不是 null", (save: MutableSave) => (save.abinNotes!.reply = 42)],
 	])("%s：內容壞掉，拒絕", (_label, mutate) => {
 		const save = JSON.parse(JSON.stringify(createSave())) as MutableSave;
 		mutate(save);

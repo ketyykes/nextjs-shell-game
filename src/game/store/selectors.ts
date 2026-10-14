@@ -6,7 +6,7 @@
  */
 
 import { LAST_CHAPTER } from "@/game/chapters/meta";
-import type { GameStore, ProgressState, SettingsState, StoryFlags, TerminalSessionRecord } from "./types";
+import type { AbinNotesProgress, GameStore, ProgressState, SettingsState, StoryFlags, TerminalSessionRecord } from "./types";
 
 /** 氧氣低於這個百分比時 HUD 進入警示狀態。 */
 export const OXYGEN_LOW_THRESHOLD = 30;
@@ -21,6 +21,11 @@ export function selectProgress(state: GameStore): ProgressState {
 
 export function selectStoryFlags(state: GameStore): StoryFlags {
 	return state.storyFlags;
+}
+
+/** 阿彬的留言收集進度與回信（v4），物件參考只在有變動時換新。 */
+export function selectAbinNotes(state: GameStore): AbinNotesProgress {
+	return state.abinNotes;
 }
 
 export function selectOxygen(state: GameStore): number {

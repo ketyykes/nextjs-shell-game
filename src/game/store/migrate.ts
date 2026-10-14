@@ -5,6 +5,8 @@
  * - v2 → v3：`progress` 多 `clearedAt`、整份多 `stats`（每章統計，舊存檔沒有紀錄，從空的開始）。
  *   已經看完片尾的存檔（最後一章的 `outroShown` 旗標在）算已通關，通關時間用最後存檔時間。
  *   終端機紀錄不動：沒有 `scriptHash` 的紀錄在開啟時才判斷要不要用新版劇本重建（`terminalSession.ts`）。
+ * - v3 → v4：整份多 `abinNotes`（阿彬的隱藏留言與回信），舊存檔從「一則都沒找到、沒有回信」開始。
+ *   留言是補寫在檔案系統上的覆蓋層，舊存檔的終端機開啟時才補進去（`terminalSession.ts`），這裡不動終端機紀錄。
  *
  * 只會收到比 `SAVE_VERSION` 舊的版本：比程式新的存檔在 `safeLocalStorage.getItem`（或匯入檢查）就擋掉了。
  * 欄位缺漏或型別不對的壞存檔交給 `mergeSaveData` 用預設值補。
@@ -48,6 +50,13 @@ function migrateToV3(state: Record<string, unknown>): Record<string, unknown> {
 	return next;
 }
 
+function migrateToV4(state: Record<string, unknown>): Record<string, unknown> {
+	if (isRecord(state.abinNotes)) {
+		return state;
+	}
+	return { ...state, abinNotes: { found: [], reply: null } };
+}
+
 /** 依 `version` 逐版轉換到目前的 `SAVE_VERSION`。 */
 export function migrateSaveData(persistedState: unknown, version: number): SaveData {
 	if (!isRecord(persistedState)) {
@@ -61,6 +70,9 @@ export function migrateSaveData(persistedState: unknown, version: number): SaveD
 	}
 	if (version < 3) {
 		state = migrateToV3(state);
+	}
+	if (version < 4) {
+		state = migrateToV4(state);
 	}
 
 	return state as unknown as SaveData;

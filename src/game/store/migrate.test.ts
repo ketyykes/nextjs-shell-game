@@ -74,6 +74,40 @@ describe("migrateSaveData", () => {
 		expect(migrated.stats).toEqual(stats);
 	});
 
+	it("v3 → v4：補上空的阿彬留言紀錄（沒找到任何一則、沒有回信），其他欄位原樣保留", () => {
+		const stats = { "2": { playTimeMs: 5000, errors: 1, hints: 2 } };
+		const migrated = migrateSaveData(
+			{
+				progress: { ...V1_PROGRESS, furthestChapter: 3, position: null, clearedAt: null },
+				settings: SETTINGS,
+				terminals: {},
+				storyFlags: { "ch2.outroShown": true },
+				stats,
+			},
+			3,
+		);
+
+		expect(migrated.abinNotes).toEqual({ found: [], reply: null });
+		expect(migrated.stats).toEqual(stats);
+		expect(migrated.storyFlags).toEqual({ "ch2.outroShown": true });
+	});
+
+	it("v1 一路升到 v4 也帶著空的阿彬留言紀錄", () => {
+		const migrated = migrateSaveData({ progress: V1_PROGRESS, settings: SETTINGS, terminals: {}, storyFlags: {} }, 1);
+
+		expect(migrated.abinNotes).toEqual({ found: [], reply: null });
+	});
+
+	it("v3 存檔裡已經有阿彬留言紀錄（例如手改過）時不蓋掉", () => {
+		const abinNotes = { found: ["ch1-jokes"], reply: "我醒了" };
+		const migrated = migrateSaveData(
+			{ progress: V1_PROGRESS, settings: SETTINGS, terminals: {}, storyFlags: {}, stats: {}, abinNotes },
+			3,
+		);
+
+		expect(migrated.abinNotes).toEqual(abinNotes);
+	});
+
 	it("不是物件的存檔原樣回傳，交給 merge 用預設值", () => {
 		expect(migrateSaveData(null, 1)).toBeNull();
 		expect(migrateSaveData("壞掉", 2)).toBe("壞掉");

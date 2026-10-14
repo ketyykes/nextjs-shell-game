@@ -8,6 +8,7 @@
 export { createInitialSaveData, useGameStore, useStoreHydration } from "./gameStore";
 export {
 	OXYGEN_LOW_THRESHOLD,
+	selectAbinNotes,
 	selectHasFlag,
 	selectHasSave,
 	selectIsGameFinished,
@@ -21,6 +22,7 @@ export {
 	selectTerminal,
 } from "./selectors";
 export {
+	DEFAULT_ABIN_NOTES,
 	DEFAULT_PROGRESS,
 	DEFAULT_SETTINGS,
 	OXYGEN_MAX,
