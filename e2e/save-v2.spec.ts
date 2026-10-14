@@ -211,6 +211,55 @@ test("localStorage 寫不進去時畫面頂端提示存檔失敗，遊戲照常�
 	expect(errors).toEqual([]);
 });
 
+for (const viewport of [
+	{ width: 1280, height: 800 },
+	{ width: 1024, height: 768 },
+	{ width: 768, height: 1024 },
+]) {
+	test(`${viewport.width}x${viewport.height} 視窗下存檔失敗與音效失敗的提示同時出現，不蓋住除役倒數與上方 HUD，也不互相重疊`, async ({
+		page,
+	}) => {
+		await page.setViewportSize(viewport);
+		// 沒有 T1 過關，第一章的操作提示也在上方那一排
+		await seedSave(page, { chapter: 1, flags: ["ch1.introShown"] });
+		await page.addInitScript(() => {
+			const originalSetItem = Storage.prototype.setItem;
+			Storage.prototype.setItem = function (key: string, value: string) {
+				if (key === "kepler9-save") {
+					throw new DOMException("儲存空間已滿", "QuotaExceededError");
+				}
+				originalSetItem.call(this, key, value);
+			};
+		});
+		await page.route("**/audio/door.*", (route) => route.abort());
+		await enterPlay(page);
+
+		const saveNotice = page.getByTestId("save-status-notice");
+		const assetNotice = page.getByTestId("asset-error-notice");
+		await expect(saveNotice).toContainText("存檔失敗");
+		await expect(assetNotice).toContainText("音效");
+		await expect(page.getByTestId("controls-hint")).toBeVisible();
+
+		const boxes = {
+			save: await saveNotice.boundingBox(),
+			asset: await assetNotice.boundingBox(),
+			countdown: await page.getByTestId("hud-countdown").boundingBox(),
+			oxygen: await page.getByTestId("hud-oxygen").boundingBox(),
+			room: await page.getByTestId("hud-room").boundingBox(),
+			controls: await page.getByTestId("controls-hint").boundingBox(),
+		};
+		for (const [name, box] of Object.entries(boxes)) {
+			expect(box, name).not.toBeNull();
+		}
+		const { save, asset, ...hud } = boxes as Record<keyof typeof boxes, NonNullable<(typeof boxes)["save"]>>;
+		expect(overlaps(save, asset), "存檔提示與音效提示").toBe(false);
+		for (const [name, box] of Object.entries(hud)) {
+			expect(overlaps(save, box), `存檔提示與 ${name}`).toBe(false);
+			expect(overlaps(asset, box), `音效提示與 ${name}`).toBe(false);
+		}
+	});
+}
+
 test("存檔版本比程式新時不讀也不覆寫：標題提示、沒有「繼續」，原始存檔原封不動", async ({ page }) => {
 	await page.goto("/");
 	const raw = JSON.stringify({

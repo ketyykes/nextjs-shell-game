@@ -60,12 +60,14 @@ describe("SaveStatusNotice", () => {
 		expect(container.firstChild).toBeNull();
 	});
 
-	it("擺在上方 HUD 那一排（O2、操作提示、艙區名）的下面，不蓋住它們", () => {
+	it("擺在上方 HUD 那一排（O2、操作提示、艙區名）與 O2 下方除役倒數的下面，不蓋住它們", () => {
 		setSaveIssue("write-failed");
 		render(<SaveStatusNotice />);
 
+		// 除役倒數在 top-12（48 到 80 px），提示從 96 px 開始；實際排版由 e2e 的 save-v2 量
 		const className = screen.getByRole("alert").className;
-		expect(className).toContain("top-16");
+		expect(className).toContain("top-24");
+		expect(className).not.toContain("top-16");
 		expect(className).not.toContain("top-4");
 	});
 });

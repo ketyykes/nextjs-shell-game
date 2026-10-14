@@ -4,7 +4,8 @@
  * 存檔出問題時畫面頂端的一行提示（M12-5）。掛在根佈局，標題畫面與 /play 都看得到。
  *
  * 只 import `@/game/store/saveStatus`（不經過 `@/game/store` 的 index），不會把 zustand store 帶進每一頁。
- * 擺在 top-16，讓開 /play 上方那一排 HUD（O2、第一章操作提示、艙區名）；練習模式本來就不存檔，不顯示。
+ * 擺在 top-24（96 px），讓開 /play 上方那一排 HUD（O2、第一章操作提示、艙區名）與 O2 下方的除役倒數（top-12，到 80 px）；
+ * 音效載不到的提示（`AssetLoadErrorNotice`）擺得更低，兩個同時出現也不重疊。練習模式本來就不存檔，不顯示。
  */
 
 import { usePathname } from "next/navigation";
@@ -27,7 +28,7 @@ export function SaveStatusNotice() {
 		<div
 			role="alert"
 			data-testid="save-status-notice"
-			className="pointer-events-none fixed inset-x-0 top-16 z-[60] mx-auto w-fit max-w-[90vw] border border-game-amber bg-game-bg/90 px-4 py-1 text-center font-terminal text-xl text-game-amber"
+			className="pointer-events-none fixed inset-x-0 top-24 z-[60] mx-auto w-fit max-w-[90vw] border border-game-amber bg-game-bg/90 px-4 py-1 text-center font-terminal text-xl text-game-amber"
 		>
 			{MESSAGES[issue]}
 		</div>

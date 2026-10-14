@@ -5,7 +5,8 @@
  *
  * React 的 error boundary 接不到 Phaser 遊戲迴圈裡的例外，所以要走 EventBus；這個元件只 import 零相依的 EventBus，可以放在 SSR 會碰到的地方。
  * - 致命（地圖、tileset、角色缺了）：整個畫面蓋住，遊戲本來就沒辦法開始，只留「重新載入」。
- * - 非致命（只有音效）：頂端一條提示，可以「先不用」收起來繼續玩。
+ * - 非致命（只有音效）：頂端一條提示，可以「先不用」收起來繼續玩。擺在 top-44（176 px），
+ *   在存檔提示（`SaveStatusNotice`，top-24，768 寬會折成兩行、到約 162 px）下面，兩個同時出現也不重疊。
  */
 
 import { useEffect, useState } from "react";
@@ -40,7 +41,7 @@ export function AssetLoadErrorNotice({ onReload = reloadPage }: AssetLoadErrorNo
 			<div
 				role="alert"
 				data-testid="asset-error-notice"
-				className="fixed inset-x-0 top-28 z-[55] mx-auto flex w-fit max-w-[90vw] flex-wrap items-center justify-center gap-3 border border-game-amber bg-game-bg/90 px-4 py-2 font-terminal text-xl text-game-amber"
+				className="fixed inset-x-0 top-44 z-[55] mx-auto flex w-fit max-w-[90vw] flex-wrap items-center justify-center gap-3 border border-game-amber bg-game-bg/90 px-4 py-2 font-terminal text-xl text-game-amber"
 			>
 				<span>部分音效沒有載到，遊戲可以照常進行，只是會少了聲音。</span>
 				<button type="button" className={BUTTON_CLASS} onClick={onReload}>

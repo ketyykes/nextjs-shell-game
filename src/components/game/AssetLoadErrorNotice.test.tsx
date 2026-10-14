@@ -46,6 +46,19 @@ describe("AssetLoadErrorNotice", () => {
 		expect(screen.queryByRole("alert")).toBeNull();
 	});
 
+	it("音效提示擺在存檔提示（top-24，窄視窗會折成兩行）的下面，兩個同時出現也不重疊", () => {
+		render(<AssetLoadErrorNotice onReload={vi.fn()} />);
+
+		act(() => {
+			emitGameEvent("assets:error", { files: ["/audio/door.ogg"], fatal: false });
+		});
+
+		// 實際排版由 e2e 的 save-v2 在三種視窗大小量
+		const className = screen.getByRole("alert").className;
+		expect(className).toContain("top-44");
+		expect(className).not.toContain("top-28");
+	});
+
 	it("卸載後取消訂閱 EventBus", () => {
 		const { unmount } = render(<AssetLoadErrorNotice />);
 		expect(EventBus.listenerCount("assets:error")).toBe(1);
