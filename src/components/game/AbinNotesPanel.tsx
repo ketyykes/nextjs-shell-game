@@ -53,9 +53,41 @@ function chapterLabel(chapter: number): string {
 	return CHAPTER_LABELS[chapter] ?? `第 ${chapter} 章`;
 }
 
+/** 「還沒找到」區塊的一行：到過的章節一則一行給線索，還沒到過的章節整章合成一行。 */
+interface MissingRow {
+	key: string;
+	chapter: number;
+	text: string;
+}
+
+/** 還沒到過的章節不給線索，同一章有好幾則時只寫一行並標則數，不重複同一句。 */
+function unreachedText(count: number): string {
+	if (count > 1) {
+		return `還沒到過這一層（${count} 則）。`;
+	}
+	return "還沒到過這一層。";
+}
+
+function missingRows(missingNotes: readonly AbinNote[], furthestChapter: number): MissingRow[] {
+	const rows: MissingRow[] = [];
+	const unreachedCounts = new Map<number, number>();
+	for (const note of missingNotes) {
+		if (note.chapter <= furthestChapter) {
+			rows.push({ key: note.id, chapter: note.chapter, text: note.clue });
+			continue;
+		}
+		unreachedCounts.set(note.chapter, (unreachedCounts.get(note.chapter) ?? 0) + 1);
+	}
+	for (const [chapter, count] of unreachedCounts) {
+		rows.push({ key: `unreached-${chapter}`, chapter, text: unreachedText(count) });
+	}
+	return rows;
+}
+
 export function AbinNotesPanel({ found, furthestChapter, reply }: AbinNotesPanelProps) {
 	const foundNotes = abinNotesByTime().filter((note) => found.includes(note.id));
 	const missingNotes = ABIN_NOTES.filter((note) => !found.includes(note.id));
+	const rows = missingRows(missingNotes, furthestChapter);
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col" data-testid="abin-notes-panel">
@@ -79,10 +111,10 @@ export function AbinNotesPanel({ found, furthestChapter, reply }: AbinNotesPanel
 					<section className="mt-4 border-t border-game-dim pt-2" data-testid="abin-notes-missing">
 						<h3 className="text-base text-game-dim">還沒找到</h3>
 						<ul className="mt-1 flex flex-col gap-1.5">
-							{missingNotes.map((note) => (
-								<li key={note.id} className="text-base break-words text-game-dim">
-									<span className="me-2 text-game-prompt">{chapterLabel(note.chapter)}</span>
-									{note.chapter <= furthestChapter ? note.clue : "還沒到過這一層。"}
+							{rows.map((row) => (
+								<li key={row.key} className="text-base break-words text-game-dim">
+									<span className="me-2 text-game-prompt">{chapterLabel(row.chapter)}</span>
+									{row.text}
 								</li>
 							))}
 						</ul>

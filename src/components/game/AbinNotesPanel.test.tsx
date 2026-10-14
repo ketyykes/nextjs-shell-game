@@ -43,7 +43,15 @@ describe("AbinNotesPanel", () => {
 		expect(missing.textContent).toContain(findAbinNote("ch1-jokes")?.clue);
 		expect(missing.textContent).toContain(findAbinNote("ch2-vault")?.clue);
 		expect(missing.textContent).not.toContain(findAbinNote("ch3-hold")?.clue);
-		expect(within(missing).getAllByText("還沒到過這一層。").length).toBe(5);
+	});
+
+	it("還沒到過的章節每章只列一行，同一章有兩則時標出則數，不重複同一句", () => {
+		renderPanel({ found: [], furthestChapter: 2 });
+		const missing = screen.getByTestId("abin-notes-missing");
+
+		// 第三到六章各一行：第四章藏兩則，其餘各一則
+		expect(within(missing).getAllByText("還沒到過這一層。").length).toBe(3);
+		expect(within(missing).getAllByText("還沒到過這一層（2 則）。").length).toBe(1);
 	});
 
 	it("全部找到時沒有「還沒找到」區塊", () => {
