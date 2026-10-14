@@ -49,8 +49,12 @@ export interface FindSolutionInsightsInput {
 /** 認可旗標的前綴。刻意不用 `ch<n>.`：重玩章節（只清 `ch<n>.` 前綴）不會重新認可，只有新遊戲會清。 */
 export const INSIGHT_FLAG_PREFIX = "insight.";
 
-/** 遊戲本身的求助指令：開場就告訴玩家有這兩個，不算 shell 技能，不認可。 */
-const SYSTEM_COMMANDS = new Set(["hint", "help"]);
+/**
+ * 不認可的指令：
+ * - `hint`、`help` 是遊戲本身的求助指令，開場就告訴玩家有這兩個，不算 shell 技能。
+ * - `sudo`、`exit`、`logout` 是彩蛋，在這座站一定被拒絕、什麼都沒做成，不能說是「自己找到的」解法。
+ */
+const SYSTEM_COMMANDS = new Set(["hint", "help", "sudo", "exit", "logout"]);
 
 /** 語法概念在訊息裡的順序（指令一律排在語法前面）。 */
 const SYNTAX_ORDER = ["|", ">", ">>", "*", "~", "$變數", ";", "&&"] as const;

@@ -227,6 +227,10 @@ describe("findSolutionInsights：排除", () => {
 		expect(concepts(insightsFor("ch1-t1", ["help ; hint ; cat wake_up.txt"]))).toEqual([";"]);
 	});
 
+	it("sudo、exit、logout 一定被拒絕、什麼都沒做成，不算「自己找到的」解法", () => {
+		expect(concepts(insightsFor("ch1-t1", ["sudo ls ; exit ; logout ; cat wake_up.txt"]))).toEqual([";"]);
+	});
+
 	it("前面章節教過、只是存檔裡沒學到的（例如跳章）不認：不能說「第 1 章才會正式介紹」", () => {
 		expect(insightsFor("ch3-t1", ["cat work_order.txt ; mkdir repair"], { learned: [] })).toEqual([
 			{ concept: ";", chapter: null, sameChapter: false },
