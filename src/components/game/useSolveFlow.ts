@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { CHAPTERS } from "@/game/chapters";
 import { emitGameEvent } from "@/game/phaser/EventBus";
 import type { Shell } from "@/game/shell/shell";
 import type { ShellExecution } from "@/game/shell/types";
 import { createObjectiveContext, evaluateObjective, type TerminalDefinition } from "@/game/story";
+import { findSolutionInsights, insightFlag } from "@/game/story/solutionInsight";
 import { useGameStore } from "@/game/store";
-import { createObjectiveDoneEntry, solvedSoundFor } from "./solvedFeedback";
+import { createInsightEntry, createObjectiveDoneEntry, solvedSoundFor } from "./solvedFeedback";
 import { createDialogueEntries, toCommandName } from "./terminalSession";
 import type { UseTerminalPressureResult } from "./useTerminalPressure";
 
@@ -36,6 +38,8 @@ export interface UseSolveFlowResult {
  * - 成功且達成目標就過關：卡關歸零、記錄過關、回氧、學會這台教的指令（#1、#2，store 存完整字串、shell 只學指令名）、
  *   存檔、目標面板打勾、發 `puzzle:solved` 讓 Phaser 播演出（終端機開著時 Station 自己延到關閉才播，#4）、
  *   播過關音效（M10-1），最後在終端機插「目標達成」系統行與 NOVA 過關台詞。
+ * - 過關那一行用了還沒教的東西（4.9），在「目標達成」與 NOVA 台詞之間插一行認可，並記下 `insight.<概念>` 旗標，
+ *   同一個東西整份存檔只認可一次（重玩章節不清，新遊戲才清）。
  */
 export function useSolveFlow({ pressure, onSolved }: UseSolveFlowOptions): UseSolveFlowResult {
 	const [justSolvedId, setJustSolvedId] = useState<string | null>(null);
@@ -64,6 +68,18 @@ export function useSolveFlow({ pressure, onSolved }: UseSolveFlowOptions): UseSo
 				return;
 			}
 
+			// 認可要用過關「之前」的已學清單與旗標，所以在學會這台教的指令之前算
+			const insights = findSolutionInsights({
+				execution,
+				definition,
+				learnedCommands: store.progress.learnedCommands,
+				storyFlags: store.storyFlags,
+				chapters: CHAPTERS,
+			});
+			for (const insight of insights) {
+				store.setFlag(insightFlag(insight.concept));
+			}
+
 			// 過關：記錄、回氧、學會這台教的指令、存檔、通知 Phaser 播演出
 			reset();
 			store.markTerminalSolved(definition.id);
@@ -82,10 +98,12 @@ export function useSolveFlow({ pressure, onSolved }: UseSolveFlowOptions): UseSo
 				emitGameEvent("sfx:play", { sound: solvedSound });
 			}
 
-			// 先插一行青綠的「目標達成」，再接 NOVA 的過關台詞
+			// 先插一行青綠的「目標達成」，有提前用上的東西再插認可行，最後接 NOVA 的過關台詞
 			const solvedLines = definition.nova?.onSolved ?? [];
+			const insightEntry = createInsightEntry(definition, insights);
 			store.appendTranscript(definition.id, [
 				createObjectiveDoneEntry(definition),
+				...(insightEntry === null ? [] : [insightEntry]),
 				...createDialogueEntries(`nova-solved-${definition.id}`, solvedLines),
 			]);
 			onSolved(definition);

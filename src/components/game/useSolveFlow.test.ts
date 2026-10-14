@@ -5,6 +5,7 @@ import { onGameEvent } from "@/game/phaser/EventBus";
 import type { GameEventName } from "@/game/phaser/events";
 import type { Shell } from "@/game/shell/shell";
 import type { TerminalDefinition } from "@/game/story";
+import { insightFlag } from "@/game/story/solutionInsight";
 import { createInitialSaveData, useGameStore } from "@/game/store";
 import { resolveShell } from "./useTerminalSessions";
 import { SOLVED_FLASH_MS, useSolveFlow } from "./useSolveFlow";
@@ -117,6 +118,67 @@ describe("useSolveFlow", () => {
 		const tail = transcript.slice(-(1 + (CRYO.nova?.onSolved?.length ?? 0)));
 		expect(tail[0]).toMatchObject({ kind: "system", tone: "success", id: `objective-done-${CRYO.id}` });
 		expect(tail.slice(1).map((entry) => (entry.kind === "dialogue" ? entry.text : ""))).toEqual(CRYO.nova?.onSolved);
+	});
+
+	it("用了還沒教的東西過關：「目標達成」與 NOVA 台詞之間插一行認可，並記下認可旗標", () => {
+		const { result } = setup();
+		const shell = resolveShell(new Map(), CRYO);
+		run(result.current.handleExecuted, CRYO, shell, "ls | grep wake ; cat wake_up.txt");
+
+		const transcript = useGameStore.getState().terminals[CRYO.id]?.transcript ?? [];
+		const tail = transcript.slice(-(2 + (CRYO.nova?.onSolved?.length ?? 0)));
+		expect(tail[0]).toMatchObject({ kind: "system", id: `objective-done-${CRYO.id}` });
+		expect(tail[1]).toEqual({
+			kind: "system",
+			id: `insight-${CRYO.id}`,
+			tone: "success",
+			lines: ["☆ 你用了還沒教的 `grep`（第 2 章）、`|`（第 4 章），之後才會正式介紹。", "☆ `;` 不在課表上，你自己找到的。"],
+		});
+		expect(tail.slice(2).map((entry) => (entry.kind === "dialogue" ? entry.text : ""))).toEqual(CRYO.nova?.onSolved);
+		expect(useGameStore.getState().storyFlags).toMatchObject({
+			[insightFlag("grep")]: true,
+			[insightFlag("|")]: true,
+			[insightFlag(";")]: true,
+		});
+	});
+
+	it("同一個東西整份存檔只認可一次：重玩本章後再用 grep 過關不再插認可行", () => {
+		const hasInsightEntry = (): boolean => {
+			const transcript = useGameStore.getState().terminals[CRYO.id]?.transcript ?? [];
+			return transcript.some((entry) => entry.id === `insight-${CRYO.id}`);
+		};
+		const first = setup();
+		run(first.result.current.handleExecuted, CRYO, resolveShell(new Map(), CRYO), "cat wake_up.txt | grep 喚醒");
+		expect(hasInsightEntry()).toBe(true);
+		first.unmount();
+
+		useGameStore.getState().resetChapter(1);
+		const second = setup();
+		run(second.result.current.handleExecuted, CRYO, resolveShell(new Map(), CRYO), "cat wake_up.txt | grep 喚醒");
+
+		expect(useGameStore.getState().progress.solvedTerminals).toEqual([CRYO.id]);
+		expect(hasInsightEntry()).toBe(false);
+	});
+
+	it("新遊戲（resetSave）會清掉認可旗標", () => {
+		const { result } = setup();
+		run(result.current.handleExecuted, CRYO, resolveShell(new Map(), CRYO), "cat wake_up.txt | grep 喚醒");
+		expect(useGameStore.getState().storyFlags[insightFlag("grep")]).toBe(true);
+
+		useGameStore.getState().resetSave();
+		expect(useGameStore.getState().storyFlags[insightFlag("grep")]).toBeUndefined();
+	});
+
+	it("用到的全部都學過時不插認可行，「目標達成」後面直接接 NOVA 台詞", () => {
+		useGameStore.setState({ progress: { ...useGameStore.getState().progress, learnedCommands: ["grep", "|", ";"] } });
+		const { result } = setup();
+		run(result.current.handleExecuted, CRYO, resolveShell(new Map(), CRYO), "ls | grep wake ; cat wake_up.txt");
+
+		const transcript = useGameStore.getState().terminals[CRYO.id]?.transcript ?? [];
+		const tail = transcript.slice(-(1 + (CRYO.nova?.onSolved?.length ?? 0)));
+		expect(tail[0]).toMatchObject({ kind: "system", id: `objective-done-${CRYO.id}` });
+		expect(transcript.some((entry) => entry.id === `insight-${CRYO.id}`)).toBe(false);
+		expect(Object.keys(useGameStore.getState().storyFlags).filter((flag) => flag.startsWith("insight."))).toEqual([]);
 	});
 
 	it("目標面板打勾 SOLVED_FLASH_MS 後回到 null", () => {
