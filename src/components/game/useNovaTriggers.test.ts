@@ -2,7 +2,13 @@ import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getChapter } from "@/game/chapters";
 import { onGameEvent } from "@/game/phaser/EventBus";
-import { introShownFlag, roomEnteredFlag, type ChapterDefinition, type TerminalDefinition } from "@/game/story";
+import {
+	introFollowUpLine,
+	introShownFlag,
+	roomEnteredFlag,
+	type ChapterDefinition,
+	type TerminalDefinition,
+} from "@/game/story";
 import { createInitialSaveData, useGameStore } from "@/game/store";
 import { useNovaTriggers } from "./useNovaTriggers";
 
@@ -62,6 +68,29 @@ describe("useNovaTriggers 開場", () => {
 		const { result, rerender } = renderTriggers();
 		rerender();
 		expect(result.current.queue).toEqual([]);
+	});
+
+	it("前一章找到過阿彬的留言：開場最後多一句（4.14），也留在對話紀錄裡", () => {
+		seedFlags({});
+		useGameStore.setState({ abinNotes: { found: ["ch1-jokes"], reply: null } });
+		const { result } = renderTriggers(CHAPTER_TWO);
+		const followUp = introFollowUpLine(2, { found: ["ch1-jokes"], reply: null });
+
+		expect(followUp).not.toBeNull();
+		expect(texts(result.current.queue)).toEqual([...(CHAPTER_TWO.intro ?? []), followUp]);
+		act(() => {
+			for (const message of [...result.current.queue]) {
+				result.current.dismiss(message.id);
+			}
+		});
+		expect(result.current.history.at(-1)).toMatchObject({ text: followUp, status: "shown" });
+	});
+
+	it("前一章沒找到留言、或找到的是別章的：開場照劇本", () => {
+		seedFlags({});
+		useGameStore.setState({ abinNotes: { found: ["ch2-vault"], reply: null } });
+		const { result } = renderTriggers(CHAPTER_TWO);
+		expect(texts(result.current.queue)).toEqual(CHAPTER_TWO.intro);
 	});
 });
 

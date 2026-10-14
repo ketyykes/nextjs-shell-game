@@ -3,7 +3,13 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { emitGameEvent } from "@/game/phaser/EventBus";
 import type { RoomId } from "@/game/phaser/events";
-import { introShownFlag, roomEnteredFlag, type ChapterDefinition, type TerminalDefinition } from "@/game/story";
+import {
+	introFollowUpLine,
+	introShownFlag,
+	roomEnteredFlag,
+	type ChapterDefinition,
+	type TerminalDefinition,
+} from "@/game/story";
 import { useGameStore } from "@/game/store";
 import type { NovaMessage } from "./NovaDialogue";
 import { useNovaQueue, type NovaLogEntry } from "./useNovaQueue";
@@ -31,6 +37,7 @@ export interface UseNovaTriggersResult {
  * NOVA 在地圖對話框說話的三個時機（設計文件 4.6、決策 #5、#6、#61）：
  *
  * - 開場：第一次進這一章時說 `intro`。第一章的第一句已在標題流程的 boot log 說過，從第二句開始。
+ *   前一章找到過阿彬的留言（第五章看有沒有寫回信）就在最後多一句（設計文件 4.14），跟開場一樣只說一次。
  * - 進艙區：每間只說一次，換艙區時丟掉舊房還沒播的台詞。
  * - 過關：台詞全部內嵌在終端機輸出區（由過關流程寫入），關閉終端機後地圖只重說最後一句。
  *
@@ -52,6 +59,11 @@ export function useNovaTriggers(chapter: ChapterDefinition): UseNovaTriggersResu
 		let lines = chapter.intro ?? [];
 		if (chapter.chapter === 1) {
 			lines = lines.slice(1);
+		}
+		// NOVA 看狀態：記得前一章你讀了什麼
+		const followUp = introFollowUpLine(chapter.chapter, store.abinNotes);
+		if (followUp !== null) {
+			lines = [...lines, followUp];
 		}
 		enqueue(`intro-${chapter.chapter}`, lines);
 	}, [chapter, enqueue]);
