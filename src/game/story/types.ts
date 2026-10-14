@@ -132,12 +132,24 @@ export interface ChapterDefinition {
 // ---------------------------------------------------------------------------
 
 /**
+ * NOVA 看狀態的反應（設計文件 4.14）：終端機裡依玩家做了什麼插一句，每種每章最多一次。
+ * - `abinNote`：讀到阿彬的隱藏留言。
+ * - `abinReply`：在第四章寫了給阿彬的回信。
+ * - `abinHome`：這道指令執行後的工作目錄在 `/home/abin` 底下。
+ * - `hintHeavy`：hint 用得多（本章累計或同一台三段都看完還在打）。
+ * - `unsetNovaDir`：第五章起重現「那三秒」，執行了 `unset NOVA_DIR`。
+ * - `identity`：用 `whoami` 或 `id` 查自己的帳號。
+ */
+export type NovaReactionKind = "abinNote" | "abinReply" | "abinHome" | "hintHeavy" | "unsetNovaDir" | "identity";
+
+/**
  * 劇情旗標，存在 store 的 `storyFlags`，只有 true 才存。
- * 每章一組：`ch<n>.introShown`、`ch<n>.outroShown`、`ch<n>.room.<艙區>.entered`、`ch<n>.terminal.<終端機 id>.opened`，
- * 用 `flags.ts` 的函式產生。
+ * 每章一組：`ch<n>.introShown`、`ch<n>.outroShown`、`ch<n>.room.<艙區>.entered`、`ch<n>.terminal.<終端機 id>.opened`、
+ * `ch<n>.nova.<反應>`，用 `flags.ts` 的函式產生。
  */
 export type StoryFlag =
 	| `ch${number}.introShown`
 	| `ch${number}.outroShown`
 	| `ch${number}.room.${RoomId}.entered`
-	| `ch${number}.terminal.${string}.opened`;
+	| `ch${number}.terminal.${string}.opened`
+	| `ch${number}.nova.${NovaReactionKind}`;

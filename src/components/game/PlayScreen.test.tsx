@@ -4,7 +4,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { getChapter } from "@/game/chapters";
 import { emitGameEvent, onGameEvent } from "@/game/phaser/EventBus";
 import type { GameEventMap, GameEventName } from "@/game/phaser/events";
-import { introShownFlag, outroShownFlag, roomEnteredFlag } from "@/game/story";
+import { introShownFlag, novaReactionFlag, novaReactionLines, outroShownFlag, roomEnteredFlag } from "@/game/story";
 import { createInitialSaveData, useGameStore } from "@/game/store";
 import type { ProgressState, SettingsState, StoryFlags } from "@/game/store/types";
 import type { PhaserGame } from "./PhaserGame";
@@ -624,6 +624,49 @@ describe("PlayScreen 阿彬的留言面板", () => {
 		expect(useGameStore.getState().abinNotes.reply).toBe("我醒了");
 		pressAlt("A");
 		expect(within(screen.getByTestId("side-panel")).getByTestId("abin-reply").textContent).toContain("「我醒了」");
+	});
+});
+
+describe("PlayScreen NOVA 看狀態（4.14）", () => {
+	/** 終端機輸出區裡 NOVA 對話區塊的文字，照順序。 */
+	function modalNovaTexts(): string[] {
+		const modal = screen.getByTestId("terminal-modal");
+		return within(modal)
+			.queryAllByTestId("dialogue-block")
+			.map((block) => block.textContent ?? "");
+	}
+
+	it("在醫療艙讀到阿彬的留言：收進的系統行之後，NOVA 在終端機裡插一句", () => {
+		seedSave({ progress: { solvedTerminals: ["ch1-t1", "ch1-t2", "ch1-t3", "ch1-t4"] } });
+		render(<PlayScreen />);
+		openTerminal("ch1-t5");
+		const reaction = novaReactionLines({ kind: "abinNote", noteId: "ch1-jokes" }, 1, "acting")?.[0] ?? "";
+
+		runCommand("cat .abin_jokes.txt");
+
+		expect(modalNovaTexts().at(-1)).toContain(reaction);
+		expect(useGameStore.getState().storyFlags[novaReactionFlag(1, "abinNote")]).toBe(true);
+		// 只內嵌在終端機，地圖對話框不說
+		expect(novaQueueIds()).toEqual([]);
+	});
+
+	it("第 9 次錯誤的 NOVA 台詞撞在同一道指令：這道不插嘴，下一道才說", () => {
+		render(<PlayScreen />);
+		openTerminal("ch1-t1");
+		const reaction = novaReactionLines({ kind: "identity" }, 1, "acting")?.[0] ?? "";
+		for (let index = 0; index < 8; index += 1) {
+			runCommand("nosuchcommand");
+		}
+		const before = modalNovaTexts().length;
+
+		runCommand("whoami ; nosuchcommand");
+
+		const ninth = modalNovaTexts().slice(before);
+		expect(ninth).toHaveLength(1);
+		expect(ninth[0]).not.toContain(reaction);
+
+		runCommand("pwd");
+		expect(modalNovaTexts().at(-1)).toContain(reaction);
 	});
 });
 

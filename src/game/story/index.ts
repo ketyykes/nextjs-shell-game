@@ -1,10 +1,11 @@
 /**
- * 劇本模組的公開入口：型別契約、目標判定、schema 驗證、劇情旗標、卡關偵測與環境反應階梯、阿彬的隱藏留言。
+ * 劇本模組的公開入口：型別契約、目標判定、schema 驗證、劇情旗標、卡關偵測與環境反應階梯、阿彬的隱藏留言、NOVA 看狀態的反應。
  */
 
 export type {
 	ChapterDefinition,
 	ChapterMap,
+	NovaReactionKind,
 	NovaScript,
 	Objective,
 	ObjectiveCheck,
@@ -38,13 +39,35 @@ export {
 	chapterFlagPrefix,
 	introShownFlag,
 	isStoryFlag,
+	NOVA_REACTION_KINDS,
 	novaPortraitFor,
+	novaReactionFlag,
 	outroShownFlag,
 	roomEnteredFlag,
 	terminalOpenedFlag,
 } from "./flags";
 export type { NovaPortrait } from "./flags";
 export { isRoomId, ROOM_IDS } from "./rooms";
+export {
+	ABIN_HOME,
+	decideNovaReaction,
+	detectNovaReactions,
+	HINT_HEAVY_CHAPTER_COUNT,
+	introFollowUpLine,
+	NOVA_DIR_VARIABLE,
+	NOVA_TERMINATED_TERMINAL_ID,
+	NOVA_UNMASKED_TERMINAL_ID,
+	novaPhase,
+	novaReactionLines,
+} from "./novaReactions";
+export type {
+	AbinReactionEvent,
+	NovaPhase,
+	NovaReactionDecision,
+	NovaReactionDecisionInput,
+	NovaReactionInput,
+	NovaReactionTrigger,
+} from "./novaReactions";
 export {
 	ABIN_NOTE_TOTAL,
 	ABIN_NOTES,

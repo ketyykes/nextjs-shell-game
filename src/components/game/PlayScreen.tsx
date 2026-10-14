@@ -8,6 +8,7 @@
  * - `useTerminalSessions`：終端機彈窗開關與每台一個的 Shell 快取（`terminalSession.ts` 從存檔還原，壞掉就重建）。
  * - `useSolveFlow` 與 `usePressureReactions`：指令執行後的扣氧、過關流程、卡關反應階梯。
  * - `useAbinNotes`：包在 `useSolveFlow` 外層，判定這道指令有沒有讀到阿彬的隱藏留言（設計文件 4.12）。
+ * - `useNovaReactions`：再包在最外層，看玩家做了什麼讓 NOVA 在終端機裡插一句（設計文件 4.14）。
  * - `useNovaTriggers`：NOVA 地圖台詞的三個時機（開場、進艙區、過關後關掉終端機再說最後一句）。
  * - `usePauseMenu`、`useChapterNavigation`：暫停選單、章節結束、換章與重玩。
  * - `Hud`、`TerminalModal`、`objectiveDisplay`：畫面。
@@ -33,6 +34,7 @@ import { SidePanels } from "@/components/game/SidePanels";
 import { TerminalModal } from "@/components/game/TerminalModal";
 import { useAbinNotes } from "@/components/game/useAbinNotes";
 import { useChapterNavigation } from "@/components/game/useChapterNavigation";
+import { useNovaReactions } from "@/components/game/useNovaReactions";
 import { useNovaTriggers } from "@/components/game/useNovaTriggers";
 import { usePauseMenu } from "@/components/game/usePauseMenu";
 import { collectTerminalEffects, usePhaserBridge } from "@/components/game/usePhaserBridge";
@@ -141,6 +143,8 @@ function PlayScreenReady({ character }: PlayScreenReadyProps) {
 		onExecuted: handleExecuted,
 		shortcutLabel: formatShortcut("notes", appleKeyboard),
 	});
+	// NOVA 看狀態：原本的流程跑完之後，看這道指令要不要讓 NOVA 插一句
+	const novaReactions = useNovaReactions({ chapter: chapter.chapter, onExecuted: abinNotesFlow.handleExecuted });
 	const chapterNavigation = useChapterNavigation({ chapter, solvedTerminals, terminalOpen });
 	const pauseMenu = usePauseMenu({ terminalOpen, chapterEndOpen: chapterNavigation.showChapterEnd });
 	// 遊玩統計（M14-1）：這章還沒全解、選單沒開、分頁在前景時計時；章節結束畫面顯示本章紀錄
@@ -270,7 +274,7 @@ function PlayScreenReady({ character }: PlayScreenReadyProps) {
 						shell={openTerminal.shell}
 						textSpeed={settings.textSpeed}
 						onClose={handleCloseTerminal}
-						onExecuted={abinNotesFlow.handleExecuted}
+						onExecuted={novaReactions.handleExecuted}
 					/>
 				)}
 			</AnimatePresence>

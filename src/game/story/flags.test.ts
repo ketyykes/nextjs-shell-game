@@ -4,7 +4,9 @@ import {
 	chapterFlagPrefix,
 	introShownFlag,
 	isStoryFlag,
+	NOVA_REACTION_KINDS,
 	novaPortraitFor,
+	novaReactionFlag,
 	outroShownFlag,
 	roomEnteredFlag,
 	terminalOpenedFlag,
@@ -40,6 +42,31 @@ describe("劇情旗標", () => {
 		// 終端機旗標的章節前綴必須跟終端機 id 一致
 		expect(isStoryFlag("ch1.terminal.ch2-t1.opened")).toBe(false);
 		expect(isStoryFlag("ch1.terminal.t1.opened")).toBe(false);
+	});
+});
+
+describe("NOVA 看狀態的反應旗標", () => {
+	it("每種反應一個旗標，帶章節前綴，重玩本章會跟著清掉", () => {
+		expect(novaReactionFlag(5, "unsetNovaDir")).toBe("ch5.nova.unsetNovaDir");
+		expect(novaReactionFlag(1, "abinHome")).toBe("ch1.nova.abinHome");
+		expect(novaReactionFlag(10, "hintHeavy").startsWith(chapterFlagPrefix(10))).toBe(true);
+	});
+
+	it("六章的每種反應旗標都通過守衛", () => {
+		expect(NOVA_REACTION_KINDS).toEqual(["abinNote", "abinReply", "abinHome", "hintHeavy", "unsetNovaDir", "identity"]);
+		for (let chapter = 1; chapter <= 6; chapter += 1) {
+			for (const kind of NOVA_REACTION_KINDS) {
+				expect(isStoryFlag(novaReactionFlag(chapter, kind)), `${chapter} ${kind}`).toBe(true);
+			}
+		}
+	});
+
+	it("不認得的反應名稱不通過", () => {
+		expect(isStoryFlag("ch1.nova.unknown")).toBe(false);
+		expect(isStoryFlag("ch1.nova.")).toBe(false);
+		expect(isStoryFlag("nova.abinNote")).toBe(false);
+		// 認可旗標刻意不帶章節前綴，也不是劇情旗標的格式
+		expect(isStoryFlag("insight.grep")).toBe(false);
 	});
 });
 

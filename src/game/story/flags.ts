@@ -7,7 +7,7 @@
 
 import type { RoomId } from "@/game/phaser/events";
 import { isRoomId } from "./rooms";
-import type { StoryFlag } from "./types";
+import type { NovaReactionKind, StoryFlag } from "./types";
 
 /** 第 `chapter` 章所有旗標的共同前綴，例如 `ch2.`。 */
 export function chapterFlagPrefix(chapter: number): string {
@@ -40,8 +40,31 @@ export function terminalOpenedFlag(terminalId: string): StoryFlag {
 	return `${chapterPart}.terminal.${terminalId}.opened` as StoryFlag;
 }
 
-/** 旗標的格式：`ch<n>.introShown`、`ch<n>.outroShown`、`ch<n>.room.<艙區>.entered`、`ch<n>.terminal.ch<n>-t<k>.opened`。 */
-const FLAG_PATTERN = /^ch(\d+)\.(?:introShown|outroShown|room\.([a-z_]+)\.entered|terminal\.ch(\d+)-t\d+\.opened)$/;
+/** NOVA 看狀態的反應種類（設計文件 4.14），旗標格式與守衛用；偵測時的優先順序在 `novaReactions.ts`。 */
+export const NOVA_REACTION_KINDS: readonly NovaReactionKind[] = [
+	"abinNote",
+	"abinReply",
+	"abinHome",
+	"hintHeavy",
+	"unsetNovaDir",
+	"identity",
+];
+
+/**
+ * 「這一章 NOVA 已經對這件事說過話」的旗標，例如 `ch5.nova.unsetNovaDir`（設計文件 4.14）。
+ * 帶章節前綴，重玩本章時跟著清掉，反應可以再出現一次。
+ */
+export function novaReactionFlag(chapter: number, kind: NovaReactionKind): StoryFlag {
+	return `ch${chapter}.nova.${kind}`;
+}
+
+/**
+ * 旗標的格式：`ch<n>.introShown`、`ch<n>.outroShown`、`ch<n>.room.<艙區>.entered`、`ch<n>.terminal.ch<n>-t<k>.opened`、
+ * `ch<n>.nova.<反應>`。
+ */
+const FLAG_PATTERN = new RegExp(
+	`^ch(\\d+)\\.(?:introShown|outroShown|room\\.([a-z_]+)\\.entered|terminal\\.ch(\\d+)-t\\d+\\.opened|nova\\.(?:${NOVA_REACTION_KINDS.join("|")}))$`,
+);
 
 /** 字串是否為合法的劇情旗標；艙區旗標的 roomId 必須是已知艙區。 */
 export function isStoryFlag(value: string): value is StoryFlag {
