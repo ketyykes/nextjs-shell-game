@@ -16,8 +16,24 @@ import { joinContentLines } from "./commands/cat";
 import { commandAtInstallPath } from "./commands/which";
 import { complete as completeInput } from "./completion";
 import { CommandHistory } from "./history";
-import { commandNotFound, fsError, fullPathCommand, missingSpace, parseError } from "./messages";
-import { parseCommandLineDetailed, parseCommandList, suggestMissingSpace } from "./parser";
+import {
+	commandIsLowercase,
+	commandNotFound,
+	fsError,
+	fullPathCommand,
+	missingSpace,
+	parseError,
+	programNotInstalled,
+	similarCommand,
+} from "./messages";
+import {
+	findUnavailableProgram,
+	parseCommandLineDetailed,
+	parseCommandList,
+	suggestLowercaseCommand,
+	suggestMissingSpace,
+	suggestSimilarCommand,
+} from "./parser";
 import type { ParsedWord } from "./parser";
 import type {
 	CommandContext,
@@ -487,8 +503,13 @@ export class Shell {
 	}
 
 	/**
-	 * 指令不存在時，先看是不是用完整路徑打指令（照抄 `which ls` 印的 `/usr/bin/ls`），
-	 * 再試「忘記空格」，例如 `cdpod_06` 建議 `cd pod_06`。
+	 * 指令不存在時依序找最可能的原因，都不中才說找不到：
+	 * 1. 用完整路徑打指令（照抄 `which ls` 印的 `/usr/bin/ls`）
+	 * 2. 忘記空格，例如 `cdpod_06` 建議 `cd pod_06`
+	 * 3. 常見但這台站沒有的程式，例如 `vim`、`apt`、Windows 的 `dir`
+	 * 4. 大小寫打錯，例如 `LS`、`Cd`
+	 * 5. 打錯字，例如 `gerp` 建議 `grep`（同分時已學的優先）
+	 * 不管哪一種都仍然算錯誤。
 	 */
 	private describeUnknownCommand(name: string): string[] {
 		if (name.includes("/")) {
@@ -500,6 +521,18 @@ export class Shell {
 		const suggestion = suggestMissingSpace(name, this.commandNames);
 		if (suggestion !== null) {
 			return missingSpace(suggestion.command, suggestion.rest);
+		}
+		const program = findUnavailableProgram(name);
+		if (program !== null) {
+			return programNotInstalled(name, program);
+		}
+		const lower = suggestLowercaseCommand(name, this.commandNames);
+		if (lower !== null) {
+			return commandIsLowercase(name, lower);
+		}
+		const similar = suggestSimilarCommand(name, this.commandNames, this.learned);
+		if (similar !== null) {
+			return similarCommand(name, similar);
 		}
 		return commandNotFound(name);
 	}

@@ -38,6 +38,9 @@ import {
 	emptyListCommand,
 	unsupportedSyntax,
 	cdTooManyArguments,
+	similarCommand,
+	commandIsLowercase,
+	programNotInstalled,
 } from "./messages";
 import type { FsErrorCode, ParseErrorCode, RegexErrorCode } from "./types";
 
@@ -51,6 +54,38 @@ describe("解析階段的訊息", () => {
 		const text = joinLines(commandNotFound("xyz"));
 		expect(text).toContain("`xyz`");
 		expect(text).toContain("help");
+	});
+
+	it("similarCommand 說找不到、給最接近的指令，並保留 help 的引導", () => {
+		const text = joinLines(similarCommand("gerp", "grep"));
+		expect(text).toContain("找不到指令 `gerp`");
+		expect(text).toContain("`grep`");
+		expect(text).toContain("help");
+	});
+
+	it("commandIsLowercase 說明指令名稱要用小寫，並給小寫的寫法", () => {
+		const text = joinLines(commandIsLowercase("LS", "ls"));
+		expect(text).toContain("`LS`");
+		expect(text).toContain("小寫");
+		expect(text).toContain("`ls`");
+	});
+
+	it("programNotInstalled 說這台終端機沒有那個程式，依種類給替代做法", () => {
+		const editor = joinLines(programNotInstalled("vim", { kind: "editor" }));
+		expect(editor).toContain("`vim`");
+		expect(editor).toContain("echo");
+		expect(editor).toContain(">");
+
+		for (const kind of ["package", "language", "network"] as const) {
+			const text = joinLines(programNotInstalled("x", { kind }));
+			expect(text).toContain("`x`");
+			expect(text).toContain("help");
+		}
+
+		const windows = joinLines(programNotInstalled("dir", { kind: "windows", equivalent: "ls" }));
+		expect(windows).toContain("`dir`");
+		expect(windows).toContain("Windows");
+		expect(windows).toContain("ls");
 	});
 
 	it("missingSpace 會組出建議的完整指令", () => {
@@ -328,6 +363,10 @@ describe("所有訊息的共通規則", () => {
 	it("每個訊息都回傳非空陣列，且每一行都不是空字串", () => {
 		const all: string[][] = [
 			commandNotFound("x"),
+			similarCommand("x", "y"),
+			commandIsLowercase("X", "x"),
+			programNotInstalled("x", { kind: "editor" }),
+			programNotInstalled("x", { kind: "windows", equivalent: "y" }),
 			missingSpace("cd", "x"),
 			fullwidthChar("，"),
 			unclosedQuote('"'),

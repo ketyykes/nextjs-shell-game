@@ -9,7 +9,7 @@
  * 指令與路徑用反引號包住。
  */
 
-import type { FsErrorCode, ListConnector, ParseError, RegexErrorCode } from "./types";
+import type { FsErrorCode, ListConnector, ParseError, RegexErrorCode, UnavailableProgram } from "./types";
 
 // ---------------------------------------------------------------------------
 // 解析階段的錯誤
@@ -26,6 +26,38 @@ export function commandNotFound(name: string): string[] {
  */
 export function fullPathCommand(path: string, name: string): string[] {
 	return [`這個遊戲的 shell 不支援用完整路徑執行指令；\`${path}\` 就是 ${name}，直接打 ${name} 就好。`];
+}
+
+/** 打錯字，例如 `gerp` 其實是 `grep`。`suggestion` 是距離最近的指令。 */
+export function similarCommand(name: string, suggestion: string): string[] {
+	return [`找不到指令 \`${name}\`，你是不是想打 \`${suggestion}\`？不是的話輸入 help 看看目前會的指令。`];
+}
+
+/** 指令名稱用了大寫，例如 `LS`、`Cd`；換成小寫就是指令。 */
+export function commandIsLowercase(name: string, lower: string): string[] {
+	return [`找不到指令 \`${name}\`：指令名稱分大小寫，這裡的指令都是小寫，改打 \`${lower}\` 試試。`];
+}
+
+/** 常見但這台終端機沒有的程式（`vim`、`apt`、`python`、`ssh`、Windows 的 `dir`），依種類給替代做法。 */
+export function programNotInstalled(name: string, program: UnavailableProgram): string[] {
+	switch (program.kind) {
+		case "editor":
+			return [
+				`這台終端機沒有安裝 \`${name}\`。`,
+				"要寫檔案可以用 echo 加 >，例如 echo 文字 > 檔名，>> 是接在檔案結尾；要看檔案用 cat 或 less。",
+			];
+		case "package":
+			return [`這台終端機沒有 \`${name}\`，站上也沒辦法安裝新的程式。手邊的指令就夠用了，輸入 help 看看目前會的指令。`];
+		case "language":
+			return [`這台終端機沒有安裝 \`${name}\`，這裡的問題都用 shell 指令解決。輸入 help 看看目前會的指令。`];
+		case "network":
+			return [`這台終端機沒有安裝 \`${name}\`，也沒有連上網路，連不到別的機器。輸入 help 看看目前會的指令。`];
+		case "windows":
+			return [
+				`這台終端機沒有 \`${name}\`，那是 Windows 命令提示字元的寫法。`,
+				`這裡是 Linux 的 shell，對應的指令是 ${program.equivalent}，不確定怎麼用就輸入 man ${program.equivalent}。`,
+			];
+	}
 }
 
 /** 忘記空格，例如 `cdmedbay` 其實是 `cd medbay`。 */

@@ -8,6 +8,11 @@ export type {
 	DetailedPipeline,
 	ParsedWord,
 } from "./parse";
-export { suggestMissingSpace } from "./suggest";
+export {
+	findUnavailableProgram,
+	suggestLowercaseCommand,
+	suggestMissingSpace,
+	suggestSimilarCommand,
+} from "./suggest";
 export { tokenize } from "./tokenizer";
 export type { TokenizeResult } from "./tokenizer";

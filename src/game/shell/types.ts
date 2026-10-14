@@ -344,6 +344,18 @@ export interface MissingSpaceSuggestion {
 	rest: string;
 }
 
+/**
+ * 常見但這台站沒有的程式，找不到指令時給專屬說明（第十七場）：
+ * - editor：文字編輯器（`vim`、`nano`）
+ * - package：套件管理（`apt`、`pip`）
+ * - language：程式語言（`python`、`node`）
+ * - network：網路工具（`ssh`、`ping`）
+ * - windows：Windows 命令提示字元的指令（`dir`、`cls`），`equivalent` 是這裡對應的指令
+ */
+export type UnavailableProgram =
+	| { kind: "editor" | "package" | "language" | "network" }
+	| { kind: "windows"; equivalent: string };
+
 // ---------------------------------------------------------------------------
 // 指令
 // ---------------------------------------------------------------------------

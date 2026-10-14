@@ -5,6 +5,7 @@ import { CH1_TEST_SNAPSHOT, createTestFs, OVERRIDE_CONTENT } from "./commands/te
 import { VirtualFileSystem } from "./fs";
 import {
 	cdTooManyArguments,
+	commandIsLowercase,
 	commandNotFound,
 	emptyCommand,
 	emptyListCommand,
@@ -14,6 +15,8 @@ import {
 	missingRedirectTarget,
 	missingSpace,
 	pathNotFound,
+	programNotInstalled,
+	similarCommand,
 	unsupportedSyntax,
 } from "./messages";
 import { Shell } from "./shell";
@@ -102,6 +105,66 @@ describe("Shell 基本執行", () => {
 		const result = shell.execute("cat nope.txt");
 		expect(result.isError).toBe(true);
 		expect(result.lines).toEqual(pathNotFound("nope.txt"));
+	});
+});
+
+describe("找不到指令時的建議（第十七場）", () => {
+	it.each([
+		["gerp ERROR log.txt", "gerp", "grep"],
+		["sl", "sl", "ls"],
+		["cta wake_up.txt", "cta", "cat"],
+		["pdw", "pdw", "pwd"],
+		["mkdri logs", "mkdri", "mkdir"],
+	])("%s 建議最接近的指令，仍然算錯誤", (input, name, suggestion) => {
+		const result = createShell().execute(input);
+		expect(result.isError).toBe(true);
+		expect(result.lines).toEqual(similarCommand(name, suggestion));
+	});
+
+	it("同分時優先建議已學的指令", () => {
+		// ca 跟 cd、cat、cp 的距離都是 1；T1 只學過 pwd、ls、cat
+		expect(createShell().execute("ca").lines).toEqual(similarCommand("ca", "cat"));
+		expect(createShell({ learnedCommands: ["cd"] }).execute("ca").lines).toEqual(similarCommand("ca", "cd"));
+	});
+
+	it("大小寫不同時說指令要用小寫", () => {
+		const shell = createShell();
+		expect(shell.execute("LS")).toMatchObject({ isError: true, lines: commandIsLowercase("LS", "ls") });
+		expect(shell.execute("Cd pod_06").lines).toEqual(commandIsLowercase("Cd", "cd"));
+		expect(shell.cwd).toBe("/home/tech");
+	});
+
+	it("常見但沒有安裝的程式給專屬說明，仍然算錯誤", () => {
+		const shell = createShell();
+		expect(shell.execute("vim notes.txt")).toMatchObject({
+			isError: true,
+			lines: programNotInstalled("vim", { kind: "editor" }),
+		});
+		expect(shell.execute("apt install vim").lines).toEqual(programNotInstalled("apt", { kind: "package" }));
+		expect(shell.execute("python3").lines).toEqual(programNotInstalled("python3", { kind: "language" }));
+		expect(shell.execute("ssh nova").lines).toEqual(programNotInstalled("ssh", { kind: "network" }));
+		expect(shell.execute("dir").lines).toEqual(programNotInstalled("dir", { kind: "windows", equivalent: "ls" }));
+	});
+
+	it("完整路徑與忘記空格的判斷優先，都不中才走拼字建議", () => {
+		const shell = createShell();
+		expect(shell.execute("/usr/bin/ls").lines).toEqual(fullPathCommand("/usr/bin/ls", "ls"));
+		expect(shell.execute("catwake_up.txt").lines).toEqual(missingSpace("cat", "wake_up.txt"));
+		// 含 / 的名稱不猜拼字
+		expect(shell.execute("/usr/bin/cta").lines).toEqual(commandNotFound("/usr/bin/cta"));
+	});
+
+	it("差太多的名稱不亂猜，照舊說找不到", () => {
+		const shell = createShell();
+		expect(shell.execute("xyz").lines).toEqual(commandNotFound("xyz"));
+		expect(shell.execute("q").lines).toEqual(commandNotFound("q"));
+		expect(shell.execute("nonexistent_command").lines).toEqual(commandNotFound("nonexistent_command"));
+	});
+
+	it("管線裡打錯的指令也給建議", () => {
+		const result = createShell().execute("cat wake_up.txt | gerp 三年");
+		expect(result.isError).toBe(true);
+		expect(result.lines).toEqual(similarCommand("gerp", "grep"));
 	});
 });
 
