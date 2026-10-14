@@ -127,7 +127,8 @@ function PlayScreenReady({ character }: PlayScreenReadyProps) {
 	const chapterNavigation = useChapterNavigation({ chapter, solvedTerminals, terminalOpen });
 	const pauseMenu = usePauseMenu({ terminalOpen, chapterEndOpen: chapterNavigation.showChapterEnd });
 	// 遊玩統計（M14-1）：這章還沒全解、選單沒開、分頁在前景時計時；章節結束畫面顯示本章紀錄
-	usePlayTime(chapter.chapter, !isChapterComplete(chapter, solvedTerminals) && !pauseMenu.menuOpen);
+	const playTimeRunning = !isChapterComplete(chapter, solvedTerminals) && !pauseMenu.menuOpen;
+	usePlayTime(chapter.chapter, playTimeRunning);
 	const chapterStats = useGameStore((state) => state.stats[String(chapter.chapter)]);
 
 	// 關閉終端機後，地圖上的 NOVA 重說這次過關台詞的最後一句（#5）
@@ -216,6 +217,8 @@ function PlayScreenReady({ character }: PlayScreenReadyProps) {
 				nearbyTerminal={nearbyTerminal}
 				terminalOpen={terminalOpen}
 				showControlsHint={shouldShowControlsHint({ chapter: chapter.chapter, solvedTerminals, terminalOpen })}
+				chapter={chapter.chapter}
+				playTimeRunning={playTimeRunning}
 			/>
 			<ObjectivePanel
 				title={objective.title}

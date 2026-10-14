@@ -525,6 +525,29 @@ describe("PlayScreen HUD 與目標", () => {
 		expect(screen.queryByTestId("controls-hint")).toBeNull();
 	});
 
+	it("左上的倒數照這一章與過關紀錄換標籤，暫停選單開著時停住（4.13）", () => {
+		vi.useFakeTimers();
+		try {
+			seedSave({ progress: { chapter: 5, solvedTerminals: ["ch5-t1"] } });
+			render(<PlayScreen />);
+			expect(screen.getByTestId("countdown-label").textContent).toBe("遠端除役");
+
+			act(() => {
+				vi.advanceTimersByTime(2000);
+			});
+			expect(screen.getByTestId("countdown-value").textContent).toBe("T-81d 20:24:58");
+
+			fireEvent.keyDown(window, { key: "Escape" });
+			expect(screen.getByTestId("pause-menu")).toBeDefined();
+			act(() => {
+				vi.advanceTimersByTime(5000);
+			});
+			expect(screen.getByTestId("countdown-value").textContent).toBe("T-81d 20:24:58");
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it("player:stopped 把位置存進這一章", () => {
 		render(<PlayScreen />);
 		emit("player:stopped", { x: 10.4, y: 20.6, roomId: "cryo" });

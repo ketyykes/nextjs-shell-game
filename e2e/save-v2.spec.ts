@@ -106,7 +106,7 @@ for (const viewport of [
 	{ width: 1024, height: 768 },
 	{ width: 768, height: 1024 },
 ]) {
-	test(`${viewport.width}x${viewport.height} 視窗下目標面板、按 E 提示、NOVA 對話框、操作提示與上方 HUD 互不重疊`, async ({
+	test(`${viewport.width}x${viewport.height} 視窗下目標面板、按 E 提示、NOVA 對話框、操作提示、除役倒數與上方 HUD 互不重疊`, async ({
 		page,
 	}) => {
 		await page.setViewportSize(viewport);
@@ -118,8 +118,9 @@ for (const viewport of [
 		await expect(page.getByTestId("controls-hint")).toBeVisible();
 
 		type Box = NonNullable<Awaited<ReturnType<ReturnType<typeof page.getByTestId>["boundingBox"]>>>;
-		// NOVA 對話框在兩句台詞之間會短暫卸載，量到 null 就整組重量，直到六個元件同時在畫面上
-		let measured: Record<"objective" | "hint" | "nova" | "controls" | "oxygen" | "room", Box> | null = null;
+		// NOVA 對話框在兩句台詞之間會短暫卸載，量到 null 就整組重量，直到七個元件同時在畫面上
+		type HudBoxes = Record<"objective" | "hint" | "nova" | "controls" | "oxygen" | "room" | "countdown", Box>;
+		let measured: HudBoxes | null = null;
 		await expect(async () => {
 			const boxes = {
 				objective: await page.getByTestId("objective-panel").boundingBox(),
@@ -128,20 +129,27 @@ for (const viewport of [
 				controls: await page.getByTestId("controls-hint").boundingBox(),
 				oxygen: await page.getByTestId("hud-oxygen").boundingBox(),
 				room: await page.getByTestId("hud-room").boundingBox(),
+				countdown: await page.getByTestId("hud-countdown").boundingBox(),
 			};
 			for (const [name, box] of Object.entries(boxes)) {
 				expect(box, name).not.toBeNull();
 			}
-			measured = boxes as NonNullable<typeof measured>;
+			measured = boxes as HudBoxes;
 		}).toPass({ timeout: 10_000 });
-		const { objective, hint, nova, controls, oxygen, room } = measured as unknown as NonNullable<typeof measured>;
+		// measured 在閉包裡才賦值，TS 在這裡把它收窄成 null，所以直接轉成量好的型別
+		const { objective, hint, nova, controls, oxygen, room, countdown } = measured as unknown as HudBoxes;
 		expect(overlaps(objective, hint), "目標面板與按 E 提示").toBe(false);
 		expect(overlaps(objective, nova), "目標面板與 NOVA 對話框").toBe(false);
 		expect(overlaps(hint, nova), "按 E 提示與 NOVA 對話框").toBe(false);
 		// 操作提示（M10-3）跟其他 HUD 元素都不能疊
-		for (const [name, box] of Object.entries({ objective, hint, nova, oxygen, room })) {
+		for (const [name, box] of Object.entries({ objective, hint, nova, oxygen, room, countdown })) {
 			expect(overlaps(controls, box), `操作提示與 ${name}`).toBe(false);
 		}
+		// 除役倒數（4.13）在 O2 正下方，跟其他 HUD 元素也不能疊
+		for (const [name, box] of Object.entries({ objective, hint, nova, oxygen, room })) {
+			expect(overlaps(countdown, box), `除役倒數與 ${name}`).toBe(false);
+		}
+		expect(countdown.y, "除役倒數在 O2 下面").toBeGreaterThanOrEqual(oxygen.y + oxygen.height);
 	});
 }
 

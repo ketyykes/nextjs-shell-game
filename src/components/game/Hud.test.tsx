@@ -7,7 +7,16 @@ const CRYO = getChapter(1).terminals[0];
 
 function renderHud(props: Partial<HudProps> = {}) {
 	return render(
-		<Hud oxygen={100} room={null} nearbyTerminal={null} terminalOpen={false} showControlsHint={false} {...props} />,
+		<Hud
+			oxygen={100}
+			room={null}
+			nearbyTerminal={null}
+			terminalOpen={false}
+			showControlsHint={false}
+			chapter={1}
+			playTimeRunning={false}
+			{...props}
+		/>,
 	);
 }
 
@@ -45,5 +54,16 @@ describe("Hud", () => {
 
 		renderHud();
 		expect(screen.queryByTestId("controls-hint")).toBeNull();
+	});
+
+	it("O2 下面有除役倒數，終端機開著也還在；不在 aria-live 區塊裡，不會每秒播報", () => {
+		renderHud({ chapter: 5 });
+		const countdown = screen.getByRole("timer");
+		expect(countdown.textContent).toContain("站務排程");
+		expect(countdown.closest("[aria-live]")).toBeNull();
+		cleanup();
+
+		renderHud({ terminalOpen: true });
+		expect(screen.getByRole("timer")).toBeDefined();
 	});
 });
