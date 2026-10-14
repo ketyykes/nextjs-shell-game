@@ -596,6 +596,22 @@ describe("PlayScreen 阿彬的留言面板", () => {
 		pressAlt("A");
 		expect(screen.getByRole("button", { name: /阿彬的留言/ }).getAttribute("aria-expanded")).toBe("false");
 	});
+
+	it("在醫療艙用 ls -a 找到留言、cat 讀它：終端機插一行收進的系統行，存檔與面板跟著變成 1/8", () => {
+		seedSave({ progress: { solvedTerminals: ["ch1-t1", "ch1-t2", "ch1-t3", "ch1-t4"] } });
+		render(<PlayScreen />);
+		openTerminal("ch1-t5");
+
+		runCommand("ls -a");
+		runCommand("cat .abin_jokes.txt");
+
+		const modal = screen.getByTestId("terminal-modal");
+		// Testing Library 會把節點文字裡的全形空白正規化成半形，用正規表示式比對
+		expect(within(modal).getByText(/^［已收進「阿彬的留言」1\/8\s+Alt\+A 打開］$/)).toBeDefined();
+		expect(useGameStore.getState().abinNotes.found).toEqual(["ch1-jokes"]);
+		pressAlt("A");
+		expect(within(screen.getByTestId("side-panel")).getByTestId("abin-notes-count").textContent).toBe("1/8");
+	});
 });
 
 describe("PlayScreen 暫停選單", () => {

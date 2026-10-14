@@ -7,6 +7,7 @@
  * - `usePhaserBridge`：Phaser → React 的五個事件訂閱、設定同步給 Phaser、開發模式的除錯鉤子。
  * - `useTerminalSessions`：終端機彈窗開關與每台一個的 Shell 快取（`terminalSession.ts` 從存檔還原，壞掉就重建）。
  * - `useSolveFlow` 與 `usePressureReactions`：指令執行後的扣氧、過關流程、卡關反應階梯。
+ * - `useAbinNotes`：包在 `useSolveFlow` 外層，判定這道指令有沒有讀到阿彬的隱藏留言（設計文件 4.12）。
  * - `useNovaTriggers`：NOVA 地圖台詞的三個時機（開場、進艙區、過關後關掉終端機再說最後一句）。
  * - `usePauseMenu`、`useChapterNavigation`：暫停選單、章節結束、換章與重玩。
  * - `Hud`、`TerminalModal`、`objectiveDisplay`：畫面。
@@ -30,6 +31,7 @@ import { PhaserGameDynamic } from "@/components/game/PhaserGameDynamic";
 import { SceneCard, type SceneCardMessage } from "@/components/game/SceneCard";
 import { SidePanels } from "@/components/game/SidePanels";
 import { TerminalModal } from "@/components/game/TerminalModal";
+import { useAbinNotes } from "@/components/game/useAbinNotes";
 import { useChapterNavigation } from "@/components/game/useChapterNavigation";
 import { useNovaTriggers } from "@/components/game/useNovaTriggers";
 import { usePauseMenu } from "@/components/game/usePauseMenu";
@@ -37,7 +39,12 @@ import { collectTerminalEffects, usePhaserBridge } from "@/components/game/usePh
 import { usePlayTime } from "@/components/game/usePlayTime";
 import { usePressureReactions } from "@/components/game/usePressureReactions";
 import { useScenePreload } from "@/components/game/useScenePreload";
-import { isAppleUserAgent, useSidePanelShortcuts, type SidePanelId } from "@/components/game/useSidePanelShortcuts";
+import {
+	formatShortcut,
+	isAppleUserAgent,
+	useSidePanelShortcuts,
+	type SidePanelId,
+} from "@/components/game/useSidePanelShortcuts";
 import { useSolveFlow } from "@/components/game/useSolveFlow";
 import { useTerminalSessions } from "@/components/game/useTerminalSessions";
 import { SettingsMenu } from "@/components/title/SettingsMenu";
@@ -129,6 +136,11 @@ function PlayScreenReady({ character }: PlayScreenReadyProps) {
 		solvedTerminals,
 	});
 	const { handleExecuted, justSolvedId } = useSolveFlow({ pressure, onSolved: nova.deferSolvedLine });
+	// 阿彬的留言：讀到就收進存檔並在終端機插一行系統行，之後照樣交給原本的過關流程
+	const abinNotesFlow = useAbinNotes({
+		onExecuted: handleExecuted,
+		shortcutLabel: formatShortcut("notes", appleKeyboard),
+	});
 	const chapterNavigation = useChapterNavigation({ chapter, solvedTerminals, terminalOpen });
 	const pauseMenu = usePauseMenu({ terminalOpen, chapterEndOpen: chapterNavigation.showChapterEnd });
 	// 遊玩統計（M14-1）：這章還沒全解、選單沒開、分頁在前景時計時；章節結束畫面顯示本章紀錄
@@ -258,7 +270,7 @@ function PlayScreenReady({ character }: PlayScreenReadyProps) {
 						shell={openTerminal.shell}
 						textSpeed={settings.textSpeed}
 						onClose={handleCloseTerminal}
-						onExecuted={handleExecuted}
+						onExecuted={abinNotesFlow.handleExecuted}
 					/>
 				)}
 			</AnimatePresence>
