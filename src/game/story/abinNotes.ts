@@ -45,7 +45,7 @@ export interface AbinNote {
 	mode: string;
 	/** 判定「找到了」用的那一行（或其中一段），見檔頭的定義。 */
 	signature: string;
-	/** 右側面板上給還沒找到的留言的模糊線索。 */
+	/** 右側面板上給還沒找到的留言的模糊線索。剛進那一章就看得到，不能說破那一章任何一台終端機才揭露的事。 */
 	clue: string;
 	/** 從那台終端機的起始目錄照打就找得到的一種找法，測試用真的 Shell 跑一遍；回報與文件也照抄這份。 */
 	howToFind: readonly string[];
@@ -147,7 +147,7 @@ export const ABIN_NOTES: readonly AbinNote[] = [
 		mode: NOTE_MODE,
 		content: lines("我寫的紙條，它會收走。這張被收走三次，我拿回來三次。", "第四次乾脆放進它自己的櫃子。燈下黑。"),
 		signature: "我寫的紙條，它會收走。這張被收走三次，我拿回來三次。",
-		clue: "工程艙艙門那台，NOVA 拿去「保管」的東西裡，混著一張不是你的紙條。",
+		clue: "工程艙艙門那台，某個你遲早會經過的目錄裡，藏著一張不是你的紙條。",
 		howToFind: ["ls -a /var/nova/hold", "cat /var/nova/hold/.abin"],
 		requires: ["ls -a"],
 	},

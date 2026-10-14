@@ -143,6 +143,14 @@ describe("留言資料", () => {
 		}
 	});
 
+	it("線索剛進那一章就看得到，不提 NOVA 做了什麼（搬走、保管這類事要到終端機裡才揭露）", () => {
+		// 例如第三章 T6 才揭露 NOVA 把設定與鑰匙搬去 /var/nova/hold「保管」
+		const REVEAL_PATTERN = /NOVA|nova|保管|搬走|收走/;
+		for (const note of ABIN_NOTES) {
+			expect(REVEAL_PATTERN.test(note.clue), `${note.id}：${note.clue}`).toBe(false);
+		}
+	});
+
 	it("findAbinNote 依 id 找，countFoundAbinNotes 只算認得而且不重複的 id", () => {
 		const first = ABIN_NOTES[0];
 		expect(findAbinNote(first.id)).toBe(first);
