@@ -1,11 +1,15 @@
 "use client";
 
 /**
- * 右側面板組的鍵盤快捷鍵：Alt（Mac 是 Option）加一個字母，在 window 上聽。
+ * 右側面板組的鍵盤快捷鍵：Alt（Mac 是 Option）加一個字母，在 window 的 capture 階段聽。
  *
  * 選 Alt＋字母的原因（設計文件 4.6）：
- * - 地圖的鍵是方向鍵、WASD、E、Esc、Enter；終端機吃一般字元、Tab、↑↓、Enter、Esc，Alt 組合兩邊都沒用到，
- *   所以終端機開著時也能直接按，輸入框焦點不動、打到一半的字也不會被吃掉。
+ * - 終端機吃一般字元、Tab、↑↓、Enter、Esc，不處理 Alt 組合，所以終端機開著時也能直接按，
+ *   輸入框焦點不動、打到一半的字也不會被吃掉。
+ * - 地圖的鍵是方向鍵、WASD、E、Esc、Enter，Phaser 不看修飾鍵，Alt+A 的 A 一樣會讓角色往左走。
+ *   Phaser 4 的 KeyboardManager 掛在 window 的 bubble 階段，只收 `defaultPrevented` 為 false 的事件，
+ *   所以這裡改在 capture 階段聽並 `preventDefault`：capture 永遠比 bubble 先跑，
+ *   不會因為 `enabled` 關過再開、監聽重掛到 Phaser 後面就讓角色收到按鍵。
  * - Ctrl＋字母大多是瀏覽器保留鍵或真 shell 的編輯鍵（Ctrl+C、Ctrl+L、Ctrl+R），F 鍵在 Mac 筆電要多按 fn。
  * - 字母避開 Firefox 選單列的 Alt 加速鍵（F、E、V、S、B、T、H）與 Mac Option 的組字死鍵（E、I、N、U、`）。
  *   C 取 Commands（已學指令）、L 取 Log（對話紀錄）、A 取 Abin（阿彬的留言；Mac 的 Option+A 是 å，不是死鍵）。
@@ -68,7 +72,7 @@ export interface UseSidePanelShortcutsOptions {
 }
 
 /**
- * 在 window 上聽面板快捷鍵。輸入框（終端機）裡按下的也會冒泡上來，
+ * 在 window 的 capture 階段聽面板快捷鍵。輸入框（終端機）裡按下的也會先經過 window，
  * 終端機的 keydown handler 不處理 Alt 組合，所以兩邊不會打架。
  */
 export function useSidePanelShortcuts({ enabled, onToggle }: UseSidePanelShortcutsOptions): void {
@@ -94,9 +98,10 @@ export function useSidePanelShortcuts({ enabled, onToggle }: UseSidePanelShortcu
 			}
 			onToggleRef.current(id);
 		};
-		window.addEventListener("keydown", handleKeyDown);
+		// capture 階段：比 Phaser 掛在 bubble 階段的鍵盤監聽先處理，原因見檔頭
+		window.addEventListener("keydown", handleKeyDown, true);
 		return () => {
-			window.removeEventListener("keydown", handleKeyDown);
+			window.removeEventListener("keydown", handleKeyDown, true);
 		};
 	}, [enabled]);
 }

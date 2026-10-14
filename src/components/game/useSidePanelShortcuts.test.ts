@@ -107,6 +107,32 @@ describe("useSidePanelShortcuts", () => {
 		expect(event.defaultPrevented).toBe(false);
 	});
 
+	it("enabled 關過再開之後，Alt+A 仍比 bubble 階段的遊戲鍵盤監聽先處理，角色不會往左走", () => {
+		const onToggle = vi.fn();
+		const { rerender } = renderHook(({ enabled }) => useSidePanelShortcuts({ enabled, onToggle }), {
+			initialProps: { enabled: true },
+		});
+		// 模擬 Phaser 4 的 KeyboardManager：掛在 window 的 bubble 階段，事件已被 preventDefault 就不收
+		const phaserReceived: string[] = [];
+		const fakePhaserKeyDown = (event: KeyboardEvent) => {
+			if (event.defaultPrevented) {
+				return;
+			}
+			phaserReceived.push(event.code);
+		};
+		window.addEventListener("keydown", fakePhaserKeyDown);
+		try {
+			// 開關一次暫停選單：監聽先移除再重掛，重掛後排在遊戲監聽後面
+			rerender({ enabled: false });
+			rerender({ enabled: true });
+			pressKey({ key: "a", code: "KeyA", altKey: true }, document.body);
+		} finally {
+			window.removeEventListener("keydown", fakePhaserKeyDown);
+		}
+		expect(onToggle).toHaveBeenCalledWith("notes");
+		expect(phaserReceived).toEqual([]);
+	});
+
 	it("卸載後不再監聽", () => {
 		const onToggle = vi.fn();
 		const { unmount } = renderHook(() => useSidePanelShortcuts({ enabled: true, onToggle }));

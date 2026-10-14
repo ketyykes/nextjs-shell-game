@@ -1,8 +1,9 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+import { PLAYER_PROBE_KEY, type PlayerProbeSnapshot } from "../src/game/phaser/objects/playerProbe";
 import { enterPlay, seedSave } from "./helpers/deck";
 
 /**
- * 右側面板組（已學指令、對話紀錄）：Alt 快捷鍵與標籤開關，對話紀錄收得到 NOVA 的地圖台詞。
+ * 右側面板組（已學指令、對話紀錄、阿彬的留言）：Alt 快捷鍵與標籤開關，對話紀錄收得到 NOVA 的地圖台詞。
  * 台詞內容不寫死，從畫面上的對話框讀，劇本改字不會讓這裡壞掉。
  */
 
@@ -83,6 +84,53 @@ test("已學指令：終端機開著時 Alt+C 開關，面板疊在彈窗上，�
 	await expect(page.getByTestId("terminal-modal")).toBeHidden();
 	await page.waitForTimeout(300);
 	await expect(page.getByTestId("pause-menu")).toHaveCount(0);
+});
+
+/** 讀開發模式掛在 window 上的角色座標。 */
+async function readPlayer(page: Page): Promise<PlayerProbeSnapshot> {
+	return page.evaluate((key) => {
+		const probe = (window as unknown as Record<string, { read(): PlayerProbeSnapshot } | undefined>)[key];
+		if (probe === undefined) {
+			throw new Error(`window.${key} 不存在：場景還沒就緒，或不是開發模式`);
+		}
+		return probe.read();
+	}, PLAYER_PROBE_KEY);
+}
+
+test("開關過一次暫停選單後按住 Alt+A，只開關阿彬的留言，角色不會往左走", async ({ page }) => {
+	// 宿舍那台過關過，「阿彬的留言」標籤已經出現
+	await seedSave(page, {
+		chapter: 1,
+		solvedTerminals: ["ch1-t1", "ch1-t2", "ch1-t3"],
+		flags: ["ch1.introShown"],
+		learnedCommands: ["pwd", "ls", "cat", "cd", "..", "ls -l", "~"],
+	});
+	await enterPlay(page);
+
+	// 開關一次暫停選單：面板快捷鍵的監聽會移除再重掛，以前重掛後排到 Phaser 的鍵盤監聽後面
+	await page.keyboard.press("Escape");
+	await expect(page.getByTestId("pause-menu")).toBeVisible();
+	await page.keyboard.press("Escape");
+	await expect(page.getByTestId("pause-menu")).toHaveCount(0);
+	await expect.poll(async () => (await readPlayer(page)).inputEnabled).toBe(true);
+
+	const before = await readPlayer(page);
+	await page.keyboard.down("Alt");
+	await page.keyboard.down("KeyA");
+	await page.waitForTimeout(600);
+	await page.keyboard.up("KeyA");
+	await page.keyboard.up("Alt");
+	await page.waitForTimeout(200);
+	const after = await readPlayer(page);
+	expect(after.x, "按住 Alt+A 時角色的 x").toBe(before.x);
+	expect(after.y, "按住 Alt+A 時角色的 y").toBe(before.y);
+	await expect(page.getByTestId("side-panel").getByRole("heading", { name: "阿彬的留言" })).toBeVisible();
+
+	// 對照組：沒按 Alt 的 A 確實會往左走，上面沒動不是因為貼著牆
+	await page.keyboard.down("KeyA");
+	await page.waitForTimeout(300);
+	await page.keyboard.up("KeyA");
+	await expect.poll(async () => (await readPlayer(page)).x).toBeLessThan(before.x);
 });
 
 /** 兩個矩形是否重疊（貼邊不算）。 */
