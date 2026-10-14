@@ -93,6 +93,7 @@ export const terminalDefinitionSchema = z.strictObject({
 	nova: novaScriptSchema.optional(),
 	effect: solvedEffectSchema.optional(),
 	env: z.record(z.string(), z.string()).optional(),
+	readonlyEnv: z.array(nonEmptyString).optional(),
 	processes: z.array(processInfoSchema).optional(),
 });
 
@@ -124,6 +125,17 @@ export const chapterDefinitionSchema = z
 				});
 			}
 			seen.add(terminal.id);
+			// 唯讀變數一定要是這台劇本給的變數，打錯名字就等於沒保護到
+			(terminal.readonlyEnv ?? []).forEach((name, nameIndex) => {
+				if (terminal.env === undefined || !Object.prototype.hasOwnProperty.call(terminal.env, name)) {
+					ctx.addIssue({
+						code: "custom",
+						message: `readonlyEnv 的「${name}」不在這台的 env 裡`,
+						path: ["terminals", index, "readonlyEnv", nameIndex],
+						input: name,
+					});
+				}
+			});
 		});
 	});
 

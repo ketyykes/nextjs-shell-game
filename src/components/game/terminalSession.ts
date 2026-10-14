@@ -91,6 +91,7 @@ function createInitialShell(
 		learnedCommands: commandNames,
 		cwd: definition.initialCwd,
 		env: definition.env,
+		readonlyEnv: definition.readonlyEnv,
 		processes: definition.processes,
 		history: carried.history,
 		hintCount: carried.hintCount,
@@ -110,7 +111,7 @@ function restoreShell(
 	try {
 		const fs = VirtualFileSystem.fromSerialized(record.shell.fs);
 		applyAbinOverlay(fs, definition.id, { found: abinNotes.found, includeFound: false, reply: abinNotes.reply });
-		const shell = Shell.fromState(record.shell, fs, definition.hints);
+		const shell = Shell.fromState(record.shell, fs, definition.hints, undefined, definition.readonlyEnv);
 		for (const name of commandNames) {
 			shell.learn(name);
 		}

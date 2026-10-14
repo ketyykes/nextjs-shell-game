@@ -102,6 +102,7 @@ export const SYSTEM_COMMAND_DOCS: Record<string, CommandDoc> = {
 			"不存在的名稱不會報錯，unset 直接略過，跟真的 bash 一樣。",
 			"-v 代表「拿掉變數」，本來就是預設行為；-f 是拿掉函式，這個 shell 沒有函式，所以不支援。",
 			"拿掉跟清空不一樣：export 名稱= 是讓變數還在、值是空的，env 看得到；unset 之後變數就不存在了。",
+			"有些系統設定的變數是唯讀的（readonly），unset 拿不掉、export 也改不了值；export 不加參數時，唯讀的會標成 declare -rx。",
 		],
 		examples: [
 			{ command: "unset GREETING", explanation: "拿掉變數 GREETING，之後 echo $GREETING 只印出空白行" },

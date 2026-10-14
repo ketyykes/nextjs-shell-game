@@ -105,6 +105,8 @@ export class Shell {
 	private learned: string[];
 	private currentEnv: Record<string, string>;
 	private currentProcesses: ProcessInfo[];
+	/** 唯讀變數的名稱，來自劇本、不存檔，見 `CommandContext.readonlyEnv`。 */
+	private readonly readonlyEnv: string[];
 
 	constructor(options: ShellOptions, commands: CommandDefinition[] = ALL_COMMANDS) {
 		this.options = options;
@@ -125,6 +127,7 @@ export class Shell {
 			...options.env,
 		};
 		this.currentProcesses = copyProcesses(options.processes ?? []);
+		this.readonlyEnv = [...(options.readonlyEnv ?? [])];
 	}
 
 	get cwd(): string {
@@ -380,8 +383,15 @@ export class Shell {
 	 * 從存檔還原。`fs` 由呼叫端先用 `VirtualFileSystem.fromSerialized(state.fs)` 建好再傳入，
 	 * 這裡不直接依賴 fs 的實作類別，保持 shell 只認 `VirtualFs` 介面。
 	 * 舊存檔沒有 `env`、`processes` 時，建構子會補預設值（`PWD` 跟著存檔的 cwd）。
+	 * `readonlyEnv` 來自劇本、不在存檔裡，由呼叫端從終端機定義帶入。
 	 */
-	static fromState(state: ShellSessionState, fs: ShellOptions["fs"], hints: string[], home?: string): Shell {
+	static fromState(
+		state: ShellSessionState,
+		fs: ShellOptions["fs"],
+		hints: string[],
+		home?: string,
+		readonlyEnv?: string[],
+	): Shell {
 		return new Shell({
 			fs,
 			terminalId: state.terminalId,
@@ -393,6 +403,7 @@ export class Shell {
 			hintCount: state.hintCount,
 			env: state.env,
 			processes: state.processes,
+			readonlyEnv,
 		});
 	}
 
@@ -411,6 +422,7 @@ export class Shell {
 			stdin,
 			env: { ...this.currentEnv },
 			processes: copyProcesses(this.currentProcesses),
+			readonlyEnv: [...this.readonlyEnv],
 		};
 	}
 

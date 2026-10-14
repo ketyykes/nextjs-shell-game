@@ -4,6 +4,7 @@
  * - 沒參數：依名稱排序列出 `declare -x 名稱="值"`（跟 bash 一樣）。
  * - `名稱=值`：設定變數，值可以是空字串；只看第一個 `=`，值裡的 `=` 原樣保留。
  * - `名稱`（沒有 `=`）：變數存在就不動，不存在就設成空字串（bash 行為）。
+ * - 唯讀變數（`context.readonlyEnv`）：`名稱=值` 回 `readonlyVariable`，列表標成 `declare -rx`。
  *
  * 指令不直接改 `context.env`，而是回傳整份新的 `nextEnv` 讓 shell 取代。
  * 多個參數逐一處理，失敗的不影響合法的（跟 bash 一樣），但整體 `ok` 為 false。
@@ -11,7 +12,7 @@
  */
 
 import type { CommandDefinition, CommandResult } from "../types";
-import { invalidAssignment, invalidVariableName, unknownOption } from "../messages";
+import { invalidAssignment, invalidVariableName, readonlyVariable, unknownOption } from "../messages";
 
 /** 合法的變數名稱：英文字母、數字與底線，不能以數字開頭。 */
 export const VARIABLE_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -38,15 +39,22 @@ function quoteValue(value: string): string {
 }
 
 /** 沒參數時的列表輸出。 */
-function listVariables(env: Record<string, string>): string[] {
-	return sortedVariableNames(env).map((name) => `declare -x ${name}=${quoteValue(env[name])}`);
+/** 沒參數時的列表：唯讀變數跟 bash 一樣標成 `declare -rx`。 */
+function listVariables(env: Record<string, string>, readonlyEnv: readonly string[]): string[] {
+	return sortedVariableNames(env).map((name) => {
+		let flags = "-x";
+		if (readonlyEnv.includes(name)) {
+			flags = "-rx";
+		}
+		return `declare ${flags} ${name}=${quoteValue(env[name])}`;
+	});
 }
 
 export const exportCommand: CommandDefinition = {
 	name: "export",
 	run(args, context): CommandResult {
 		if (args.length === 0) {
-			return { ok: true, lines: listVariables(context.env) };
+			return { ok: true, lines: listVariables(context.env, context.readonlyEnv ?? []) };
 		}
 
 		const nextEnv: Record<string, string> = { ...context.env };
@@ -80,6 +88,12 @@ export const exportCommand: CommandDefinition = {
 
 			if (!VARIABLE_NAME.test(name)) {
 				errors.push(...invalidVariableName(name));
+				continue;
+			}
+
+			if (value !== null && context.readonlyEnv?.includes(name) === true) {
+				// bash：唯讀變數不能改值；只寫名稱（`export 名稱`）不改值，照樣允許
+				errors.push(...readonlyVariable(name, "assign"));
 				continue;
 			}
 

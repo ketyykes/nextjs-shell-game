@@ -168,3 +168,31 @@ describe("export 等號旁有空格", () => {
 		expect(text).not.toContain("不能當變數名稱");
 	});
 });
+
+describe("export 唯讀變數（readonly）", () => {
+	function createReadonlyContext() {
+		return createSystemContext({
+			env: { HOME: "/home/tech", STATION_MODE: "decommission_countdown" },
+			readonlyEnv: ["STATION_MODE"],
+		});
+	}
+
+	it("唯讀變數不能改值：算錯誤、說明它是唯讀，環境不變", () => {
+		const result = exportCommand.run(["STATION_MODE=normal"], createReadonlyContext());
+
+		expect(result.ok).toBe(false);
+		expect(result.lines.join("\n")).toContain("STATION_MODE");
+		expect(result.lines.join("\n")).toContain("唯讀");
+		expect(result.nextEnv).toBeUndefined();
+	});
+
+	it("只寫名稱不改值是允許的（bash 行為）", () => {
+		expect(exportCommand.run(["STATION_MODE"], createReadonlyContext()).ok).toBe(true);
+	});
+
+	it("列出變數時唯讀的標成 declare -rx，跟 bash 一樣", () => {
+		const result = exportCommand.run([], createReadonlyContext());
+
+		expect(result.lines).toEqual(['declare -x HOME="/home/tech"', 'declare -rx STATION_MODE="decommission_countdown"']);
+	});
+});

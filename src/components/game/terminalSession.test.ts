@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { findTerminal } from "@/game/chapters";
 import { VirtualFileSystem } from "@/game/shell/fs";
 import { Shell } from "@/game/shell/shell";
-import type { TerminalDefinition } from "@/game/story";
+import { createObjectiveContext, evaluateObjective, type TerminalDefinition } from "@/game/story";
 import { ABIN_REPLY_TERMINAL_ID, abinEvidenceFiles, findAbinNote } from "@/game/story/abinNotes";
 import { terminalScriptHash } from "@/game/story/scriptHash";
 import type { TerminalSessionRecord } from "@/game/store/types";
@@ -325,5 +325,35 @@ describe("createDialogueEntries", () => {
 			{ kind: "dialogue", id: "nova-open-ch1-t1-0", speaker: "NOVA", text: "甲" },
 			{ kind: "dialogue", id: "nova-open-ch1-t1-1", speaker: "NOVA", text: "乙" },
 		]);
+	});
+});
+
+describe("createTerminalSession：劇本的唯讀變數（readonlyEnv）", () => {
+	const loginTerminal = findTerminal("ch5-t1") as TerminalDefinition;
+
+	it("第五章艦橋登錄台：劇本的站務變數 unset 拿不掉，照第三段提示打仍然過得了關", () => {
+		const { shell } = createTerminalSession(loginTerminal, [], undefined, { solved: false });
+
+		expect(shell.execute("unset STATION_MODE").isError).toBe(true);
+		expect(shell.execute("export STATION_MODE=normal").isError).toBe(true);
+		expect(shell.env.STATION_MODE).toBe("decommission_countdown");
+		const solved = ["cat README.txt", "man env", "env"].some((input) => {
+			const execution = shell.execute(input);
+			return !execution.isError && evaluateObjective(loginTerminal, createObjectiveContext(loginTerminal.id, execution, shell.fs, shell.home));
+		});
+		expect(solved).toBe(true);
+	});
+
+	it("從存檔還原的 session 也帶入唯讀清單", () => {
+		const first = createTerminalSession(loginTerminal, [], undefined, { solved: false });
+		const record = first.freshRecord as TerminalSessionRecord;
+		const { shell } = createTerminalSession(loginTerminal, [], record, { solved: false });
+
+		expect(shell.execute("unset STATION_MODE").isError).toBe(true);
+		expect(shell.env.STATION_MODE).toBe("decommission_countdown");
+	});
+
+	it("劇本把登錄台的五個站務變數全部設成唯讀", () => {
+		expect([...(loginTerminal.readonlyEnv ?? [])].sort()).toEqual(Object.keys(loginTerminal.env ?? {}).sort());
 	});
 });

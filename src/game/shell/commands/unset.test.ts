@@ -93,3 +93,29 @@ describe("unset 不合法的名稱", () => {
 		});
 	});
 });
+
+describe("unset 唯讀變數（readonly）", () => {
+	/** 劇本把 STATION_MODE 設成唯讀的 context。 */
+	function createReadonlyContext() {
+		return createSystemContext({
+			env: { HOME: "/home/tech", STATION_MODE: "decommission_countdown", GREETING: "hello" },
+			readonlyEnv: ["STATION_MODE"],
+		});
+	}
+
+	it("唯讀變數拿不掉：算錯誤、說明它是唯讀，環境不變", () => {
+		const result = unsetCommand.run(["STATION_MODE"], createReadonlyContext());
+
+		expect(result.ok).toBe(false);
+		expect(result.lines.join("\n")).toContain("STATION_MODE");
+		expect(result.lines.join("\n")).toContain("唯讀");
+		expect(result.nextEnv).toBeUndefined();
+	});
+
+	it("唯讀的不影響其他名稱，合法的照樣拿掉（跟 bash 一樣）", () => {
+		const result = unsetCommand.run(["STATION_MODE", "GREETING"], createReadonlyContext());
+
+		expect(result.ok).toBe(false);
+		expect(result.nextEnv).toEqual({ HOME: "/home/tech", STATION_MODE: "decommission_countdown" });
+	});
+});

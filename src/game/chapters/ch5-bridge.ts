@@ -97,6 +97,8 @@ const entryTerminal: TerminalDefinition = {
 		CREW_ONBOARD: "0",
 		LIFE_SIGNS: "2",
 	},
+	// 站務變數是唯讀的：過關要 env 印出 STATION_MODE，玩家 unset 掉就再也過不了關（bash 的 readonly 行為）
+	readonlyEnv: ["STATION_ID", "STATION_MODE", "DECOMMISSION_AT", "CREW_ONBOARD", "LIFE_SIGNS"],
 	nova: {
 		onEnterRoom: ["艦橋。艦長以前就站在那個位置。", "這一層的系統都要權限。我沒有。技師，你現在也沒有。"],
 		onOpen: [

@@ -468,6 +468,11 @@ export interface CommandContext {
 	env: Record<string, string>;
 	/** 目前的程序清單（第六章）。`kill` 用回傳值 `nextProcesses` 改。 */
 	processes: ProcessInfo[];
+	/**
+	 * 唯讀變數的名稱（bash 的 `readonly`），`unset` 拿不掉、`export 名稱=值` 改不了值。
+	 * 來自劇本（例如第五章艦橋登錄台的站務變數，玩家 unset 掉就再也過不了關）；沒給等同空陣列。
+	 */
+	readonlyEnv?: readonly string[];
 }
 
 /**
@@ -569,6 +574,8 @@ export interface ShellOptions {
 	env?: Record<string, string>;
 	/** 初始程序清單（第六章）。沒給等同空陣列。 */
 	processes?: ProcessInfo[];
+	/** 唯讀變數的名稱，見 `CommandContext.readonlyEnv`。來自劇本，不存進存檔，還原時再從劇本帶入。 */
+	readonlyEnv?: string[];
 }
 
 /**

@@ -1204,3 +1204,32 @@ describe("Shell && 看結束碼，不算錯誤的失敗也會跳過右邊", () =
 		expect(shell.execute("grep NOPE wake_up.txt ; echo 下一段").lines).toEqual(["下一段"]);
 	});
 });
+
+describe("Shell 唯讀變數（readonlyEnv）", () => {
+	it("建立時給的唯讀變數 unset 拿不掉，整行算錯誤，env 不變", () => {
+		const shell = createShell({ env: { STATION_MODE: "decommission_countdown" }, readonlyEnv: ["STATION_MODE"] });
+
+		const execution = shell.execute("unset STATION_MODE");
+
+		expect(execution.isError).toBe(true);
+		expect(execution.lines.join("\n")).toContain("唯讀");
+		expect(shell.env.STATION_MODE).toBe("decommission_countdown");
+	});
+
+	it("從存檔還原時再帶入唯讀清單（不存進存檔，來自劇本）", () => {
+		const shell = createShell({ env: { STATION_MODE: "decommission_countdown" }, readonlyEnv: ["STATION_MODE"] });
+		const state = shell.toState();
+		const restored = Shell.fromState(state, VirtualFileSystem.fromSerialized(state.fs), [], undefined, ["STATION_MODE"]);
+
+		expect(restored.execute("unset STATION_MODE").isError).toBe(true);
+		expect(restored.env.STATION_MODE).toBe("decommission_countdown");
+		expect(state).not.toHaveProperty("readonlyEnv");
+	});
+
+	it("沒給唯讀清單時跟原本一樣可以 unset", () => {
+		const shell = createShell({ env: { STATION_MODE: "decommission_countdown" } });
+
+		expect(shell.execute("unset STATION_MODE").isError).toBe(false);
+		expect(shell.env.STATION_MODE).toBeUndefined();
+	});
+});

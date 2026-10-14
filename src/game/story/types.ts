@@ -96,6 +96,12 @@ export interface TerminalDefinition {
 	effect?: SolvedEffect;
 	/** 初始環境變數（第五章），shell 會再補 `HOME`、`USER`、`PWD`。 */
 	env?: Record<string, string>;
+	/**
+	 * `env` 裡哪些是唯讀變數（bash 的 `readonly`）：`unset` 拿不掉、`export 名稱=值` 改不了值。
+	 * 給過關判定要讀的劇本變數用，免得玩家 unset 掉就再也過不了關（第五章艦橋登錄台）。
+	 * 不存進存檔，建立與還原 session 時都從劇本帶入；名稱必須在 `env` 裡（schema 檢查）。
+	 */
+	readonlyEnv?: string[];
 	/** 初始程序清單（第六章 `ps`）。 */
 	processes?: ProcessInfo[];
 }

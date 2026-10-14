@@ -144,6 +144,18 @@ describe("validateChapter", () => {
 		expect(message).toContain("terminals[0].title");
 	});
 
+	it("readonlyEnv 列的名稱都在 env 裡時通過", () => {
+		const terminal = validTerminal({ env: { STATION_MODE: "normal" }, readonlyEnv: ["STATION_MODE"] });
+		expect(() => validateChapter(validChapter([terminal]))).not.toThrow();
+	});
+
+	it("readonlyEnv 列了 env 裡沒有的名稱時失敗，路徑指到那一項", () => {
+		const terminal = validTerminal({ env: { STATION_MODE: "normal" }, readonlyEnv: ["STATION_ID"] });
+		const message = errorMessageOf(validChapter([terminal]));
+		expect(message).toContain("terminals[0].readonlyEnv[0]");
+		expect(message).toContain("STATION_ID");
+	});
+
 	it("終端機 id 重複，路徑指到第二台", () => {
 		const message = errorMessageOf(validChapter([validTerminal(), validTerminal({ title: "另一台" })]));
 		expect(message).toContain("terminals[1].id");

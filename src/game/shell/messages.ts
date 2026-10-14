@@ -351,6 +351,17 @@ export function invalidVariableName(name: string): string[] {
 	return [`\`${name}\` 不能當變數名稱，只能用英文字母、數字與底線，而且不能以數字開頭。`];
 }
 
+/**
+ * 唯讀變數（bash 的 `readonly`）：`unset` 拿不掉、`export 名稱=值` 改不了值。
+ * bash 的原文是 `cannot unset: readonly variable` 與 `readonly variable`。
+ */
+export function readonlyVariable(name: string, action: "unset" | "assign"): string[] {
+	if (action === "unset") {
+		return [`\`${name}\` 是唯讀變數（readonly），unset 拿不掉它。用 echo $${name} 或 env 看它的值就好。`];
+	}
+	return [`\`${name}\` 是唯讀變數（readonly），不能改它的值。用 echo $${name} 或 env 看它的值就好。`];
+}
+
 /** `chmod` 的權限寫法看不懂。 */
 export function invalidMode(value: string): string[] {
 	return [
