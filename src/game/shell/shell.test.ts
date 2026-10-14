@@ -634,6 +634,14 @@ describe("Shell 環境變數", () => {
 		expect(shell.env).toEqual({ HOME: "/home/tech", USER: "abin", PWD: "/home/tech", NOVA_DIR: "/opt/nova" });
 	});
 
+	it("unset 拿掉變數之後 $名稱 展開成空字串，env 也看不到它", () => {
+		const shell = createShell({ env: { NOVA_DIR: "/opt/nova" } });
+		expect(shell.execute("unset NOVA_DIR")).toMatchObject({ isError: false, lines: [] });
+		expect(shell.env.NOVA_DIR).toBeUndefined();
+		expect(shell.execute("echo [$NOVA_DIR]").lines).toEqual(["[]"]);
+		expect(shell.execute("env").lines.join("\n")).not.toContain("NOVA_DIR");
+	});
+
 	it("cd $HOME 回到家目錄", () => {
 		const shell = createShell({ cwd: "/deck1" });
 		expect(shell.execute("cd $HOME").isError).toBe(false);

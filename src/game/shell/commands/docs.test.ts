@@ -7,7 +7,7 @@ const CHAPTER_ONE_COMMANDS = ["pwd", "ls", "cd", "cat", "help", "hint", "man", "
 const LATER_COMMANDS = [
 	"head", "tail", "wc", "grep", "find",
 	"mkdir", "touch", "cp", "mv", "rm", "chmod",
-	"echo", "sort", "uniq", "export", "env", "ps", "top", "kill",
+	"echo", "sort", "uniq", "export", "env", "unset", "ps", "top", "kill",
 ];
 /** M13-3 只開放使用、沒編進劇本的指令，排在最後。 */
 const EXTRA_COMMANDS = ["less", "tree", "cut", "diff", "which"];
@@ -57,6 +57,15 @@ describe("COMMAND_DOCS", () => {
 
 	it("cat 的說明提到可以一次讀多個檔案", () => {
 		expect(COMMAND_DOCS.cat.description.join("\n")).toContain("多個");
+	});
+
+	it("unset 的說明涵蓋 -v、-f 與不存在時不報錯，範例不提劇情的變數", () => {
+		const doc = COMMAND_DOCS.unset;
+		const text = doc.description.join("\n");
+		expect(text).toContain("-v");
+		expect(text).toContain("-f");
+		expect(text).toContain("不存在");
+		expect(JSON.stringify(doc)).not.toMatch(/NOVA|nova/);
 	});
 
 	it("grep 的用法與說明涵蓋正規表示式、-E 與 -F", () => {

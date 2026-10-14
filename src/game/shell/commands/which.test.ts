@@ -7,7 +7,7 @@ import { HOME_DIR } from "../types";
 import { DEFAULT_PATH, whichCommand } from "./which";
 import { createContext as createBaseContext } from "./testFixtures";
 
-const COMMANDS = ["ls", "cat", "cd", "export", "help", "history", "hint", "which", "grep"];
+const COMMANDS = ["ls", "cat", "cd", "export", "unset", "help", "history", "hint", "which", "grep"];
 
 function createContext(overrides: Partial<CommandContext> = {}): CommandContext {
 	return createBaseContext({
@@ -74,7 +74,7 @@ describe("which 找不到", () => {
 	});
 
 	it("shell 內建指令沒有程式檔，說明它照樣能用", () => {
-		for (const name of ["cd", "export", "help", "history"]) {
+		for (const name of ["cd", "export", "unset", "help", "history"]) {
 			expect(whichCommand.run([name], createContext())).toEqual({ ok: true, lines: whichBuiltin(name), exitStatus: 1 });
 		}
 	});

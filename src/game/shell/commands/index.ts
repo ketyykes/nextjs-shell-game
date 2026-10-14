@@ -37,6 +37,7 @@ import { topCommand } from "./top";
 import { touchCommand } from "./touch";
 import { treeCommand } from "./tree";
 import { uniqCommand } from "./uniq";
+import { unsetCommand } from "./unset";
 import { wcCommand } from "./wc";
 import { whichCommand } from "./which";
 import type { CommandDefinition } from "../types";
@@ -72,6 +73,8 @@ export const ALL_COMMANDS: CommandDefinition[] = [
 	// 第五章
 	exportCommand,
 	envCommand,
+	// 第十七場：只開放使用，不在任何章節的 teaches 裡
+	unsetCommand,
 	chmodCommand,
 	// 第六章
 	psCommand,

@@ -331,6 +331,6 @@ export const SANDBOX_TIPS: string[] = [
 	"locked/vault.txt 讀不到：先 ls -l locked 看權限，再用 chmod 把讀取權限打開。",
 	"mkdir、touch、cp、mv、rm 都可以隨便試；trash 裡的 .tmp 可以用 rm trash/*.tmp 一次刪掉。",
 	"echo 文字 > 檔名 會寫進檔案（覆蓋），>> 則接在後面；寫完用 cat 確認。",
-	"env 列出環境變數，echo $GREETING 印出其中一個，cd $LOG_DIR 直接跳到日誌目錄，export NAME=值 自己設一個。",
+	"env 列出環境變數，echo $GREETING 印出其中一個，cd $LOG_DIR 直接跳到日誌目錄；export NAME=值 自己設一個，unset NAME 再把它拿掉。",
 	"ps 看程序清單，top 看誰最吃 CPU，用 kill 加 PID 結束它；不聽話的試試 kill -9。",
 ];

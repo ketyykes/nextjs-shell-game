@@ -1,6 +1,7 @@
 /**
  * 第四到六章系統指令（echo、sort、uniq、export、env、ps、top、kill）的說明資料，由 `docs.ts` 合併進 `COMMAND_DOCS`。
  * 範例用通訊艙、艦橋、NOVA 核心的世界觀檔名。
+ * `unset`（第十七場）只開放使用、不在任何章節的 `teaches` 裡，跟 export、env 放在一起；範例刻意用中性的變數名，不提劇情。
  */
 
 import type { CommandDoc } from "../types";
@@ -91,6 +92,23 @@ export const SYSTEM_COMMAND_DOCS: Record<string, CommandDoc> = {
 			{ command: "env | grep NOVA", explanation: "只挑出名稱或值含 NOVA 的變數" },
 		],
 	},
+	unset: {
+		name: "unset",
+		summary: "拿掉環境變數",
+		usage: "unset [-v] 名稱...",
+		description: [
+			"unset 名稱 會把變數整個拿掉，之後 $名稱 會展開成空字串，env 也列不出它。",
+			"一次可以給好幾個名稱；名稱前面不用加 $，加了 $ 會先被換成變數的值。",
+			"不存在的名稱不會報錯，unset 直接略過，跟真的 bash 一樣。",
+			"-v 代表「拿掉變數」，本來就是預設行為；-f 是拿掉函式，這個 shell 沒有函式，所以不支援。",
+			"拿掉跟清空不一樣：export 名稱= 是讓變數還在、值是空的，env 看得到；unset 之後變數就不存在了。",
+		],
+		examples: [
+			{ command: "unset GREETING", explanation: "拿掉變數 GREETING，之後 echo $GREETING 只印出空白行" },
+			{ command: "unset GREETING PLANET", explanation: "一次拿掉兩個變數" },
+			{ command: "unset -v GREETING", explanation: "跟 unset GREETING 一樣" },
+		],
+	},
 	ps: {
 		name: "ps",
 		summary: "列出正在執行的程序",
@@ -139,4 +157,4 @@ export const SYSTEM_COMMAND_DOCS: Record<string, CommandDoc> = {
 };
 
 /** 這組指令在 `help` 與側邊面板的顯示順序。 */
-export const SYSTEM_COMMAND_ORDER: string[] = ["echo", "sort", "uniq", "export", "env", "ps", "top", "kill"];
+export const SYSTEM_COMMAND_ORDER: string[] = ["echo", "sort", "uniq", "export", "env", "unset", "ps", "top", "kill"];

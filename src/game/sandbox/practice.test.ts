@@ -118,6 +118,13 @@ describe("練習用檔案系統", () => {
 		expect(run(shell, "env").join("\n")).toContain("LOG_DIR=");
 	});
 
+	it("練習用變數可以用 unset 拿掉，練習建議也有提到 unset", () => {
+		const shell = createSandboxShell();
+		run(shell, "unset GREETING");
+		expect(run(shell, "env").join("\n")).not.toContain("GREETING=");
+		expect(SANDBOX_TIPS.some((tip) => tip.includes("unset"))).toBe(true);
+	});
+
 	it("程序清單有可以 kill 的、要 -9 才殺得掉的、殺不掉的", () => {
 		expect(SANDBOX_PROCESSES.length).toBeGreaterThanOrEqual(5);
 		const stubborn = SANDBOX_PROCESSES.find((process) => process.ignoresTerm === true);

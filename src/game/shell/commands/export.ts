@@ -14,7 +14,7 @@ import type { CommandDefinition, CommandResult } from "../types";
 import { invalidAssignment, invalidVariableName, unknownOption } from "../messages";
 
 /** 合法的變數名稱：英文字母、數字與底線，不能以數字開頭。 */
-const VARIABLE_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+export const VARIABLE_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 /** 依名稱用 code unit 排序後的變數名稱，`env` 也用。 */
 export function sortedVariableNames(env: Record<string, string>): string[] {
