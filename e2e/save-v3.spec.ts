@@ -4,7 +4,7 @@ import { enterPlay, seedSave, TERMINALS_PER_CHAPTER, walkToTerminal } from "./he
 
 /**
  * 存檔 v3：通關狀態與遊玩統計（M14-1）、存檔匯出匯入（M14-2）、劇本改版偵測（M12-4）。
- * `seedSave` 寫的是 v1，這裡的每個測試都順便驗證 v1 → v3 的 migrate 在真瀏覽器跑得通。
+ * `seedSave` 寫的是 v1，這裡的每個測試都順便驗證 v1 一路升到目前版本（v4 起多了阿彬的留言）的 migrate 在真瀏覽器跑得通。
  */
 
 /** 讀 localStorage 的整份存檔。 */
@@ -68,7 +68,7 @@ test("第六章片尾播完回標題：副標顯示已逃離、「繼續」換�
 	await expect(page.getByTestId("title-subtitle")).toHaveText("已逃離 Kepler-9");
 	await expect(page.getByRole("button", { name: "繼續" })).toHaveCount(0);
 	const save = await readSave(page);
-	expect(save.version).toBe(3);
+	expect(save.version).toBe(4);
 	expect(typeof save.state.progress.clearedAt).toBe("string");
 
 	// 重整後一樣；通關紀錄列出每章與總計
@@ -88,8 +88,8 @@ test("存檔管理：匯出成 JSON 檔，清掉存檔後再匯入，重新載�
 	await seedSave(page, { chapter: 3 });
 	await page.reload();
 	await expect(page.getByRole("button", { name: "繼續" })).toBeVisible();
-	// 讀檔時 v1 種子升成 v3 寫回，等寫完再匯出
-	await expect.poll(async () => (await readSave(page)).version).toBe(3);
+	// 讀檔時 v1 種子升成目前版本寫回，等寫完再匯出
+	await expect.poll(async () => (await readSave(page)).version).toBe(4);
 
 	await page.getByRole("button", { name: "存檔管理" }).click();
 	const downloadPromise = page.waitForEvent("download");
@@ -98,7 +98,7 @@ test("存檔管理：匯出成 JSON 檔，清掉存檔後再匯入，重新載�
 	expect(download.suggestedFilename()).toMatch(/^kepler9-save-\d{8}-\d{4}\.json$/);
 	const exportedPath = await download.path();
 	const exported = JSON.parse(await readFile(exportedPath, "utf8"));
-	expect(exported.version).toBe(3);
+	expect(exported.version).toBe(4);
 	expect(exported.state.progress.chapter).toBe(3);
 	await expect(page.getByTestId("save-manager-message")).toContainText("已下載");
 	await page.keyboard.press("Escape");
@@ -129,7 +129,7 @@ test("存檔管理：匯入壞掉或版本太新的檔案會被拒絕，原本�
 	await seedSave(page, { chapter: 2 });
 	await page.reload();
 	await expect(page.getByRole("button", { name: "繼續" })).toBeVisible();
-	await expect.poll(async () => (await readSave(page)).version).toBe(3);
+	await expect.poll(async () => (await readSave(page)).version).toBe(4);
 	const before = await page.evaluate(() => window.localStorage.getItem("kepler9-save"));
 
 	await page.getByRole("button", { name: "存檔管理" }).click();
