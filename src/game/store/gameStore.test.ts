@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { VirtualFileSystem } from "@/game/shell/fs";
 import { Shell } from "@/game/shell/shell";
 import type { FsSnapshot } from "@/game/shell/types";
+import { ABIN_REPLY_MAX_LENGTH } from "@/game/story/abinNotes";
 import { createInitialSaveData, useGameStore } from "./gameStore";
 import { getSaveIssue, setSaveIssue } from "./saveStatus";
 import { selectHasSave, selectIsGameFinished, selectIsOxygenLow, selectTerminal } from "./selectors";
@@ -764,6 +765,23 @@ describe("persist", () => {
 		await useGameStore.persist.rehydrate();
 
 		expect(useGameStore.getState().abinNotes).toEqual(expected);
+	});
+
+	it.each([
+		["空字串", "", null],
+		["只有空白與換行", "  \n\t \n", null],
+		["多行只取第一個非空行，去頭尾空白", "\n  我醒了  \n第二行", "我醒了"],
+		["夾了控制字元與零寬字元", "我\u0007醒\u200b了", "我醒了"],
+		["超過上限的截掉", "醒".repeat(ABIN_REPLY_MAX_LENGTH + 10), "醒".repeat(ABIN_REPLY_MAX_LENGTH)],
+	])("讀檔時存檔裡的回信照偵測時的規則清理（%s）", async (_label, reply, expected) => {
+		localStorage.setItem(
+			SAVE_STORAGE_KEY,
+			JSON.stringify({ state: { ...createInitialSaveData(), abinNotes: { found: ["ch4-reply"], reply } }, version: SAVE_VERSION }),
+		);
+
+		await useGameStore.persist.rehydrate();
+
+		expect(useGameStore.getState().abinNotes).toEqual({ found: ["ch4-reply"], reply: expected });
 	});
 
 	it("最遠章節比目前章節小的壞存檔會被拉回至少等於目前章節", async () => {

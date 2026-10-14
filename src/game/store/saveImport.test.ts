@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { VirtualFileSystem } from "@/game/shell/fs";
 import { Shell } from "@/game/shell/shell";
+import { ABIN_REPLY_MAX_LENGTH } from "@/game/story/abinNotes";
 import { parseSaveImport } from "./saveImport";
 import { DEFAULT_PROGRESS, DEFAULT_SETTINGS, SAVE_VERSION } from "./types";
 import type { SaveData, TerminalSessionRecord } from "./types";
@@ -104,6 +105,26 @@ describe("parseSaveImport", () => {
 		expect(result.data.abinNotes).toEqual({ found: [], reply: null });
 		expect(result.data.stats).toEqual(createSave().stats);
 		expect(JSON.parse(result.json)).toEqual({ state: { ...createSave(), abinNotes: { found: [], reply: null } }, version: SAVE_VERSION });
+	});
+
+	it.each([
+		["空字串", "", null],
+		["只有空白與換行", "  \n\t \n", null],
+		["多行只取第一個非空行，去頭尾空白", "\n  我醒了  \n第二行", "我醒了"],
+		["夾了控制字元與零寬字元", "我\u0007醒\u200b了", "我醒了"],
+		["超過上限的截掉", "醒".repeat(ABIN_REPLY_MAX_LENGTH + 10), "醒".repeat(ABIN_REPLY_MAX_LENGTH)],
+	])("匯入時回信照偵測時的規則清理，寫進存檔的也是清理後的（%s）", (_label, reply, expected) => {
+		const save = createSave();
+		save.abinNotes = { found: ["ch4-reply"], reply };
+
+		const result = parseSaveImport(exported(save));
+
+		expect(result.ok).toBe(true);
+		if (!result.ok) {
+			return;
+		}
+		expect(result.data.abinNotes).toEqual({ found: ["ch4-reply"], reply: expected });
+		expect(JSON.parse(result.json).state.abinNotes).toEqual({ found: ["ch4-reply"], reply: expected });
 	});
 
 	it("已通關的存檔摘要標記 cleared", () => {

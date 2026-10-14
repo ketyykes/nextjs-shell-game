@@ -8,10 +8,12 @@
  *   玩家是主動拿這份檔案來覆蓋存檔的，壞檔不該蓋掉好的存檔。
  * - 物件用 `z.looseObject`：多出來的欄位不算壞（跟 `sessionRecord.ts` 一樣）。
  * - 設定欄位都是選填，缺的讀檔時 `mergeSaveData` 會用預設值補。
+ * - 阿彬的回信只檢查是字串或 null，內容跟讀檔、偵測時一樣清理後才寫進存檔（空白、多行、超長都整理掉）。
  * - 這個檔案會帶進 zod，標題頁只在玩家選了檔案後才動態 import。
  */
 
 import * as z from "zod";
+import { sanitizeReplyText } from "@/game/story/abinNotes";
 import { isRoomId } from "@/game/story/rooms";
 import { migrateSaveData } from "./migrate";
 import { terminalSessionRecordSchema } from "./sessionRecord";
@@ -65,9 +67,17 @@ const chapterStatsSchema = z.looseObject({
 	hints: z.number().int().min(0),
 });
 
+/** 把回信整理成要存的樣子：跟讀檔、偵測時一樣用 `sanitizeReplyText`，整理完沒字就是 null。 */
+function sanitizeImportedReply(reply: string | null): string | null {
+	if (reply === null) {
+		return null;
+	}
+	return sanitizeReplyText(reply);
+}
+
 const abinNotesSchema = z.looseObject({
 	found: z.array(z.string()),
-	reply: z.string().nullable(),
+	reply: z.string().nullable().transform(sanitizeImportedReply),
 });
 
 const saveDataSchema = z.looseObject({
@@ -123,7 +133,9 @@ export function parseSaveImport(text: string): SaveImportResult {
 		return { ok: false, reason: "invalid-content", message: MESSAGES.invalidContent };
 	}
 
-	const data = state as SaveData;
+	// 其他欄位照原樣寫回（looseObject 留著的多餘欄位也不動），只有回信換成清理後的
+	const raw = state as SaveData;
+	const data: SaveData = { ...raw, abinNotes: { ...raw.abinNotes, reply: checked.data.abinNotes.reply } };
 	return {
 		ok: true,
 		data,

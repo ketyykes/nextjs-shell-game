@@ -14,6 +14,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import type { StateStorage } from "zustand/middleware";
+import { sanitizeReplyText } from "@/game/story/abinNotes";
 import { migrateSaveData } from "./migrate";
 import { toSaveData } from "./saveExport";
 import { getSaveIssue, setSaveIssue } from "./saveStatus";
@@ -176,6 +177,7 @@ const safeLocalStorage: StateStorage = {
 /**
  * 存檔裡的阿彬留言紀錄（v4）：形狀不對的部分用預設值。`found` 只留字串並去掉重複，
  * 不認得的 id 照樣留著（之後的版本可能多了留言），算數量時由畫面只算認得的。
+ * 回信跟偵測時一樣用 `sanitizeReplyText` 清理（第一個非空行、去控制字元與頭尾空白、超長截斷），整理完沒字就是 null。
  */
 function sanitizeAbinNotes(value: unknown): AbinNotesProgress {
 	if (!isRecord(value)) {
@@ -191,7 +193,7 @@ function sanitizeAbinNotes(value: unknown): AbinNotesProgress {
 	}
 	let reply: string | null = null;
 	if (typeof value.reply === "string") {
-		reply = value.reply;
+		reply = sanitizeReplyText(value.reply);
 	}
 	return { found, reply };
 }
