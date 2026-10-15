@@ -74,7 +74,7 @@ test("製作名單：沒有存檔也在標題選單最後一項，進 /credits �
 	}
 });
 
-test("通關過的存檔：標題的「通關紀錄」後面多一項「下一步：真的終端機」，進 /real-world 後 Esc 與「返回標題」都回得去", async ({
+test("通關過的存檔：標題的「通關紀錄」「救援船 ARGO」「檔案櫃」後面多一項「下一步：真的終端機」，進 /real-world 後 Esc 與「返回標題」都回得去", async ({
 	page,
 }) => {
 	// 第六章片尾看完的舊存檔：migrate 直接算已逃離（存檔 v3 的升級規則）
@@ -83,8 +83,11 @@ test("通關過的存檔：標題的「通關紀錄」後面多一項「下一�
 	await expect(page.getByTestId("title-subtitle")).toHaveText("已逃離 Kepler-9");
 
 	const menuItems = page.getByRole("navigation", { name: "標題選單" }).getByRole("button");
+	// 通關後的四項順序（設計文件 4.7）：通關紀錄 → 救援船 ARGO → 檔案櫃 → 下一步
 	await expect(menuItems.nth(0)).toHaveText(/通關紀錄/);
-	await expect(menuItems.nth(1)).toHaveText(/下一步：真的終端機/);
+	await expect(menuItems.nth(1)).toHaveText(/救援船 ARGO/);
+	await expect(menuItems.nth(2)).toHaveText(/檔案櫃/);
+	await expect(menuItems.nth(3)).toHaveText(/下一步：真的終端機/);
 	await page.getByRole("button", { name: "下一步：真的終端機" }).click();
 
 	await expect(page).toHaveURL(/\/real-world$/);
