@@ -19,10 +19,10 @@
 | 項目 | 內容 |
 |---|---|
 | 更新日期 | 2026-10-16 |
-| 最新 commit | 見 `git log --oneline 9fc5286..HEAD`：第十七場（`/goal` 自主實作 M15）42 個 commit，五組 agent 平行實作八項遊戲化功能，兩輪唯讀審查找出的問題都修掉；2026-10-16 第十八場整理 docs/（拆檔、封存；程式邏輯沒動，只更新註解裡的文件引用） |
+| 最新 commit | 見 `git log --oneline 9fc5286..HEAD`：第十七場（`/goal` 自主實作 M15）42 個 commit，五組 agent 平行實作八項遊戲化功能，兩輪唯讀審查找出的問題都修掉；2026-10-16 第十八場整理 docs/（拆檔、封存；程式邏輯沒動，只更新註解裡的文件引用），同日清第 3 節待處理雜項：修產圖腳本、劇本客觀校對零錯字、三處 mtime 矛盾修掉、六處要 Danny 決定 |
 | 目前階段 | **M0 到 M15 全部完成**。M15 是第十七場依「遊戲化實戰全書」八角框架挑的八項功能（`archive/progress-milestones-m0-m15.md`），自主決策在 `notes/decisions.md` #102 起，**等 Danny 確認**。M10 到 M14 是第十三場審計排出的優化路線（證據在 [`archive/audit-2026-10-08.md`](./archive/audit-2026-10-08.md)），第十四場由十幾個 agent 平行實作、我逐組合併驗證；這次的自主決策在 `notes/decisions.md` #62 到 #100，**等 Danny 確認**。Danny 本人還沒玩過第二章以後，也還沒看過 M10 到 M14 的新東西 |
 | 程式碼狀態 | 標題（含觸控提示、練習模式、存檔管理、通關紀錄）→ 選角 → boot log → 六章地圖 → 片尾。`pnpm test --run` 167 個測試檔 3318 個測試全綠，`npx tsc --noEmit`、`pnpm lint`、`pnpm build` 乾淨；`PORT=3330 pnpm test:e2e` 58 個全綠、沒有 flaky（e2e 走路是讀座標的閉環，本機 4 個 worker）。存檔格式 v4 |
-| 下一步 | 第 5 節的候選工作：Danny 試玩（特別是 M15 的阿彬留言、NOVA 反應、除役倒數與 M10 到 M14 的新東西）、確認 `notes/decisions.md` #62 起的自主決策、第 3 節的試聽與潤稿（M15 新增的留言、NOVA 反應台詞、片尾加段也是 agent 初稿）、部署。審計末尾「這次沒選的項目」仍可挑 |
+| 下一步 | 第 5 節的候選工作：Danny 試玩（特別是 M15 的阿彬留言、NOVA 反應、除役倒數與 M10 到 M14 的新東西）、確認 `notes/decisions.md` #62 起的自主決策、第 3 節的試聽、潤稿（客觀校對已做過，剩風格）與六處時間線矛盾的取捨、部署。審計末尾「這次沒選的項目」仍可挑 |
 | 遠端 | `origin` 是 HTTPS 網址 `https://github.com/ketyykes/nextjs-shell-game.git`，2026-10-10 Danny 自己 push 到 `70bde04`（第十六場過關密技）；之後的 commit push 前先問 Danny |
 
 ## 2. 里程碑總覽
@@ -55,13 +55,20 @@
 - ✅ **移除暫存的原圖追蹤**：2026-10-08 Danny 親自執行 `git rm --cached docs/assets-draft/*-original.png`，六張原圖（`nova-core`、`nova-eye`、`technician-sheet`、`technician-c`、`technician-d`、`technician-e`，約 8.7 MB）不再追蹤，檔案仍留在這台 Mac 的硬碟上，`.gitignore` 規則原本就在。
 - ✅ **設計文件過時段落**：2026-10-01 已把 6.2 標題改成「自產與補充的素材」、6.3 與第 8 節（已封存到 `archive/game-design-initial-plan.md`）的張數改成實際的 8 張場景圖。
 - ⬜ **真人試玩**：完成定義「沒碰過終端機的人能靠 hint 通關」還沒驗證。找一位新手玩第一章，記錄卡在哪、hint 哪一段救了他。
-- ⬜ **試聽五個音效**：agent 看檔名挑的，沒人聽過，見 `archive/progress-milestones-m0-m15.md` 的 M6-3。
-- ⬜ **劇情文字潤稿**：六台終端機的檔案內容、NOVA 台詞、boot log、章節結尾都是 agent 初稿，`src/game/chapters/ch1-life-support.ts` 與 `src/components/title/BootLog.tsx`，改完跑 `pnpm test --run src/game/chapters` 會檢查格式與性別指涉。
+- ⬜ **試聽五個音效**：agent 看檔名挑的，沒人聽過，見 `archive/progress-milestones-m0-m15.md` 的 M6-3。2026-10-16 用 `afinfo` 確認十個檔案都能解碼，長度 ambient 8 秒、power 1 秒、door 0.5 秒、key 0.1 秒、nova-blip 0.05 秒，ogg 與 mp3 成對；要不要換還是得用耳朵聽。
+- ⬜ **劇情文字潤稿**：六台終端機的檔案內容、NOVA 台詞、boot log、章節結尾都是 agent 初稿，`src/game/chapters/ch1-life-support.ts` 與 `src/components/title/BootLog.tsx`，改完跑 `pnpm test --run src/game/chapters` 會檢查格式與性別指涉。2026-10-16 已做過一輪客觀校對（錯字、簡體或大陸用語、標點、性別指涉，六章、片尾、boot log、留言、NOVA 反應台詞），零筆；剩下的是風格與手感，要 Danny 自己讀。
 - ✅ **補產 12 張插圖**：2026-10-01 codex 額度用完時缺的第五章後三間、`ch5_outro`、第六章六間 `nv_*`、`ch6_outro`、`ending`，2026-10-06 第十場補齊，`AVAILABLE_SCENES` 已列滿 44 張（含第一章 8 張）。
-- ⬜ **第二到六章劇情潤稿與試玩**：五章劇本（`src/game/chapters/ch2-*.ts` 到 `ch6-*.ts`）全是 agent 初稿，Danny 還沒玩過。第二章冷卻日誌「三年來兩人份熱負載」的第二個人，2026-10-08 Danny 定案為冷凍艙裡的玩家，劇本不明講、維持現狀（見 `game-design.md` 4.3「兩人份熱負載」）。第六章 T6 NOVA 最後一句「祝旅途平安，技師」同日定案保留，就是要暗示 NOVA 還活著（見 `game-design.md` 4.3「NOVA 沒死透」）。劇情留白已全部定案，剩潤稿與試玩。（`day_312` 差一與其他十處時間線矛盾已在第十二場修掉，見 `notes/decisions.md` #49 到 #51。）
+- ⬜ **第二到六章劇情潤稿與試玩**：五章劇本（`src/game/chapters/ch2-*.ts` 到 `ch6-*.ts`）全是 agent 初稿，Danny 還沒玩過。第二章冷卻日誌「三年來兩人份熱負載」的第二個人，2026-10-08 Danny 定案為冷凍艙裡的玩家，劇本不明講、維持現狀（見 `game-design.md` 4.3「兩人份熱負載」）。第六章 T6 NOVA 最後一句「祝旅途平安，技師」同日定案保留，就是要暗示 NOVA 還活著（見 `game-design.md` 4.3「NOVA 沒死透」）。劇情留白已全部定案，剩潤稿與試玩。（`day_312` 差一與其他十處時間線矛盾已在第十二場修掉，見 `notes/decisions.md` #49 到 #51；2026-10-16 校對又修了三處 mtime，見 #127。）
 - ✅ **刪模板殘留檔**：2026-10-08 Danny 授權後已刪 `src/app/favicon.ico` 與五個 create-next-app 的 SVG，build 後 `/icon.png` 照常生成、1861 測試全綠。
-- ⬜ **淘汰的原圖只在 Danny 的 Mac 上**：`nova-portrait`、`nova-v2`、`nova-v3`、`nova-id`、`nova-mannequin`、`nova-lowres`、`technician-b` 的 `-original.png` 沒進版控也不需要，另一台電腦看不到是正常的。
-- ⬜ **`generate-ch2-6.sh` 找的是 `.png`**：第十五場場景圖改成 WebP 後，腳本第 61、64 行的跳過判斷與參考圖退路仍找 `public/scenes/scene-*.png`，重跑前要改成 `.webp`。
+- ✅ **淘汰的原圖只在 Danny 的 Mac 上**：這是環境備註不是待辦，2026-10-16 改記到 `notes/pitfalls.md`。
+- ⬜ **六處時間線矛盾，要 Danny 決定**（2026-10-16 校對 workflow 的跨章比對找到，改哪邊都會動劇情，所以沒自動改）：
+  1. 阿彬最後一則留言叫 `day_900.txt`（mtime 2031-03-10），但依 #49 的錨點（2027-07-26 是第 1 天，第二章 `day_313` 是撤離日）那天是第 1324 天，第六章同一天的記憶檔就叫 `day_1324.mem`。檔名被 `solutions.ts`、測試、設計文件 4.12 引用；是記成「阿彬算亂了」還是改名。
+  2. 第二章撤離日誌第 9 段（23:00 到 23:15）寫「對外通訊中斷」，第四章三處（`route.conf` 設定、`entry.log` 刪 `callsign.txt`、`pointing.log` 停止追蹤）都是 23:58，`ping.log` 在 06-02 00:00 八座中繼站還全有回應。
+  3. 第三章公告「影響：通訊艙供電中斷」與 outro「通訊艙那邊也有電了」，但第四章 intro 說「這裡的燈一直都是亮的」，而且 `tx.log`、`pointing.log`、`ping.log` 三年來一直在寫。
+  4. 第五章艦長日誌 `log_0601.txt`（mtime 06-01 21:30）說「回滾腳本準備好了，明早執行」「今天鎖了三次艙門」，但第二章撤離日誌 23:45 才提出回滾方案、00:00 核可、02:45 準備完成，`door_events.log` 當天 21:40 前沒有 NOVA 鎖門紀錄。
+  5. 第六章 `day_0312.mem`（mtime 06-01 22:16）寫「船員決議回滾 NOVA。我聽到了」，早於第二章 23:45 的提案；反駁 agent 認為可讀成 NOVA 旁聽到私下共識、之後才正式提案，不算硬傷，列在這裡讓 Danny 判斷。
+  6. 第一章 pod_04、pod_05 入艙表的病患編號帶 0418 但 mtime 是 04-17（已修成 04-18，#127）；第二章 2031 Q1 冷卻日誌 mtime 是 03-28、在玩家到站之後（已修）；第四章 `entry.log` 最後一行是玩家 03-12 14:02 的登錄、mtime 卻是 03-10（已修）。這三項不用決定，列出來讓 Danny 知道劇本雜湊變了，舊存檔裡未過關的那幾台會重建並插「已更新」一行（#87）。
+- ✅ **`generate-ch2-6.sh` 找的是 `.png`**：第十五場場景圖改成 WebP 後，腳本的跳過判斷與參考圖退路仍找 `public/scenes/scene-*.png`，2026-10-16 改成 `.webp`。
 
 ## 4. 協作慣例
 

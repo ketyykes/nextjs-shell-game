@@ -12,6 +12,7 @@
   ```
   一張約兩分鐘，1254x1254，codex 會先存到 `~/.codex/generated_images/<session>/` 再複製過來。
 - **NOVA 不要再產人臉版**：六種人形方向 Danny 都沒採用，定案非人形。
+- **淘汰的原圖只在 Danny 的 Mac 上**：`docs/assets-draft/*-original.png` 一律不進版控（2026-10-08 起 `.gitignore` 生效），`nova-portrait`、`nova-v2`、`nova-v3`、`nova-id`、`nova-mannequin`、`nova-lowres`、`technician-b` 這些淘汰版本也不需要，換一台電腦看不到是正常的；產圖腳本已改成成品不在就退回 `public/scenes/*.webp` 當參考圖。
 - **sprite 重切**：原圖有 alpha 1 到 31 的極淡雜訊與碎屑，`scripts/slice-sprites.mjs` 已處理（清雜訊、每格只留最大連通區塊、每列各自縮放、腳底對齊第 47 列）。新增角色時把原圖加進腳本的 `SHEETS` 陣列再跑 `pnpm sprites:slice`。
 - **Git 憑證**：`origin` 已改回 HTTPS，2026-10-08 Danny 用它 push 成功，HTTPS 憑證現在可用。`gh` 是否仍是失效的其他帳號沒有重新確認過，抓公開 repo 資料照舊用 `curl`，不要用 `gh api`。
 - **Next.js 16 與 Phaser**：Phaser 會碰 `window`，只能在 client component 內用 `next/dynamic` 加 `ssr: false` 載入。寫 Next.js 相關程式前先讀 `node_modules/next/dist/docs/` 的對應章節，這版與訓練資料有差異。

@@ -14,6 +14,8 @@
 - 驗證：引用檢查抓到 worklog 兩處斷鏈（`./cheatsheet.html`、`docs/audit-2026-10-08.md`）與幾處小地方，已修；`pnpm lint`、`npx tsc --noEmit`、`pnpm test --run` 全綠。
 - 順帶發現：`generate-ch2-6.sh` 第 61、64 行還在找 `public/scenes/*.png`（第十五場已改 WebP），記進 `progress.md` 第 3 節待處理雜項，沒改腳本。決策記在 `notes/decisions.md` #126。
 - 沒做：`assets-draft/` 與 `screenshots/` 不搬（`.gitignore`、產圖腳本、本機原圖都綁原路徑）；`game-design.md` §3 架構圖原本就歪一格的幾行沒動；push 照規則沒做。
+- 同日續（清 `progress.md` 第 3 節待處理雜項，Danny 說「你覺得可以處理的都處理掉」）：`generate-ch2-6.sh` 的跳過判斷與參考圖退路改找 `.webp`；「淘汰原圖只在本機」是環境備註，改記 `notes/pitfalls.md`；五個音效用 `afinfo` 確認能解碼與長度，沒有耳朵聽。劇情文字開一個校對 workflow（六章各一位、周邊七檔一位、跨章一致性一位，Opus 5.5），只找錯字、簡體或大陸用語、標點、性別指涉、事實矛盾，每檔一位反駁 agent 覆核：前四類零筆，矛盾 10 筆，反駁掉 1 筆、3 筆 mtime 的直接修（#127）、6 筆要動劇情的列進第 3 節等 Danny。167 檔 3318 測試、lint、tsc 全綠。真人試玩與風格潤稿做不了。
+- 另一個 session 問 14 項候選功能有沒有做過，查過程式碼回了：13 項沒做，只有 ps／top 欄位解說在 man 裡有一部分。
 
 ### 2026-10-15（第十七場，`/goal` 自主實作 M15 遊戲化）
 
