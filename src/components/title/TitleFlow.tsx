@@ -14,6 +14,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { SceneCard } from "@/components/game/SceneCard";
+import { ArchivePanelDynamic } from "@/components/title/ArchivePanelDynamic";
 import { BootLog } from "@/components/title/BootLog";
 import { CharacterSelect } from "@/components/title/CharacterSelect";
 import { SaveManager } from "@/components/title/SaveManager";
@@ -92,6 +93,7 @@ function TitleFlowReady() {
 	const [stage, setStage] = useState<TitleStage>("title");
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [saveManagerOpen, setSaveManagerOpen] = useState(false);
+	const [archiveOpen, setArchiveOpen] = useState(false);
 	const touchWarning = useTouchWarning();
 	// 標題、選角、boot log 的空檔先把 /play、Phaser 引擎與要進的那一章插圖抓進快取
 	usePlayPrefetch(progress.chapter);
@@ -160,8 +162,11 @@ function TitleFlowReady() {
 
 	// 通關過才有通關紀錄；列全部章節，沒玩過或統計上線前玩完的章節顯示破折號
 	let clearRecord: ClearRecord | undefined;
+	// 檔案櫃也是通關後才有（設計文件 4.24）
+	let openArchive: (() => void) | undefined;
 	if (progress.clearedAt !== null) {
 		clearRecord = { chapters: chapterOptions(LAST_CHAPTER), stats };
+		openArchive = () => setArchiveOpen(true);
 	}
 	let subtitle = subtitleFor(hasSave ? progress.chapter : 1);
 	if (finished) {
@@ -175,6 +180,7 @@ function TitleFlowReady() {
 				subtitle={subtitle}
 				finished={finished}
 				clearRecord={clearRecord}
+				onOpenArchive={openArchive}
 				onContinue={goToPlay}
 				onNewGame={handleNewGame}
 				onOpenSettings={() => setSettingsOpen(true)}
@@ -182,7 +188,7 @@ function TitleFlowReady() {
 				onSelectChapter={handleSelectChapter}
 				onPractice={goToSandbox}
 				onManageSave={() => setSaveManagerOpen(true)}
-				keyboardEnabled={!settingsOpen && !saveManagerOpen && !touchWarning.visible}
+				keyboardEnabled={!settingsOpen && !saveManagerOpen && !archiveOpen && !touchWarning.visible}
 				crt={{
 					scanlines: settings.scanlinesEnabled,
 					vignette: settings.vignetteEnabled,
@@ -195,6 +201,7 @@ function TitleFlowReady() {
 			{saveManagerOpen && (
 				<SaveManager onClose={() => setSaveManagerOpen(false)} onImported={() => window.location.reload()} />
 			)}
+			{archiveOpen && <ArchivePanelDynamic onClose={() => setArchiveOpen(false)} />}
 			{touchWarning.visible && <TouchWarningPanel onDismiss={touchWarning.dismiss} />}
 		</>
 	);

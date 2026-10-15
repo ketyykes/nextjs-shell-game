@@ -243,6 +243,26 @@ describe("TitleScreen", () => {
 		});
 	});
 
+	describe("檔案櫃（4.24）", () => {
+		const RECORD = { chapters: [{ number: 1, label: "第一章 冷凍艙" }], stats: {} };
+
+		it("有給 onOpenArchive 時「檔案櫃」排在「通關紀錄」後面，Enter 呼叫它", () => {
+			const onOpenArchive = vi.fn();
+			renderTitle({ hasSave: true, finished: true, clearRecord: RECORD, onOpenArchive });
+			const names = screen.getAllByRole("button").map((button) => button.textContent?.trim());
+			expect(names.slice(0, 2)).toEqual([expect.stringContaining("通關紀錄"), expect.stringContaining("檔案櫃")]);
+
+			press("ArrowDown");
+			press("Enter");
+			expect(onOpenArchive).toHaveBeenCalledTimes(1);
+		});
+
+		it("沒給 onOpenArchive（還沒通關）時沒有「檔案櫃」", () => {
+			renderTitle({ hasSave: true });
+			expect(screen.queryByRole("button", { name: "檔案櫃" })).toBeNull();
+		});
+	});
+
 	describe("存檔管理（M14-2）", () => {
 		it("有給 onManageSave 時「存檔管理」排在設定後面、練習模式前面，沒有存檔也有", () => {
 			const onManageSave = vi.fn();

@@ -44,11 +44,13 @@ export interface TitleScreenProps {
 	finished?: boolean;
 	/** 通關過才給：顯示「通關紀錄」（finished 時排第一，否則排在「繼續」後面）。 */
 	clearRecord?: ClearRecord;
+	/** 通關過才給：顯示「檔案櫃」（排在「通關紀錄」後面），整合者打開檔案櫃面板（設計文件 4.24）。 */
+	onOpenArchive?: () => void;
 	/** 有給才顯示「存檔管理」（排在設定後面），匯出與匯入存檔（M14-2），沒有存檔也能進去匯入。 */
 	onManageSave?: () => void;
 }
 
-type TitleAction = "continue" | "clearRecord" | "selectChapter" | "newGame" | "settings" | "manageSave" | "practice";
+type TitleAction = "continue" | "clearRecord" | "archive" | "selectChapter" | "newGame" | "settings" | "manageSave" | "practice";
 
 /** 選單下方顯示的內容：主選單、新遊戲覆蓋確認、選章清單、重玩某章的確認。 */
 type TitlePanel =
@@ -72,6 +74,7 @@ interface MenuConditions {
 	canPractice: boolean;
 	finished: boolean;
 	hasClearRecord: boolean;
+	canOpenArchive: boolean;
 	canManageSave: boolean;
 }
 
@@ -83,6 +86,9 @@ function buildItems(conditions: MenuConditions): TitleItem[] {
 	}
 	if (conditions.hasSave && conditions.hasClearRecord) {
 		items.push({ action: "clearRecord", label: "通關紀錄" });
+	}
+	if (conditions.hasSave && conditions.canOpenArchive) {
+		items.push({ action: "archive", label: "檔案櫃" });
 	}
 	if (conditions.hasSave && conditions.canSelectChapter) {
 		items.push({ action: "selectChapter", label: "選章" });
@@ -117,6 +123,7 @@ export function TitleScreen({
 	onPractice,
 	finished = false,
 	clearRecord,
+	onOpenArchive,
 	onManageSave,
 }: TitleScreenProps) {
 	const canSelectChapter = chapters.length >= 2 && onSelectChapter !== undefined;
@@ -126,6 +133,7 @@ export function TitleScreen({
 		canPractice: onPractice !== undefined,
 		finished,
 		hasClearRecord: clearRecord !== undefined,
+		canOpenArchive: onOpenArchive !== undefined,
 		canManageSave: onManageSave !== undefined,
 	});
 	const [panel, setPanel] = useState<TitlePanel>({ kind: "menu" });
@@ -149,6 +157,10 @@ export function TitleScreen({
 		}
 		if (item.action === "manageSave") {
 			onManageSave?.();
+			return;
+		}
+		if (item.action === "archive") {
+			onOpenArchive?.();
 			return;
 		}
 		if (item.action === "clearRecord") {
