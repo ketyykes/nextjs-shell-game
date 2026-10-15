@@ -150,6 +150,13 @@ describe("outputContains", () => {
 		expect(check(contextOf("cat status.txt | less", { lines: [], pagers }))).toBe(true);
 		expect(check(contextOf("cat wake_up.txt | less", { lines: [], pagers: [{ files: [{ name: null, lines: ["正常"] }], lineNumbers: false }] }))).toBe(false);
 	});
+
+	it("nano 打開的內容也算玩家看得到的輸出（4.22，跟 less 一樣）", () => {
+		const check = outputContains("B3");
+		const editor = { fileName: "status.txt", content: "狀態：\n異常：斷路器 B3 跳脫\n", notice: "", cwd: HOME };
+		expect(check(contextOf("nano status.txt", { editor }))).toBe(true);
+		expect(check(contextOf("nano wake_up.txt", { editor: { ...editor, content: "正常\n" } }))).toBe(false);
+	});
 });
 
 describe("all 與 any", () => {

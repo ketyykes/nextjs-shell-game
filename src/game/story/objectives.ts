@@ -9,6 +9,7 @@
  */
 
 import { splitOptionsAndOperands } from "@/game/shell/commands/options";
+import { editorVisibleLines } from "@/game/shell/editor";
 import { parseCommandLine } from "@/game/shell/parser";
 import { FsError, type ParsedCommand, type Redirect, type ShellExecution, type VirtualFs } from "@/game/shell/types";
 import type { ObjectiveCheck, ObjectiveContext, TerminalDefinition } from "./types";
@@ -82,13 +83,14 @@ export function lsWithFlag(flag: "-a" | "-l", absoluteDirPath?: string): Objecti
 }
 
 /**
- * 玩家這次看得到的所有輸出：印在輸出區的行，接著是分頁器（`| less`）裡每個檔案的內容。
- * 分頁的內容不在 `execution.lines` 裡（不進輸出區也不存檔），但玩家確實在畫面上看到了，
+ * 玩家這次看得到的所有輸出：印在輸出區的行，接著是分頁器（`| less`）裡每個檔案的內容，
+ * 最後是 nano 打開時編輯器裡的內容（4.22）。
+ * 分頁與編輯器的內容不在 `execution.lines` 裡（不進輸出區也不存檔），但玩家確實在畫面上看到了，
  * 所以看輸出的判定都要用這個，`grep LOCK x | less` 才跟 `grep LOCK x` 一樣過關。
  */
 export function visibleOutputLines(execution: ShellExecution): string[] {
 	const pagerLines = (execution.pagers ?? []).flatMap((pager) => pager.files.flatMap((file) => file.lines));
-	return [...execution.lines, ...pagerLines];
+	return [...execution.lines, ...pagerLines, ...editorVisibleLines(execution)];
 }
 
 /** 輸出的任一行含有 `text`；分頁器裡的內容也算（見 `visibleOutputLines`）。 */
