@@ -55,6 +55,9 @@ node scripts/resize-scenes.mjs
 
 # 重切 Fusion Pixel 字型子集 (劇本或 UI 加了新中文字、subset.test.ts 紅燈時跑；需要 fonttools 與 brotli)
 pnpm font:subset
+
+# 重新合成心跳與 NOVA 低語兩個自產音效 (改 scripts/synth-audio.mjs 的參數後跑；需要 ffmpeg 轉 ogg 與 mp3)
+pnpm audio:synth
 ```
 
 ## 測試
@@ -94,36 +97,47 @@ src/
 │   ├── fonts/             # Fusion Pixel woff2 與授權
 │   ├── page.tsx           # 標題畫面，只渲染 TitleFlow
 │   ├── play/page.tsx      # 遊戲頁面，只渲染 PlayScreen
+│   ├── sandbox/page.tsx   # 練習模式 (設計文件 4.11)
+│   ├── argo/page.tsx      # 片尾之後的救援船終端機，沒通關導回標題 (4.23)
+│   ├── credits/page.tsx   # 製作名單與授權全文 (4.20)，授權檔在 public/licenses/
+│   ├── real-world/page.tsx # 真實世界橋接頁：怎麼開終端機、跟遊戲的差異 (4.20)
 │   └── globals.css        # 全域樣式 (Tailwind v4 的 @theme、--game-* 配色、font-terminal/font-title)
 ├── components/
 │   ├── terminal/          # Terminal 元件群：外框、輸出區、NOVA 對話、輸入列、鍵盤 hook
-│   ├── title/             # TitleFlow (標題→選角→boot log→插圖卡→/play)、SettingsMenu、選單導覽 hook
-│   └── game/              # PlayScreen (地圖、終端機彈窗、HUD、NOVA、暫停、章節結束)、PhaserGame(Dynamic)、CRT 等
+│   ├── title/             # TitleFlow (標題→選角→boot log→插圖卡→/play)、SettingsMenu、光敏確認、檔案櫃面板、選單導覽 hook
+│   ├── sandbox/           # 練習模式的全螢幕終端機
+│   ├── argo/              # 救援船終端機 (比照 sandbox)
+│   ├── static-page/       # /credits 與 /real-world 共用的靜態頁外框 (server component) 與 Esc 回標題
+│   └── game/              # PlayScreen (地圖、終端機彈窗、HUD、NOVA、暫停、章節結束、便條閱讀視窗)、PhaserGame(Dynamic)、CRT 等
 ├── game/
 │   ├── phaser/            # Phaser 4：events.ts 與 constants.ts 是契約，EventBus 零相依，scenes/ 與 objects/
 │   ├── store/             # zustand store 與 localStorage 存檔；types.ts 是存檔格式契約
-│   ├── story/             # 劇本契約：types.ts、zod schema、目標判定組合函式、劇情旗標
+│   ├── story/             # 劇本契約：types.ts、zod schema、目標判定組合函式、劇情旗標；阿彬留言、地圖便條、檔案櫃、救援船的資料也在這裡
 │   ├── chapters/          # 六章劇本 (ch1-life-support.ts … ch6-nova-core.ts)，index.ts 是註冊表，ending.ts 是片尾，載入時 validateChapter
 │   └── shell/             # Shell 引擎，純 TypeScript，零 React/Phaser 相依
 │       ├── types.ts       # 所有 shell 模組的共用契約，改介面先改這裡
 │       ├── shell.ts       # 執行入口 Shell 類別 (execute、complete、toState)
 │       ├── messages.ts    # 所有繁中錯誤訊息集中於此，指令不得自己寫錯誤字串
 │       ├── completion.ts  # Tab 補全
-│       ├── history.ts     # 指令歷史 (上下鍵)
+│       ├── history.ts     # 指令歷史 (上下鍵)，historySearch.ts 是 Ctrl+R
+│       ├── aliases.ts     # alias 展開；editor.ts 是 nano 的開檔與寫檔
 │       ├── fs/            # 虛擬檔案系統、路徑解析、快照建樹、序列化
 │       ├── parser/        # tokenizer、全形偵測、忘記空格建議
-│       └── commands/      # 每個指令一個檔案，index.ts 是註冊表，docs.ts 是 man 說明資料
+│       └── commands/      # 每個指令一個檔案，index.ts 是註冊表，docs.ts 是 man 說明資料，docsOptions.ts 是 explain 與 Tab 用的選項表
 └── lib/
     └── utils.ts           # 工具函式 (cn 函式)
-e2e/                        # Playwright 測試 (home、play、happy-path 第一章、chapters 第二到六章、save-v2 位置存檔與選章等)，helpers/deck.ts 是走路工具
+e2e/                        # Playwright 測試 (home、play、happy-path 第一章、chapters 第二到六章、save-v2 位置存檔與選章、第十九場的 title-extras、cross-tab、map-notes、nano、argo、archive、low-oxygen、syntax-and-search、output-fields 等)，helpers/deck.ts 是走路工具、helpers/title.ts 回答光敏確認
 scripts/slice-sprites.mjs   # sprite sheet 切格腳本 (pnpm sprites:slice)
 scripts/build-map.mjs       # 六張甲板地圖產生腳本，輸出 Tiled JSON (pnpm map:build)
 scripts/resize-scenes.mjs   # 場景原圖縮圖腳本
+scripts/synth-audio.mjs     # 心跳與 NOVA 低語的合成腳本 (pnpm audio:synth)
 public/sprites/             # 四位角色的 32x48 sprite sheet (128x192，4x4 格)
 public/tiles/               # Buch Sci-fi Interior tileset (448x192，14x6 格，32px)
 public/maps/deck{1..6}.json # 六章地圖 (40x24 格、同一張平面圖、艙區名不同)，由 build-map.mjs 產生，可用 Tiled 開啟
 public/scenes/              # NOVA 立繪 (256px PNG) 與各章場景插圖 (640x360 WebP)，原圖在 docs/assets-draft/scenes/ 不進版控
-public/audio/               # 五種 CC0 音效 (Kenney)，ogg 與 mp3
+public/audio/               # 五種 CC0 音效 (Kenney) 加兩種自產 (heartbeat、whisper)，ogg 與 mp3
+public/licenses/            # 隨網站散佈的授權全文 (OFL-1.1、Fusion Pixel、Kenney)，/credits 連過去
+public/maps/                # 第二到五章的地圖多了便條標記 (note)，deck1、deck6 沒有
 docs/assets-draft/scenes/generate.sh  # 第一章八張插圖的 codex 批次產圖腳本 (M6-1)；generate-ch2-6.sh 是第二到六章的
 docs/
 ├── README.md               # 文件地圖

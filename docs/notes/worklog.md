@@ -6,6 +6,16 @@
 
 每次 session 收工加一筆，最新在最上面。格式：日期、做了什麼、commit 範圍、下一步。
 
+### 2026-10-16 深夜（第十九場，`/goal` 自主實作十一項功能）
+
+- Danny 設 `/goal`：等 clean-doc session 確認「教學深度」五項、「劇情與氛圍」四項、光敏首次確認、兩個分頁互蓋存檔、遊戲內 credits 頁都還沒做之後全部做完，允許多開 subagent，超過凌晨四點就停。clean-doc 回報 13 項沒做、欄位說明只有 man 裡部分有，並在 dfd40c7 commit 完校對結果。
+- 做法：先在 `game-design.md` 預留 4.15 到 4.25 的佔位小節（38c9b1d）；開 11 個 opus agent 各在 worktree 平行做（explain＋補全、新語法＋Ctrl+R、欄位說明、六個新指令、便條、光敏＋credits＋真實世界頁、分頁防護、nano、救援船、檔案櫃、低氧＋音效），規定不碰劇本檔與 docs/notes、各自只改自己的小節、TDD、不跑 build、report 列自主決策。worktree 基底是舊的 67c0d5d（像 origin/main），追加要求每個 agent 先 `git merge main`（記進 pitfalls 與 memory）。
+- 合併：D2、A3、C3、A1 無衝突或 ff；E2、E3 撞標題選單（順序定為通關紀錄 → ARGO → 檔案櫃 → 下一步）；A2、B2、E1、E4 撞 shell 核心與 Terminal／OutputBlock，逐檔解（`shell.test.ts` 用三方版本重組）。合併後補的相容：explain 認得 `||`、`<`、`2>` 系列並補七個新指令與 nano 的選項表、explain 加進 `SYSTEM_COMMANDS` 與亂碼的豁免清單、nano 分支改回傳 `PipelineOutcome.editor`、Phaser 訂閱數 5 → 7、e2e 的選單順序斷言、`pnpm font:subset`（1427 字）。
+- 驗證：`pnpm test --run` 208 檔 4718 全綠，tsc、lint、build 乾淨，`PORT=3500 pnpm test:e2e` 77 條全綠（修完順序斷言重跑那條）。沒有真人試玩，音效沒人耳聽過。
+- 文件：`game-design.md` 4.15 到 4.25 由各 agent 寫定案，我補 3.1、3.3、4.3、4.6、4.7、4.8、4.9、4.11、6.1 的連動；`notes/decisions.md` #128 到 #149；`notes/pitfalls.md` 八條；`CLAUDE.md` 目錄與指令；`README.md`；`cheatsheet.html` 加「第十九場的新東西」。
+- commit：38c9b1d 起約 75 筆（各 agent 的 feat／test／docs 加合併與修正），未 push，Danny 自己決定何時 push。
+- 下一步：Danny 試玩與確認 #128 起的決策；第 5 節列的後續小項；試聽兩個自產音效。
+
 ### 2026-10-16（第十八場，整理 docs/ 資料夾）
 
 - Danny 要求整理 `docs/`：過時內容移到 `docs/archive/`、分門別類、評估拆分 `progress.md` 與 `game-design.md`；指定 workflow 派 Opus 5.5 執行、主 session 監督。中途補一句「拆檔後會失效的 `CLAUDE.md` 引用一併修正」。

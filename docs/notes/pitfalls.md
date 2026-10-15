@@ -43,3 +43,12 @@
   - `chmod` 的 `u+`、一兩位數字、五位數以上判為不合法；沒有 umask，不寫類別的 `+`、`-` 三組都改；四位數的第一位（setuid 等）接受但忽略。`sort` 沒有 `-f`。
 - **存檔 v2 與 e2e**：`seedSave` 刻意寫 v1 讓 migrate 在真瀏覽器跑一次。角色停下就存位置，所以「回標題再繼續」會出現在剛才停下的地方；走路工具是閉環，從任何位置出發都走得到。
 - **e2e 的 `textContent()` 會無限等待**：元素不存在時 Playwright 的 `locator.textContent()` 預設沒有逾時，舊的 `alignToTerminal` 曾因此卡到整個測試 180 秒逾時、微調重試根本沒機會跑；查詢可能不存在的元素要給 `{ timeout }`（`walkToTerminal` 確認「按 E」提示時給 2 秒）。
+- **Agent worktree 的基底不是本機 main**（第十九場）：用 Agent 工具開 `isolation: "worktree"` 的 agent，分支停在 Danny 上次 push 的 commit（像是 origin/main），不是本機 HEAD；派工後先 `git worktree list` 核對，prompt 第一步要求 `git merge --no-edit main`，合併回 main 時衝突自己解。
+- **Phaser 的 `scene.pause()`／`resume()` 會排隊**：兩者都到下一次 SceneManager 更新才生效，同一幀內開了又關時用 `isPaused()` 判斷會漏掉排隊中的 pause，場景卡在暫停。便條與終端機關閉時一律排一次 resume（`Station.ts` 的 `resumeFromOverlay`）。
+- **Phaser 的鍵盤佇列在 POST_STEP 才清**：同一幀內每個按鍵事件都從頭重跑，只跳過跟上一筆相同的；`resetKeys()` 之後舊的 keydown 會再觸發一次 DOWN，所以 `noteInteract.ts` 用「同一個事件物件」擋重複開啟。e2e 合成的 `KeyboardEvent` 直接丟在 window 上時同一個 target 的監聽照註冊順序跑、Phaser 會搶在前面，要丟給 `document.activeElement`。便條閱讀視窗的鍵盤掛在 window capture 階段，跟面板快捷鍵同一種做法。
+- **`/dev/null` 只在重導向時特判**：`2>/dev/null`、`< /dev/null` 寫進去丟掉、讀出來是空的，但虛擬檔案系統裡沒有 `/dev`，`cat /dev/null` 照樣找不到。目標判定重新解析段落時要代入 `ShellExecution.substitutions`，不然 `$( )` 會原樣留著不展開。
+- **Ctrl+R 一定要 `preventDefault`**（瀏覽器是重新整理）；搜尋模式下輸入框的 aria-label 換成「歷史搜尋關鍵字」，e2e 用 `getByLabel("指令輸入")` 時要先離開搜尋。
+- **e2e 用滑鼠點完畫面中央的面板後，游標停在中央會讓 hover 搶走標題選單的選取**（Chromium 在版面變動後觸發 mouseenter），光敏確認這類面板在 e2e 用鍵盤回答。`<code>` 會吃到 Tailwind 預設的系統等寬字型，靜態頁要另外指定 `font-terminal`。
+- **多欄輸出的「欄位說明」表在 `role="log"` 裡**：e2e 或元件測試用 `getByText(檔名, { exact: true })` 找 `ls -l`、`ps` 的輸出時，可能同時撞到例子欄（strict mode 報兩個元素）。
+- **Homebrew 的 ffmpeg 沒有 libvorbis**：內建 vorbis 編碼器只吃雙聲道，單聲道素材用 `pan` 複製到左右（`-ac 2` 會小 3dB），見 `scripts/synth-audio.mjs`。Phaser 的 `scene.pause()` 不會停 sound（SoundManager 是整個 game 共用的），終端機開著時心跳照播是刻意的。
+
