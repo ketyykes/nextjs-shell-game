@@ -1270,8 +1270,14 @@ describe("第十九場開放的指令", () => {
 		const shell = createShell();
 
 		expect(shell.complete("te").completed).toBe("tee ");
+		expect(shell.complete("xa").completed).toBe("xargs ");
+		expect(shell.complete("se").completed).toBe("sed ");
 		expect(shell.complete("dat").completed).toBe("date ");
-		expect(shell.execute("help").lines.join("\n")).not.toMatch(/^(tr|tee|date) /m);
+		expect(shell.complete("ali").completed).toBe("alias ");
+		expect(shell.complete("unal").completed).toBe("unalias ");
+		expect(shell.complete("tr").candidates).toEqual(expect.arrayContaining(["tr", "tree"]));
+		expect(shell.execute("help").lines.join("\n")).not.toMatch(/^(tr|tee|xargs|sed|date|alias|unalias) /m);
+		expect(shell.execute("man xargs").lines.join("\n")).toContain("xargs");
 	});
 
 	it("tr 接在管線右邊", () => {
