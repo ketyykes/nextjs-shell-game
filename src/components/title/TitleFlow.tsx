@@ -17,6 +17,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { SceneCard } from "@/components/game/SceneCard";
+import { ArchivePanelDynamic } from "@/components/title/ArchivePanelDynamic";
 import { BootLog } from "@/components/title/BootLog";
 import { CharacterSelect } from "@/components/title/CharacterSelect";
 import { FlickerPromptPanel } from "@/components/title/FlickerPromptPanel";
@@ -97,6 +98,7 @@ function TitleFlowReady() {
 	const [stage, setStage] = useState<TitleStage>("title");
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [saveManagerOpen, setSaveManagerOpen] = useState(false);
+	const [archiveOpen, setArchiveOpen] = useState(false);
 	const touchWarning = useTouchWarning();
 	const reducedMotion = usePrefersReducedMotion();
 	// 標題、選角、boot log 的空檔先把 /play、Phaser 引擎與要進的那一章插圖抓進快取
@@ -188,11 +190,13 @@ function TitleFlowReady() {
 
 	// 通關過才有通關紀錄；列全部章節，沒玩過或統計上線前玩完的章節顯示破折號
 	let clearRecord: ClearRecord | undefined;
-	// 通關過才能上救援船（片尾之後的尾聲）
+	// 通關過才能上救援船（片尾之後的尾聲）與開檔案櫃（設計文件 4.23、4.24）
 	let onArgo: (() => void) | undefined;
+	let openArchive: (() => void) | undefined;
 	if (progress.clearedAt !== null) {
 		clearRecord = { chapters: chapterOptions(LAST_CHAPTER), stats };
 		onArgo = goToArgo;
+		openArchive = () => setArchiveOpen(true);
 	}
 	let subtitle = subtitleFor(hasSave ? progress.chapter : 1);
 	if (finished) {
@@ -207,6 +211,7 @@ function TitleFlowReady() {
 				finished={finished}
 				clearRecord={clearRecord}
 				onArgo={onArgo}
+				onOpenArchive={openArchive}
 				onContinue={goToPlay}
 				onNewGame={handleNewGame}
 				onOpenSettings={() => setSettingsOpen(true)}
@@ -216,7 +221,7 @@ function TitleFlowReady() {
 				onManageSave={() => setSaveManagerOpen(true)}
 				onCredits={goToCredits}
 				onRealWorld={goToRealWorld}
-				keyboardEnabled={!settingsOpen && !saveManagerOpen && !touchWarningVisible && !flickerPromptVisible}
+				keyboardEnabled={!settingsOpen && !saveManagerOpen && !archiveOpen && !touchWarningVisible && !flickerPromptVisible}
 				crt={{
 					scanlines: settings.scanlinesEnabled,
 					vignette: settings.vignetteEnabled,
@@ -231,6 +236,7 @@ function TitleFlowReady() {
 				<SaveManager onClose={() => setSaveManagerOpen(false)} onImported={() => window.location.reload()} />
 			)}
 			{flickerPromptVisible && <FlickerPromptPanel reducedMotion={reducedMotion} onChoose={handleFlickerChoice} />}
+			{archiveOpen && <ArchivePanelDynamic onClose={() => setArchiveOpen(false)} />}
 			{touchWarningVisible && <TouchWarningPanel onDismiss={touchWarning.dismiss} />}
 		</>
 	);

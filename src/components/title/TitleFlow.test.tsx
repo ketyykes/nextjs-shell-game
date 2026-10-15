@@ -200,3 +200,29 @@ describe("TitleFlow 的通關狀態（M14-1）", () => {
 		expect(push).toHaveBeenCalledWith("/real-world");
 	});
 });
+
+describe("TitleFlow 的檔案櫃（4.24）", () => {
+	it("通關過：「檔案櫃」打開面板，開著時標題選單不收鍵盤，Esc 關掉回標題", async () => {
+		await renderWithSave(finishedSave());
+
+		fireEvent.click(screen.getByRole("button", { name: "檔案櫃" }));
+		expect(await screen.findByRole("dialog", { name: "檔案櫃" })).toBeDefined();
+
+		// Enter 打開的是檔案櫃的第一章，不是標題選單第一項的「通關紀錄」
+		fireEvent.keyDown(window, { key: "Enter" });
+		expect(screen.getByRole("button", { name: /\/home\/tech\/wake_up\.txt/ })).toBeDefined();
+		expect(screen.queryByRole("region", { name: "通關紀錄" })).toBeNull();
+
+		fireEvent.keyDown(window, { key: "Escape" });
+		fireEvent.keyDown(window, { key: "Escape" });
+		expect(screen.queryByRole("dialog", { name: "檔案櫃" })).toBeNull();
+		expect(screen.getByTestId("title-screen")).toBeDefined();
+	});
+
+	it("還沒通關：沒有「檔案櫃」", async () => {
+		const save = finishedSave();
+		await renderWithSave({ ...save, progress: { ...save.progress, clearedAt: null }, storyFlags: {} });
+
+		expect(screen.queryByRole("button", { name: "檔案櫃" })).toBeNull();
+	});
+});
