@@ -8,6 +8,7 @@
 import type { CommandDoc } from "../types";
 import { ACCOUNT_COMMAND_DOCS, ACCOUNT_COMMAND_ORDER } from "./docsAccount";
 import { CONCEPT_DOCS } from "./docsConcepts";
+import { EDITOR_COMMAND_DOCS, EDITOR_COMMAND_ORDER } from "./docsEditor";
 import { EXTRA_COMMAND_DOCS, EXTRA_COMMAND_ORDER } from "./docsExtra";
 import { FILE_COMMAND_DOCS, FILE_COMMAND_ORDER } from "./docsFiles";
 import { FILTER_COMMAND_DOCS, FILTER_COMMAND_ORDER } from "./docsFilter";
@@ -15,7 +16,8 @@ import { SYSTEM_COMMAND_DOCS, SYSTEM_COMMAND_ORDER } from "./docsSystem";
 
 /**
  * 第一章的指令說明；第二章以後的分別在 `docsFilter.ts`、`docsFiles.ts`、`docsSystem.ts`，
- * 沒編進劇本的 M13-3 指令在 `docsExtra.ts`，第十七場的帳號與登入彩蛋在 `docsAccount.ts`，合併成 `COMMAND_DOCS`。
+ * 沒編進劇本的 M13-3 指令在 `docsExtra.ts`，第十七場的帳號與登入彩蛋在 `docsAccount.ts`，
+ * 第十九場的 nano 在 `docsEditor.ts`，合併成 `COMMAND_DOCS`。
  */
 const CHAPTER_ONE_DOCS: Record<string, CommandDoc> = {
 	pwd: {
@@ -160,11 +162,12 @@ export const COMMAND_DOCS: Record<string, CommandDoc> = {
 	...SYSTEM_COMMAND_DOCS,
 	...EXTRA_COMMAND_DOCS,
 	...ACCOUNT_COMMAND_DOCS,
+	...EDITOR_COMMAND_DOCS,
 };
 
 /**
  * 指令列表的顯示順序，`help` 與側邊面板都照這個順序排：先第一章的，再依章節順序接上，
- * 接著是沒編進劇本的指令，最後是帳號與登入的彩蛋。
+ * 接著是沒編進劇本的指令、帳號與登入的彩蛋，最後是第十九場的 nano。
  */
 export const COMMAND_DOC_ORDER: string[] = [
 	"pwd",
@@ -181,6 +184,7 @@ export const COMMAND_DOC_ORDER: string[] = [
 	...SYSTEM_COMMAND_ORDER,
 	...EXTRA_COMMAND_ORDER,
 	...ACCOUNT_COMMAND_ORDER,
+	...EDITOR_COMMAND_ORDER,
 ];
 
 /**

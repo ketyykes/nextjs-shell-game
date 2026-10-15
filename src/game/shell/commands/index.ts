@@ -31,6 +31,7 @@ import { lsCommand } from "./ls";
 import { manCommand } from "./man";
 import { mkdirCommand } from "./mkdir";
 import { mvCommand } from "./mv";
+import { nanoCommand } from "./nano";
 import { psCommand } from "./ps";
 import { pwdCommand } from "./pwd";
 import { rmCommand } from "./rm";
@@ -101,6 +102,8 @@ export const ALL_COMMANDS: CommandDefinition[] = [
 	sudoCommand,
 	exitCommand,
 	logoutCommand,
+	// 第十九場：nano 編輯器（4.22），只開放使用，不在劇本裡
+	nanoCommand,
 ];
 
 export { catCommand, cdCommand, clearCommand, helpCommand, hintCommand, historyCommand, lsCommand, manCommand, pwdCommand };

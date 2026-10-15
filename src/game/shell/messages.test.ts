@@ -76,8 +76,10 @@ describe("解析階段的訊息", () => {
 	it("programNotInstalled 說這台終端機沒有那個程式，依種類給替代做法", () => {
 		const editor = joinLines(programNotInstalled("vim", { kind: "editor" }));
 		expect(editor).toContain("`vim`");
-		expect(editor).toContain("echo");
-		expect(editor).toContain(">");
+		// 4.22 之後站上有 nano：說沒有 vim、改用 nano，並教存檔與離開的按鍵
+		expect(editor).toContain("nano 檔名");
+		expect(editor).toContain("Ctrl+O");
+		expect(editor).toContain("Ctrl+X");
 
 		for (const kind of ["package", "language", "network"] as const) {
 			const text = joinLines(programNotInstalled("x", { kind }));
