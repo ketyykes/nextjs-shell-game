@@ -70,7 +70,7 @@ export function FlickerPromptPanel({ reducedMotion, onChoose }: FlickerPromptPan
 						保留閃爍效果
 					</MenuOption>
 				</div>
-				<p className="text-base text-game-dim">←→ 選擇 · Enter 確認</p>
+				<p className="text-base text-game-prompt">←→ 選擇 · Enter 確認</p>
 			</motion.div>
 		</div>
 	);

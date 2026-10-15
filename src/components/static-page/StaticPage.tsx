@@ -40,7 +40,7 @@ export function StaticPage({ title, lead, children }: StaticPageProps) {
 			<div className="mx-auto flex max-w-3xl flex-col gap-10">
 				<header className="flex flex-col gap-4">
 					<BackToTitleLink />
-					<h1 className="font-title text-2xl leading-snug text-game-holo sm:text-3xl">{title}</h1>
+					<h1 className="font-title text-3xl leading-snug text-game-holo sm:text-4xl">{title}</h1>
 					{lead}
 				</header>
 				{children}
