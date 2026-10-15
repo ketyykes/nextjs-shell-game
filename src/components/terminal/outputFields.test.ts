@@ -134,6 +134,14 @@ describe("detectOutputFields", () => {
 		expect(detectOutputFields({ kind: "system", id: "s-1", lines: ["ls -l"] })).toBeNull();
 		expect(detectOutputFields({ kind: "dialogue", id: "d-1", speaker: "NOVA", text: "ps" })).toBeNull();
 	});
+
+	it("explain 開頭的一行只是說明（第十九場），畫面上不是那些指令的輸出，不標", () => {
+		for (const input of ["explain ls -l", "explain cat x | ps", "explain pwd ; last", "  explain top"]) {
+			const entry = sandboxRun(input);
+			expect(entry.lines.length, input).toBeGreaterThan(0);
+			expect(detectOutputFields(entry), input).toBeNull();
+		}
+	});
 });
 
 describe("buildOutputFieldLegend：ls -l", () => {

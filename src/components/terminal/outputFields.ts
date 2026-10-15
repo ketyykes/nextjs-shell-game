@@ -11,6 +11,7 @@
  * 輸出格式以 `ls.ts`、`ps.ts`、`top.ts`、`last.ts` 為準，那邊改格式時這裡的正規表示式要一起改（測試用真的 shell 跑，會擋）。
  */
 
+import { explainTargetOf } from "@/game/shell/commands/explain";
 import { splitOptionsAndOperands } from "@/game/shell/commands/options";
 import { parseCommandList } from "@/game/shell/parser";
 import type { DetailedCommand } from "@/game/shell/parser";
@@ -76,6 +77,11 @@ export function detectOutputFields(entry: OutputEntry): OutputFieldLegendId | nu
 		return null;
 	}
 	if (!entry.lines.some((line) => line.trim() !== "")) {
+		return null;
+	}
+
+	// explain 開頭的一行（第十九場）只印說明，被說明的指令沒有執行，畫面上不是它們的輸出
+	if (explainTargetOf(entry.input) !== null) {
 		return null;
 	}
 
