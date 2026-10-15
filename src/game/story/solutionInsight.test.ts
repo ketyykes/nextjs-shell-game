@@ -166,6 +166,19 @@ describe("findSolutionInsights：語法概念", () => {
 		expect(concepts(insights)).toEqual(["grep", "|", ";", "&&"]);
 	});
 
+	it("第十九場的語法 ||、$( )、<、2> 都是課表外，各認一次", () => {
+		expect(insightsFor("ch1-t1", ["cat nope || cat wake_up.txt"])).toEqual([{ concept: "||", chapter: null, sameChapter: false }]);
+		expect(concepts(insightsFor("ch1-t1", ["cat $(echo wake_up.txt)"]))).toEqual(["$( )"]);
+		// catFile 看的是 cat 的參數，`cat < 檔案` 本身過不了關，所以用 ; 接一段正解
+		expect(concepts(insightsFor("ch1-t1", ["cat wake_up.txt ; cat < wake_up.txt"]))).toEqual([";", "<"]);
+		expect(concepts(insightsFor("ch1-t1", ["cat wake_up.txt 2>/dev/null"]))).toEqual(["2>"]);
+		expect(concepts(insightsFor("ch1-t1", ["cat wake_up.txt 2>>err.log ; cat wake_up.txt"]))).toEqual([";", "2>"]);
+	});
+
+	it("引號裡的 || 與 $( ) 不算", () => {
+		expect(concepts(insightsFor("ch1-t1", ["cat wake_up.txt | grep 'a || $(b)'"]))).toEqual(["grep", "|"]);
+	});
+
 	it("結尾多一個 ; 沒有真的串第二段，不算用到 ;", () => {
 		expect(insightsFor("ch1-t1", ["cat wake_up.txt ;"])).toEqual([]);
 	});

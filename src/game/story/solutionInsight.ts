@@ -20,7 +20,7 @@
 import { splitOptionsAndOperands } from "@/game/shell/commands/options";
 import { parseCommandList, tokenize } from "@/game/shell/parser";
 import type { DetailedCommand } from "@/game/shell/parser";
-import { HOME_DIR, type ParseOptions, type ShellExecution, type Token } from "@/game/shell/types";
+import { HOME_DIR, type ParseOptions, type ShellExecution, type Token, type TokenKind } from "@/game/shell/types";
 import type { ChapterDefinition, TerminalDefinition } from "./types";
 
 /** 一個被認可的「提前用上」。 */
@@ -57,9 +57,12 @@ export const INSIGHT_FLAG_PREFIX = "insight.";
 const SYSTEM_COMMANDS = new Set(["hint", "help", "explain", "sudo", "exit", "logout"]);
 
 /** 語法概念在訊息裡的順序（指令一律排在語法前面）。 */
-const SYNTAX_ORDER = ["|", ">", ">>", "*", "~", "$變數", ";", "&&"] as const;
+const SYNTAX_ORDER = ["|", ">", ">>", "*", "~", "$變數", ";", "&&", "||", "$( )", "<", "2>"] as const;
 
 type SyntaxConcept = (typeof SYNTAX_ORDER)[number];
+
+/** 錯誤輸出重導向的 token 種類（`2>`、`2>>`、`2>&1`、`&>`、`&>>`），認可時都算 `2>` 這一個概念。 */
+const ERROR_REDIRECT_KINDS = new Set<TokenKind>(["redirectErr", "redirectErrAppend", "redirectErrToOut", "redirectBoth", "redirectBothAppend"]);
 
 /** `teaches` 裡帶旗標的教學，例如 `ls -a` 拆成指令 `ls` 與參數 `-a`。 */
 interface FlaggedTeach {
@@ -156,6 +159,16 @@ function scanSegment(segment: ShellExecution, commands: DetailedCommand[], synta
 		if (raw.tokens.some(isUnquotedGlob)) {
 			syntax.add("*");
 		}
+		// 第十九場的語法（4.16）：< 與 2> 系列看 token 種類，$( ) 看 tokenizer 收集到的替換（引號內的不算）
+		if (raw.tokens.some((token) => token.kind === "redirectIn")) {
+			syntax.add("<");
+		}
+		if (raw.tokens.some((token) => ERROR_REDIRECT_KINDS.has(token.kind))) {
+			syntax.add("2>");
+		}
+		if (raw.substitutions.length > 0) {
+			syntax.add("$( )");
+		}
 	}
 	// 空的 env 會把每個能展開的 `$NAME` 換成空字串，token 有變就是用到了變數
 	if (tokensDiffer(segment.input, { env: {} })) {
@@ -179,6 +192,9 @@ function scanConnectors(input: string, syntax: Set<SyntaxConcept>): void {
 		}
 		if (token.kind === "and") {
 			syntax.add("&&");
+		}
+		if (token.kind === "or") {
+			syntax.add("||");
 		}
 	});
 }
