@@ -284,7 +284,9 @@ function completePath(head: string, token: string, context: CompletionContext): 
  * 對輸入做 Tab 補全，游標視為在輸入結尾。
  *
  * - 空字串或只有空白：列出全部指令名，`completed` 等於原輸入。
+ * - `$`、`${` 開頭的 token：補環境變數名（見 `completeVariable`）。
  * - 只有一個 token 且結尾沒有空白，或是 `|`、`;`、`&&` 右邊的第一個 token：補指令名。
+ * - `-` 開頭的 token：補那一段指令的選項（見 `completeOption`），對不上時當路徑。
  * - 其他：把最後一個 token 當路徑補全，前面的 token 與目錄部分原樣保留。
  *
  * 補全結果的三種情況（唯一、多個、沒有）見 `CompletionResult`。
