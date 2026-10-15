@@ -474,7 +474,7 @@ export interface CommandContext {
 	 */
 	readonlyEnv?: readonly string[];
 	/**
-	 * 這台終端機的「現在」（ISO 8601，UTC），`date` 用（第十九場）。遊戲沒有流逝的時鐘，同一台終端機裡固定不動；
+	 * 這台終端機的「現在」（ISO 8601，UTC），`date` 用（第十九場）。遊戲沒有會往前走的時鐘，同一台終端機裡固定不動；
 	 * 由 shell 從 `ShellOptions.now` 帶入，沒給時 `date` 用喚醒時間。
 	 */
 	now?: string;

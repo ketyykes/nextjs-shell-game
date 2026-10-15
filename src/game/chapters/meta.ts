@@ -12,7 +12,7 @@ export interface ChapterMeta {
 	deckName: string;
 	/**
 	 * 這一章的「現在」（ISO 8601，UTC），終端機的 `date` 印這個時間（第十九場，設計文件 4.18）。
-	 * 終端機劇本自己寫了 `now` 時以那個為準。遊戲沒有流逝的時鐘，同一章的終端機都停在這個時間；
+	 * 終端機劇本自己寫了 `now` 時以那個為準。遊戲沒有會往前走的時鐘，同一章的終端機都停在這個時間；
 	 * 值不早於那一章劇本裡任何檔案的 mtime（`meta.test.ts` 會檢查），`date` 才不會比 `ls -l` 還舊。
 	 */
 	clock: string;

@@ -24,7 +24,7 @@ describe("date 預設格式", () => {
 		expect(runDate([], "2031-03-01T00:05:09Z").lines).toEqual(["Sat Mar  1 00:05:09 UTC 2031"]);
 	});
 
-	it("同一個 context 打幾次都是同一個時間（遊戲沒有流逝的時鐘）", () => {
+	it("同一個 context 打幾次都是同一個時間（遊戲沒有會往前走的時鐘）", () => {
 		const context = createContext({ now: WAKE });
 		expect(dateCommand.run([], context).lines).toEqual(dateCommand.run([], context).lines);
 	});
