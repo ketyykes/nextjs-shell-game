@@ -359,4 +359,6 @@ export const SANDBOX_TIPS: string[] = [
 	"echo 文字 > 檔名 會寫進檔案（覆蓋），>> 則接在後面；寫完用 cat 確認。",
 	"env 列出環境變數，echo $GREETING 印出其中一個，cd $LOG_DIR 直接跳到日誌目錄；export NAME=值 自己設一個，unset NAME 再把它拿掉。",
 	"ps 看程序清單，top 看誰最吃 CPU，用 kill 加 PID 結束它；不聽話的試試 kill -9。",
+	"sed 's/INFO/資訊/' logs/sensors.log 換字，cat logs/access.log | tr a-z A-Z 換大小寫；ls logs | tee list.txt 一邊看一邊存。",
+	"find trash -name '*.tmp' | xargs rm 一次刪掉暫存檔；alias ll='ls -l' 幫常用的指令取短名字；date 看練習機現在幾點。",
 ];

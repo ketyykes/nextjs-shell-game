@@ -18,6 +18,7 @@ import {
 	pathNotFound,
 	programNotInstalled,
 	similarCommand,
+	subcommandRefused,
 	sudoDenied,
 	unsupportedSyntax,
 	whichAlias,
@@ -1387,5 +1388,72 @@ describe("Shell 別名 alias（第十九場）", () => {
 		shell.execute("alias ll='ls -l'");
 
 		expect(shell.execute("which ll")).toMatchObject({ isError: false, lines: whichAlias("ll", "alias ll='ls -l'") });
+	});
+});
+
+describe("Shell 子指令執行 xargs（第十九場）", () => {
+	it("把管線輸入接成參數執行，預設是 echo", () => {
+		const shell = createShell();
+
+		expect(shell.execute("ls | xargs")).toMatchObject({ isError: false, lines: [LISTING.join(" ")] });
+		expect(shell.execute("echo wake_up.txt | xargs cat").lines).toEqual(["喚醒排程：三年後", "原始設定：永不", "修改者："]);
+	});
+
+	it("檔案操作直接改到檔案系統", () => {
+		const shell = createShell();
+
+		shell.execute("echo a.tmp b.tmp | xargs -n 1 touch");
+		expect(shell.execute("ls").lines).toEqual(expect.arrayContaining(["a.tmp", "b.tmp"]));
+		shell.execute("ls | grep tmp | xargs rm");
+		expect(shell.execute("ls").lines).toEqual(LISTING);
+	});
+
+	it("kill 改的程序清單會生效，整行的結果看得到", () => {
+		const shell = createShell({ processes: [NOVA_PROCESS, SHELL_PROCESS] });
+
+		const execution = shell.execute("echo 42 | xargs kill");
+
+		expect(execution.isError).toBe(false);
+		expect(execution.processes).toEqual([NOVA_PROCESS]);
+		expect(shell.processes).toEqual([NOVA_PROCESS]);
+	});
+
+	it("cd、export、alias 照 bash 子程序的語意不影響外面", () => {
+		const shell = createShell();
+
+		expect(shell.execute("echo pod_06 | xargs cd")).toMatchObject({ isError: false, cwd: "/home/tech" });
+		shell.execute("echo X=1 | xargs export");
+		shell.execute("echo ll=ls | xargs alias");
+
+		expect(shell.env.X).toBeUndefined();
+		expect(shell.execute("alias").lines).toEqual([]);
+	});
+
+	it("hint、clear、less、xargs 不能交給 xargs 執行，算錯誤", () => {
+		const shell = createShell();
+
+		for (const name of ["hint", "clear", "less", "xargs"]) {
+			const execution = shell.execute(`echo wake_up.txt | xargs ${name}`);
+			expect(execution).toMatchObject({ isError: true, lines: subcommandRefused(name), clearScreen: false });
+			expect(execution.pagers).toBeUndefined();
+		}
+		expect(shell.hintCount).toBe(0);
+	});
+
+	it("找不到的指令照樣給拼字建議，xargs 也看不到別名", () => {
+		const shell = createShell();
+		shell.execute("alias ll='ls -l'");
+
+		expect(shell.execute("echo x | xargs gerp")).toMatchObject({ isError: true, lines: similarCommand("gerp", "grep") });
+		expect(shell.execute("echo x | xargs ll").isError).toBe(true);
+	});
+
+	it("其中一次失敗：其餘照跑，整行算錯誤", () => {
+		const shell = createShell();
+
+		const execution = shell.execute("echo nope.txt wake_up.txt | xargs -n 1 cat");
+
+		expect(execution.isError).toBe(true);
+		expect(execution.lines).toEqual([...fsError("ENOENT", "nope.txt"), "喚醒排程：三年後", "原始設定：永不", "修改者："]);
 	});
 });

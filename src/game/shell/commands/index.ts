@@ -51,6 +51,7 @@ import { unsetCommand } from "./unset";
 import { wcCommand } from "./wc";
 import { whichCommand } from "./which";
 import { whoamiCommand } from "./whoami";
+import { xargsCommand } from "./xargs";
 import type { CommandDefinition } from "../types";
 
 /**
@@ -110,6 +111,7 @@ export const ALL_COMMANDS: CommandDefinition[] = [
 	// 第十九場：只開放使用，不在劇本裡（設計文件 4.18）
 	trCommand,
 	teeCommand,
+	xargsCommand,
 	sedCommand,
 	dateCommand,
 	aliasCommand,

@@ -40,6 +40,24 @@ export const EXTRA2_COMMAND_DOCS: Record<string, CommandDoc> = {
 			{ command: "tee a.txt b.txt", explanation: "一次存進兩個檔案" },
 		],
 	},
+	xargs: {
+		name: "xargs",
+		summary: "把左邊的輸出變成指令的參數",
+		usage: "xargs [-n 個數] [-I 代換字串] [指令 [參數...]]",
+		description: [
+			"rm、touch、kill 這些指令不讀 | 傳過來的內容，只看參數。xargs 接在 | 右邊，把左邊的輸出用空白和換行切成一個一個項目，接在後面那個指令的參數裡執行。",
+			"例如 find trash -name '*.tmp' | xargs rm，等於把找到的每個檔名都打在 rm 後面。沒給指令時用 echo，所以 ls | xargs 會把清單印成一行。",
+			"-n 2 每次只接兩個項目，分好幾次執行；-I {} 改成每一行執行一次，並把指令裡的 {} 換成那一行，例如 ls | xargs -I {} cp {} backup/，檔名有空白時也用 -I。",
+			"xargs 自己的選項要寫在指令前面，指令後面的選項是那個指令的。左邊沒有輸出時什麼都不執行。其中一次執行失敗時其他照樣跑完，整個算失敗。",
+			"cd、export、alias 這類改 shell 自己狀態的指令交給 xargs 不會生效（跟真的一樣，它們在另一個程序裡跑）；hint、clear、less 要直接打，不能交給 xargs。",
+		],
+		examples: [
+			{ command: "xargs rm", explanation: "接在 | 右邊刪掉左邊列出的檔案，例如 find trash -name '*.tmp' | xargs rm" },
+			{ command: "xargs -n 1 echo", explanation: "一個項目印一行" },
+			{ command: "xargs -I {} cp {} backup/", explanation: "每個檔案各複製一份到 backup/" },
+			{ command: "xargs kill", explanation: "結束左邊列出的程序，例如 ps | grep fan_test | cut -d ' ' -f 1 | xargs kill" },
+		],
+	},
 	sed: {
 		name: "sed",
 		summary: "照腳本逐行取代、挑出或刪掉文字",
@@ -114,4 +132,4 @@ export const EXTRA2_COMMAND_DOCS: Record<string, CommandDoc> = {
 };
 
 /** 這組指令在側邊面板的顯示順序，排在帳號與登入的彩蛋之後。 */
-export const EXTRA2_COMMAND_ORDER: string[] = ["tr", "tee", "sed", "date", "alias", "unalias"];
+export const EXTRA2_COMMAND_ORDER: string[] = ["tr", "tee", "xargs", "sed", "date", "alias", "unalias"];

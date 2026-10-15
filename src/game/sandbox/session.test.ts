@@ -107,3 +107,26 @@ describe("createSandboxShell", () => {
 		});
 	});
 });
+
+describe("第十九場的指令（練習建議與說明裡的寫法照打都能用）", () => {
+	it("find trash -name '*.tmp' | xargs rm 只刪暫存檔", () => {
+		const shell = createSandboxShell();
+		run(shell, "find trash -name '*.tmp' | xargs rm");
+		expect(run(shell, "ls trash")).toEqual(["keep_me.txt"]);
+	});
+
+	it("ps | grep fan_test | cut -d ' ' -f 1 | xargs kill 結束 fan_test", () => {
+		const shell = createSandboxShell();
+		run(shell, "ps | grep fan_test | cut -d ' ' -f 1 | xargs kill");
+		expect(shell.processes.some((process) => process.command.includes("fan_test"))).toBe(false);
+	});
+
+	it("sed、tr、tee、alias 照建議打", () => {
+		const shell = createSandboxShell();
+		expect(run(shell, "sed 's/INFO/資訊/' logs/sensors.log | head -n 1")[0]).toContain("資訊");
+		expect(run(shell, "cat logs/access.log | tr a-z A-Z | head -n 1")).toEqual(["DOOR=LAB-A USER=TECH ACTION=OPEN"]);
+		expect(run(shell, "ls logs | tee list.txt")).toEqual(run(shell, "cat list.txt"));
+		run(shell, "alias ll='ls -l'");
+		expect(run(shell, "ll logs")).toEqual(run(shell, "ls -l logs"));
+	});
+});

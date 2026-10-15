@@ -26,6 +26,7 @@ import {
 	parseError,
 	programNotInstalled,
 	similarCommand,
+	subcommandRefused,
 } from "./messages";
 import {
 	findUnavailableProgram,
@@ -89,6 +90,12 @@ function exitStatusOf(result: CommandResult): number {
 
 /** 萬用字元：沒被引號包住而且含這兩個字元的參數才展開。 */
 const GLOB_CHAR_PATTERN = /[*?]/;
+
+/**
+ * 不能交給 xargs 這類指令執行的指令（第十九場）：hint 會動到提示計數、clear 要清畫面、less 要進分頁，
+ * 都只有直接打才有意義；xargs 再叫 xargs 也擋掉。被擋時結束碼 126（GNU：command cannot be run）。
+ */
+const SUBCOMMAND_REFUSED = new Set(["hint", "clear", "less", "xargs"]);
 
 /** 複製程序清單，每個程序也淺拷貝一份，避免外部改到 shell 內部的狀態。 */
 function copyProcesses(processes: ProcessInfo[]): ProcessInfo[] {
@@ -431,7 +438,28 @@ export class Shell {
 			readonlyEnv: [...this.readonlyEnv],
 			now: this.options.now,
 			aliases: { ...this.aliases },
+			runCommand: (name, args, stdin) => this.runSubcommand(name, args, stdin, history),
 		};
+	}
+
+	/**
+	 * 給指令用的子指令執行（第十九場，`xargs`）：照名稱直接找指令執行，不走管線、別名、萬用字元與目標判定。
+	 * 照 bash 子程序的語意，換目錄、環境變數、別名、hint 計數都不影響外面；程序清單是整台機器的，`kill` 會生效。
+	 * 找不到指令時用跟指令列一樣的說明（拼字建議等），結束碼 127；`SUBCOMMAND_REFUSED` 裡的結束碼 126。
+	 */
+	private runSubcommand(name: string, args: string[], stdin: string[] | null, history: string[]): CommandResult {
+		if (SUBCOMMAND_REFUSED.has(name)) {
+			return { ok: false, lines: subcommandRefused(name), exitStatus: 126 };
+		}
+		const command = this.commands.get(name);
+		if (command === undefined) {
+			return { ok: false, lines: this.describeUnknownCommand(name), exitStatus: 127 };
+		}
+		const result = this.runCommand(command, args, this.buildContext(history, stdin));
+		if (result.nextProcesses !== undefined) {
+			this.currentProcesses = copyProcesses(result.nextProcesses);
+		}
+		return result;
 	}
 
 	/** 執行單一指令。 */

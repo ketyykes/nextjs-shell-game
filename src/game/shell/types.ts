@@ -480,6 +480,13 @@ export interface CommandContext {
 	now?: string;
 	/** 這個 shell 目前的別名（第十九場，`alias`、`unalias`、`which` 用），名稱對應展開前的原文。沒給等同沒有別名。 */
 	aliases?: Readonly<Record<string, string>>;
+	/**
+	 * 給指令用的子指令執行能力（第十九場，`xargs` 用），由 shell 注入：照名稱直接找指令執行，
+	 * 不走管線、別名、萬用字元與目標判定。被執行的指令改的程序清單（`kill`）會生效；
+	 * 換目錄、環境變數、別名照 bash 子程序的語意不影響外面。找不到指令回結束碼 127，
+	 * `hint`、`clear`、`less`、`xargs` 不能這樣執行（結束碼 126）。沒給時 xargs 回報沒辦法執行別的指令。
+	 */
+	runCommand?: (name: string, args: string[], stdin: string[] | null) => CommandResult;
 }
 
 /**

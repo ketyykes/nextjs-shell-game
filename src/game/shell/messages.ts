@@ -696,6 +696,29 @@ export function whichAlias(name: string, definition: string): string[] {
 	return [`\`${name}\` 是這個工作階段設定的別名（${definition}），不是程式檔，所以 which 找不到。`, "別名用 alias 查，alias 不加參數會列出全部。"];
 }
 
+/** `xargs` 不在管線裡：它要把 | 左邊的輸出切成項目，接在指令後面執行。 */
+export function xargsNeedsPipe(): string[] {
+	return [
+		"xargs 要放在 | 的右邊：把左邊的輸出切成一個一個項目，接在後面那個指令的參數裡執行。",
+		"例如 find . -name '*.tmp' | xargs rm，或 ls | xargs -n 1 echo。",
+	];
+}
+
+/** `xargs -n` 的值不是正整數（GNU：invalid number / value should be >= 1）。 */
+export function xargsInvalidCount(value: string): string[] {
+	return [`\`${value}\` 不是有效的個數，xargs 的 -n 後面要接 1 以上的整數，例如 xargs -n 1 touch。`];
+}
+
+/** 這個環境沒有提供子指令執行能力（只會在單元測試或沒接上 shell 時發生）。 */
+export function xargsCannotRun(): string[] {
+	return ["這裡沒辦法讓 xargs 執行別的指令，請把指令直接打出來。"];
+}
+
+/** 被 xargs 這類指令要求執行、但不能這樣執行的指令（`hint`、`clear`、`less`、`xargs`），結束碼 126。 */
+export function subcommandRefused(name: string): string[] {
+	return [`\`${name}\` 不能交給 xargs 這類指令去執行，要用的話請直接打 ${name}。`];
+}
+
 /** `tr` 不認得的字元類別，例如 `[:digits:]`。 */
 export function trInvalidClass(name: string): string[] {
 	return [`\`[:${name}:]\` 不是 tr 認得的字元類別，可以用 [:upper:]、[:lower:]、[:digit:]、[:space:]、[:alpha:]、[:alnum:]。`];

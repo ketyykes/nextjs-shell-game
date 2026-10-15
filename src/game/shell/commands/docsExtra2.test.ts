@@ -4,7 +4,7 @@ import { ALL_COMMANDS } from ".";
 import { EXTRA2_COMMAND_DOCS, EXTRA2_COMMAND_ORDER } from "./docsExtra2";
 
 /** 第十九場開放使用、沒編進劇本的指令（設計文件 4.18）。 */
-const EXTRA2_COMMANDS = ["tr", "tee", "sed", "date", "alias", "unalias"];
+const EXTRA2_COMMANDS = ["tr", "tee", "xargs", "sed", "date", "alias", "unalias"];
 
 describe("EXTRA2_COMMAND_ORDER", () => {
 	it("順序照設計文件 4.18 的清單", () => {
@@ -53,6 +53,17 @@ describe("EXTRA2_COMMAND_DOCS", () => {
 			expect(text).toContain(token);
 		}
 		expect(doc.examples.some((example) => example.command.includes("-a"))).toBe(true);
+	});
+
+	it("xargs 說明切項目、預設 echo、-n、-I、失敗時照跑，以及不影響 shell 本身的指令", () => {
+		const doc = EXTRA2_COMMAND_DOCS.xargs;
+		const text = doc.description.join("\n");
+		for (const token of ["|", "空白", "echo", "-n", "-I {}", "cd", "export", "hint", "clear", "less"]) {
+			expect(text).toContain(token);
+		}
+		expect(doc.usage).toContain("-n");
+		expect(doc.usage).toContain("-I");
+		expect(doc.examples.some((example) => example.command.includes("-I"))).toBe(true);
 	});
 
 	it("sed 說明 s 的旗標、位址、p 與 d、-n、-E、-i、-e，以及不支援的指令", () => {

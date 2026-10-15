@@ -14,7 +14,7 @@ const EXTRA_COMMANDS = ["less", "tree", "cut", "diff", "which"];
 /** 第十七場的帳號與登入彩蛋，排在最後。 */
 const ACCOUNT_COMMANDS = ["whoami", "id", "last", "sudo", "exit", "logout"];
 /** 第十九場開放使用、沒編進劇本的指令，排在最後（設計文件 4.18）。 */
-const EXTRA2_COMMANDS = ["tr", "tee", "sed", "date", "alias", "unalias"];
+const EXTRA2_COMMANDS = ["tr", "tee", "xargs", "sed", "date", "alias", "unalias"];
 
 describe("COMMAND_DOCS", () => {
 	it.each(CHAPTER_ONE_COMMANDS)("第一章指令 %s 有說明", (name) => {
