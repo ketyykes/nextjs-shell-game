@@ -6,7 +6,7 @@ import { PLAYER_PROBE_KEY, type PlayerProbeSnapshot } from "../../src/game/phase
 /**
  * 六個甲板共用的 e2e 走路與解謎工具。
  *
- * 走路是閉環（M11-6，坑與設計見 docs/progress.md 第 5 節）：開發模式下 Station 把角色座標掛在 `window.__kepler9Player`，
+ * 走路是閉環（M11-6，坑與設計見 docs/notes/pitfalls.md）：開發模式下 Station 把角色座標掛在 `window.__kepler9Player`，
  * 這裡每一段都是「讀座標 → 按住方向鍵 → 在頁面裡逐幀讀座標，到了就放開 → 等角色停穩再讀一次」，
  * 不靠計時，所以機器忙、瀏覽器掉幀時只是走得慢，不會走偏。
  * 六個甲板的平面圖完全一樣（`pnpm map:build` 產生，只有艙區名與裝飾不同），所以路徑點寫死一份六章共用。

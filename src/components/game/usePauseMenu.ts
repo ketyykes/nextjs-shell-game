@@ -28,7 +28,7 @@ export interface UsePauseMenuResult {
  * 暫停選單（設計文件 4.7）的開關：地圖上按 Esc 開啟，選單開著時發 `game:pause`、關掉時發 `game:resume`。
  *
  * - 終端機、設定選單或章節結束畫面開著時不掛 Esc 監聽（前兩者各自處理 Esc，結束畫面不給暫停）；終端機的 Esc 另外有 `stopPropagation`，
- *   因為這個監聽會在終端機關閉的同一個 keydown 裡重新掛回 window（progress.md 第 5 節）。
+ *   因為這個監聽會在終端機關閉的同一個 keydown 裡重新掛回 window（docs/notes/pitfalls.md）。
  * - 按住 Esc 的重複事件不算。
  * - Phaser 場景本身不暫停，只停角色輸入（#22）。
  */

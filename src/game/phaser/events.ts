@@ -50,7 +50,7 @@ export type GameEventName = keyof GameEventMap;
 // ---------------------------------------------------------------------------
 
 /**
- * 六個甲板都用同一張平面圖（設計文件第 9 節的配置，`scripts/build-map.mjs` 的 `DECK_LAYOUTS`），
+ * 六個甲板都用同一張平面圖（設計文件第 7 節的配置，`scripts/build-map.mjs` 的 `buildDeckLayout`），
  * 七個「位置」固定，每個甲板給它們不同的艙區 id 與名稱：
  *
  * | 位置 | 平面圖位置 | 終端機 | 第 1 章 | 第 2 章 | 第 3 章 | 第 4 章 | 第 5 章 | 第 6 章 |
@@ -164,7 +164,7 @@ export const ROOM_NAMES: Record<RoomId, string> = {
 	nv_corridor: "核心艙走廊",
 };
 
-/** 平面圖上的七個位置，`DECK_LAYOUTS` 每個甲板都要填齊。 */
+/** 平面圖上的七個位置，`DECK_ROOMS` 每個甲板都要填齊。 */
 export type RoomSlot = "start" | "second" | "third" | "fourth" | "fifth" | "exit" | "corridor";
 
 /** 每個甲板七個位置對應的艙區 id。`scripts/build-map.mjs` 與劇本都照這張表。 */
