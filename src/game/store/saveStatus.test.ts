@@ -36,6 +36,17 @@ describe("saveStatus", () => {
 		expect(listener).toHaveBeenCalledTimes(1);
 	});
 
+	it("另一個分頁改了存檔（other-tab）也是一種存檔問題，元件讀得到", () => {
+		const { result } = renderHook(() => useSaveIssue());
+
+		act(() => {
+			setSaveIssue("other-tab");
+		});
+
+		expect(getSaveIssue()).toBe("other-tab");
+		expect(result.current).toBe("other-tab");
+	});
+
 	it("useSaveIssue 跟著狀態更新", () => {
 		const { result } = renderHook(() => useSaveIssue());
 		expect(result.current).toBeNull();

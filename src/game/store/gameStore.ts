@@ -93,6 +93,81 @@ function backupBeforeMigrate(name: string, version: number, raw: string): void {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// 兩個分頁同時開遊戲（4.21）
+// ---------------------------------------------------------------------------
+
+/**
+ * 這個分頁最後一次讀到或寫入的存檔原始字串。localStorage 裡還是這個值，就代表沒有別的分頁動過存檔。
+ * `undefined` 是還沒讀寫過（讀檔前），沒有比對的基準；`null` 是讀到或留下的是「沒有存檔」。
+ */
+let knownSaveRaw: string | null | undefined;
+
+/**
+ * 這個分頁記憶體裡的進度已經過期（別的分頁改了存檔，或這個分頁剛匯入存檔），之後的寫入與刪除一律略過，
+ * 免得把較新的存檔蓋回舊進度。重新讀檔（重新載入頁面）才恢復；這個狀態本身不存檔，重新載入後自然歸零。
+ */
+let saveWritesStopped = false;
+
+/** 判定別的分頁改了存檔：停止存檔並回報 `other-tab`，畫面提示重新載入。 */
+function stopSavingForOtherTab(): void {
+	if (saveWritesStopped) {
+		return;
+	}
+	saveWritesStopped = true;
+	console.warn("[gameStore] 另一個分頁改了存檔，這個分頁停止存檔，免得把較新的進度蓋回去。");
+	setSaveIssue("other-tab");
+}
+
+/**
+ * 別的分頁寫入或刪除存檔時，瀏覽器會發 `storage` 事件給同網域的其他分頁（自己寫的不會發給自己）。
+ *
+ * - 只看存檔的 key；升級前的備份（`kepler9-save.backup.v*`）與其他 key 不算。`key` 是 null 代表別的分頁清空了整個 localStorage，存檔也一起不見。
+ * - 新內容跟這個分頁最後讀寫的一樣就不算（別的分頁寫進一模一樣的內容，蓋回去也不會掉進度）。
+ * - 還沒讀過存檔的分頁不理會，等一下讀檔就會讀到最新的。
+ */
+function handleSaveStorageEvent(event: StorageEvent): void {
+	if (event.key !== SAVE_STORAGE_KEY && event.key !== null) {
+		return;
+	}
+	if (knownSaveRaw === undefined) {
+		return;
+	}
+
+	let newValue: string | null = null;
+	if (event.key !== null) {
+		newValue = event.newValue;
+	}
+	if (newValue === knownSaveRaw) {
+		return;
+	}
+	stopSavingForOtherTab();
+}
+
+// 伺服器端 render 也會載入這個模組，那裡沒有 window
+if (typeof window !== "undefined") {
+	window.addEventListener("storage", handleSaveStorageEvent);
+}
+
+/**
+ * 寫入前再確認一次：localStorage 裡的存檔跟這個分頁最後讀寫的不一樣，就是別的分頁改過
+ * （storage 事件可能沒送到，例如分頁被凍結、從上一頁快取還原）。
+ * 存檔不見了不算：沒有別人的新進度要保護，照寫反而把記憶體裡的進度存回去；讀不到交給後面的寫入處理。
+ */
+function isSaveChangedElsewhere(name: string): boolean {
+	if (knownSaveRaw === undefined) {
+		return false;
+	}
+
+	let current: string | null;
+	try {
+		current = localStorage.getItem(name);
+	} catch {
+		return false;
+	}
+	return current !== null && current !== knownSaveRaw;
+}
+
 /**
  * 包一層 localStorage：
  *
@@ -105,11 +180,14 @@ function backupBeforeMigrate(name: string, version: number, raw: string): void {
  * - 寫入失敗（配額滿的 `QuotaExceededError`、瀏覽器封鎖儲存的 `SecurityError`）不往外丟：
  *   persist 每次 `set` 都同步寫檔，例外會從 action 一路冒到按鍵 handler，記憶體狀態已改、存檔沒寫、玩家看不到提示。
  *   改成 console.warn 並回報 `write-failed` 讓畫面提示，記憶體裡的進度照常，下次寫入成功就清掉提示。
+ * - 別的分頁改了存檔（4.21）：storage 事件或寫入前比對發現時，這個分頁停止寫入與刪除、回報 `other-tab`，
+ *   重新讀檔才恢復。讀寫成功時記下原始字串當比對基準。
  */
 const safeLocalStorage: StateStorage = {
 	getItem: (name) => {
-		// 每次讀檔重新判斷版本，上一次讀到的新版存檔可能已經被清掉
-		if (getSaveIssue() === "newer-version") {
+		// 每次讀檔重新判斷版本，上一次讀到的新版存檔可能已經被清掉；重新讀檔也就跟上了別的分頁寫的最新存檔
+		const previousIssue = getSaveIssue();
+		if (previousIssue === "newer-version" || previousIssue === "other-tab") {
 			setSaveIssue(null);
 		}
 
@@ -122,6 +200,10 @@ const safeLocalStorage: StateStorage = {
 			setSaveIssue("unavailable");
 			return null;
 		}
+
+		// 讀到的就是這個分頁的比對基準，壞檔與新版存檔也一樣（它們還原封不動留在 localStorage 裡）
+		knownSaveRaw = raw;
+		saveWritesStopped = false;
 
 		if (raw === null) {
 			return null;
@@ -151,6 +233,14 @@ const safeLocalStorage: StateStorage = {
 		if (getSaveIssue() === "newer-version") {
 			return;
 		}
+		// 記憶體裡的進度已經過期：不丟錯、不覆蓋，安靜略過
+		if (saveWritesStopped) {
+			return;
+		}
+		if (isSaveChangedElsewhere(name)) {
+			stopSavingForOtherTab();
+			return;
+		}
 		try {
 			localStorage.setItem(name, value);
 		} catch (error) {
@@ -161,18 +251,37 @@ const safeLocalStorage: StateStorage = {
 			}
 			return;
 		}
+		knownSaveRaw = value;
 		if (getSaveIssue() === "write-failed") {
 			setSaveIssue(null);
 		}
 	},
 	removeItem: (name) => {
+		if (saveWritesStopped) {
+			return;
+		}
 		try {
 			localStorage.removeItem(name);
 		} catch (error) {
 			console.warn(`[gameStore] 無法刪除存檔 ${name}。`, error);
+			return;
 		}
+		knownSaveRaw = null;
 	},
 };
+
+/**
+ * 存檔匯入（4.7「存檔管理」）：把檢查過的存檔字串整份寫進 localStorage，呼叫端接著重新載入頁面讓 store 重新讀檔。
+ *
+ * 這次寫入是這個分頁自己的，不算「別的分頁改了存檔」，也不提示；但記憶體裡還是匯入前的進度，
+ * 重新載入前的任何 `set` 都會把剛匯入的存檔蓋回去，所以這個分頁之後不再寫檔。
+ * 寫入失敗（儲存空間滿、被封鎖）照樣丟例外、存檔不動，由呼叫端提示「匯入失敗」。
+ */
+export function writeImportedSave(json: string): void {
+	localStorage.setItem(SAVE_STORAGE_KEY, json);
+	knownSaveRaw = json;
+	saveWritesStopped = true;
+}
 
 /**
  * 存檔裡的阿彬留言紀錄（v4）：形狀不對的部分用預設值。`found` 只留字串並去掉重複，

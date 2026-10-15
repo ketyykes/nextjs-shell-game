@@ -5,9 +5,11 @@
  *
  * - 匯出：內容跟 localStorage 裡的存檔同格式（`{ state, version }`），取記憶體裡的最新狀態，
  *   所以寫入失敗（M12-5 的 `write-failed`）時匯出的也是最新進度，可以當成備份。
- *   存檔來自較新版本（`newer-version`，這個分頁沒讀進來）時照原樣匯出 localStorage 的原始字串，不拿空白的預設值頂替。
+ *   存檔來自較新版本（`newer-version`，這個分頁沒讀進來）時照原樣匯出 localStorage 的原始字串，不拿空白的預設值頂替；
+ *   另一個分頁改了存檔（`other-tab`，4.21）時也一樣，記憶體裡是過期的進度，localStorage 裡的才是最新的。
  * - 匯入：選檔後動態載入 `saveImport.ts`（帶 zod）檢查：不是 JSON、不是這個遊戲的、版本太新、內容壞掉都拒絕並說明原因；
- *   過了先跳確認（會覆蓋目前的存檔），確認後直接寫進 localStorage，再由整合者重新載入頁面讓 store 重新讀檔。
+ *   過了先跳確認（會覆蓋目前的存檔），確認後用 `writeImportedSave` 寫進 localStorage（記成這個分頁自己的寫入，
+ *   不會被當成別的分頁改了存檔），再由整合者重新載入頁面讓 store 重新讀檔。
  *   寫入失敗就提示，存檔不變。較新版本的存檔一樣會被覆蓋，確認訊息會講。
  * - 這裡不呼叫 store 的 action：匯入是整份換掉，走「寫 localStorage → 重新載入」最乾淨，也不受「讀檔完成前不要呼叫 action」限制。
  *
@@ -17,7 +19,7 @@
 import { motion } from "motion/react";
 import { useRef, useState, type ChangeEvent } from "react";
 import { chapterLabel } from "@/game/chapters/meta";
-import { selectHasSave, useGameStore } from "@/game/store";
+import { selectHasSave, useGameStore, writeImportedSave } from "@/game/store";
 import { createSaveExportText, saveExportFileName } from "@/game/store/saveExport";
 import type { SaveImportSummary } from "@/game/store/saveImport";
 import { useSaveIssue } from "@/game/store/saveStatus";
@@ -96,12 +98,14 @@ export function SaveManager({ onClose, onImported }: SaveManagerProps) {
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const [message, setMessage] = useState<Message | null>(null);
 	const [pending, setPending] = useState<PendingImport | null>(null);
-	// 較新版本的存檔沒讀進來，hasSave 是 false，但 localStorage 裡其實有東西
-	const hasStoredSave = hasSave || saveIssue === "newer-version";
+	// 記憶體裡的進度不代表 localStorage 裡的存檔：較新版本的存檔沒讀進來（hasSave 是 false，但其實有東西），
+	// 或另一個分頁改了存檔（記憶體裡是過期的進度）
+	const memoryOutdated = saveIssue === "newer-version" || saveIssue === "other-tab";
+	const hasStoredSave = hasSave || memoryOutdated;
 
 	function exportSave() {
 		let text: string | null = null;
-		if (saveIssue === "newer-version") {
+		if (memoryOutdated) {
 			text = localStorage.getItem(SAVE_STORAGE_KEY);
 		} else if (hasSave) {
 			text = createSaveExportText(useGameStore.getState());
@@ -147,7 +151,7 @@ export function SaveManager({ onClose, onImported }: SaveManagerProps) {
 			return;
 		}
 		try {
-			localStorage.setItem(SAVE_STORAGE_KEY, pending.json);
+			writeImportedSave(pending.json);
 		} catch {
 			setPending(null);
 			setMessage({ tone: "error", text: MESSAGES.writeFailed });
