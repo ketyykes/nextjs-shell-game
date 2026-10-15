@@ -46,8 +46,6 @@ import type { ChapterDefinition, ObjectiveCheck, TerminalDefinition } from "./ty
 const ROUTE_SET_MTIME = "2028-06-01T23:58:00Z";
 /** 撤離是三年前。 */
 const EVACUATION_MTIME = "2028-06-02T04:40:00Z";
-/** 阿彬兩天前來過通訊艙，最後一次放行往艦橋。 */
-const ABIN_VISIT_MTIME = "2031-03-10T02:53:00Z";
 /** 技師醒來的時間，天線在這一刻轉向本站。 */
 const WAKE_MTIME = "2031-03-12T08:15:00Z";
 /** 走進通訊艙的時間。 */
@@ -184,7 +182,7 @@ const entryTerminal: TerminalDefinition = {
 				},
 				"entry.log": {
 					$type: "file",
-					mtime: ABIN_VISIT_MTIME,
+					mtime: COMMS_NOW_MTIME,
 					content: lines(
 						"通訊艙登錄紀錄",
 						`2028-05-31 08:02  登錄者：通訊官  呼號：${CALLSIGN}`,

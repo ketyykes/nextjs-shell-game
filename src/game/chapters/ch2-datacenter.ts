@@ -414,9 +414,16 @@ function coolingQuarter(year: number, quarter: number, people: string, anomaly: 
 	return lines(...content);
 }
 
-/** 季末日期當 mtime。 */
+/** 玩家到站時還沒結束的那一季（2031 Q1），日誌停在 NOVA 最後一次例行巡檢。 */
+const LAST_PATROL_MTIME = "2031-03-01T00:00:00Z";
+
+/** 季末日期當 mtime；季末在玩家到站之後的，用最後一次巡檢的時間，免得 ls -l 出現未來日期。 */
 function quarterEnd(year: number, quarter: number): string {
-	return `${year}-${pad(quarter * 3, 2)}-28T00:00:00Z`;
+	const end = `${year}-${pad(quarter * 3, 2)}-28T00:00:00Z`;
+	if (end > ARRIVAL_MTIME) {
+		return LAST_PATROL_MTIME;
+	}
+	return end;
 }
 
 /** 某一年的季度日誌，`quarters` 是要產生哪幾季。 */

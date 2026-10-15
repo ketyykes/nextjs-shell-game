@@ -23,8 +23,10 @@ import type { ChapterDefinition, TerminalDefinition } from "./types";
 // 時間軸（mtime 一律 UTC，`ls -l` 直接顯示）
 // ---------------------------------------------------------------------------
 
-/** 船員冷凍入艙評估建檔的日子（實際入艙原排定於返航前，從未發生）。 */
+/** 船員冷凍入艙評估建檔的日子（實際入艙原排定於返航前，從未發生）；pod_01 到 pod_03 第一天評估。 */
 const CREW_INTAKE_MTIME = "2028-04-17T09:20:00Z";
+/** pod_04、pod_05 第二天評估，病患編號帶 0418；阿彬的笑話留言（4/18 10:05）寫在評估之後。 */
+const CREW_INTAKE_DAY2_MTIME = "2028-04-18T10:30:00Z";
 /** pod_06 手動建檔，撤離前一天。 */
 const POD_06_INTAKE_MTIME = "2028-06-01T22:16:00Z";
 /** 撤離是三年前。 */
@@ -479,12 +481,12 @@ const medbayTerminal: TerminalDefinition = {
 					},
 					"PT-2028-0418-MR2207.txt": {
 						$type: "file",
-						mtime: CREW_INTAKE_MTIME,
+						mtime: CREW_INTAKE_DAY2_MTIME,
 						content: crewIntakeRecord("PT-2028-0418-MR2207", "pod_04", "通訊官", "無"),
 					},
 					"PT-2028-0418-MR2216.txt": {
 						$type: "file",
-						mtime: CREW_INTAKE_MTIME,
+						mtime: CREW_INTAKE_DAY2_MTIME,
 						content: crewIntakeRecord("PT-2028-0418-MR2216", "pod_05", "後勤", "慣用稱呼：阿彬。評估時講了四個笑話"),
 					},
 					[`${POD_06_RECORD_ID}.txt`]: {
