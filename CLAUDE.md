@@ -60,7 +60,7 @@ pnpm font:subset
 ## 測試
 
 - **Vitest** (`vitest.config.mts`)：環境 jsdom，`@/` 別名已對應 `src/`，只掃 `src/**/*.{test,spec}.{ts,tsx}`，所以 `e2e/` 不會被撿到。純邏輯測試（例如 shell 引擎）在檔案頂端加 `// @vitest-environment node` 可省掉 jsdom 開銷。
-- **Playwright** (`playwright.config.ts`)：測試放 `e2e/`，只跑 chromium，`baseURL` 是 `http://localhost:${PORT ?? 3000}`，本機 4 個 worker、retry 1（CI 2），報告用 list 加 html（不自動開）。`happy-path.spec.ts` 從標題一路解完第一章再進第二章（約 80 秒），`chapters.spec.ts` 用 `seedSave` 直接種「已到第 N 章」的存檔逐章走完；走路與解謎的共用工具在 `e2e/helpers/deck.ts`，六個甲板平面圖相同所以路線共用。地圖上走路是讀角色座標（開發模式的 `window.__kepler9Player`）的閉環，不要寫計時走路，原因與坑見 `docs/progress.md` 第 5 節。
+- **Playwright** (`playwright.config.ts`)：測試放 `e2e/`，只跑 chromium，`baseURL` 是 `http://localhost:${PORT ?? 3000}`，本機 4 個 worker、retry 1（CI 2），報告用 list 加 html（不自動開）。`happy-path.spec.ts` 從標題一路解完第一章再進第二章（約 80 秒），`chapters.spec.ts` 用 `seedSave` 直接種「已到第 N 章」的存檔逐章走完；走路與解謎的共用工具在 `e2e/helpers/deck.ts`，六個甲板平面圖相同所以路線共用。地圖上走路是讀角色座標（開發模式的 `window.__kepler9Player`）的閉環，不要寫計時走路，原因與坑見 `docs/notes/pitfalls.md`。
 
 ### TDD 流程
 
@@ -84,7 +84,7 @@ pnpm font:subset
 
 ### 目錄結構
 
-遊戲程式的完整預定目錄結構（`src/components/terminal/`、`src/game/phaser/` 等）見 [`docs/game-design.md`](./docs/game-design.md) 第 7 節，這裡只列現況。
+當初的預定目錄結構已封存在 [`docs/archive/game-design-initial-plan.md`](./docs/archive/game-design-initial-plan.md)，這裡列的就是現況。
 
 ```
 src/
@@ -126,8 +126,20 @@ public/scenes/              # NOVA 立繪 (256px PNG) 與各章場景插圖 (640
 public/audio/               # 五種 CC0 音效 (Kenney)，ogg 與 mp3
 docs/assets-draft/scenes/generate.sh  # 第一章八張插圖的 codex 批次產圖腳本 (M6-1)；generate-ch2-6.sh 是第二到六章的
 docs/
-├── game-design.md          # 設計定案 (第 7 節是遊戲程式的預定目錄結構)
-├── progress.md             # 進度、下一步、已知陷阱
+├── README.md               # 文件地圖
+├── game-design.md          # 設計定案
+├── progress.md             # 進度、待辦、候選工作
+├── notes/
+│   ├── decisions.md        # 自主決策 (待 Danny 確認)
+│   ├── pitfalls.md         # 已知陷阱與環境備註
+│   └── worklog.md          # 工作日誌
+├── archive/                # 過時文件，不要照它們動工
+│   ├── README.md           # 封存說明
+│   ├── audit-2026-10-08.md # 第十三場優化審計 (M10 到 M14 的證據)
+│   ├── progress-milestones-m0-m15.md  # M0 到 M15 逐項任務清單
+│   └── game-design-initial-plan.md    # 初版目錄規劃、第一版工作順序
+├── cheatsheet.html         # 開發者用過關密技 (六章正解與跳章程式)
+├── screenshots/            # README 用的遊戲截圖
 └── assets-draft/           # 素材原圖與預覽 (*-original.png 原則上不進版控)
 ```
 
@@ -176,13 +188,13 @@ npx shadcn@latest add [component-name]
 4. **Tailwind CSS v4**: 沒有 `tailwind.config.js`；設定寫在 `src/app/globals.css` 的 `@import "tailwindcss"` 與 `@theme inline` 區塊，PostCSS 只掛 `@tailwindcss/postcss`
 5. **動畫**: 使用 `motion` 套件，匯入路徑為 `motion/react`（例如 `import { motion } from "motion/react"`），動畫元件需搭配 `"use client"`
 6. **除錯鉤子**: 開發模式下 `/play` 掛 `window.__kepler9.emit(事件名, payload)`，可在瀏覽器 console 直接發 EventBus 事件（例如 `puzzle:solved`）觸發演出，正式 build 不掛
-7. **Phaser**: Phaser 4 在 import 當下就讀 `window`，所以只有 `src/game/phaser/main.ts` 與 `scenes/`、`objects/` 可以 import `phaser`，React 端只能 import `@/game/phaser/EventBus`、`events`、`constants`（都零相依）。遊戲透過 `PhaserGameDynamic`（`next/dynamic` + `ssr: false`）載入，`PhaserGame` 延後一幀 `startGame` 防 StrictMode 疊兩層 canvas。場景裡訂閱 EventBus 或建 sound 的清理要同時掛 `SHUTDOWN` 與 `DESTROY`（`game.destroy()` 只發後者）。官方 `phaserjs/template-nextjs` 是 Pages Router，不能照抄。更多坑見 `docs/progress.md` 第 5 節
+7. **Phaser**: Phaser 4 在 import 當下就讀 `window`，所以只有 `src/game/phaser/main.ts` 與 `scenes/`、`objects/` 可以 import `phaser`，React 端只能 import `@/game/phaser/EventBus`、`events`、`constants`（都零相依）。遊戲透過 `PhaserGameDynamic`（`next/dynamic` + `ssr: false`）載入，`PhaserGame` 延後一幀 `startGame` 防 StrictMode 疊兩層 canvas。場景裡訂閱 EventBus 或建 sound 的清理要同時掛 `SHUTDOWN` 與 `DESTROY`（`game.destroy()` 只發後者）。官方 `phaserjs/template-nextjs` 是 Pages Router，不能照抄。更多坑見 `docs/notes/pitfalls.md`
 
 ## 協作慣例
 
 - **commit**: Conventional Commit，主旨繁體中文，不加 AI 署名 footer，依性質拆分（docs、feat、chore、test 分開）。
-- **codex plugin**: `.claude/settings.json` 已啟用 `codex@openai-codex`，產圖流程與 `-i` 參數陷阱見 `docs/progress.md` 第 5 節。
-- **設計 vs 進度**: 設計變更改 `docs/game-design.md`，進度變更改 `docs/progress.md`，不在本檔重寫。
+- **codex plugin**: `.claude/settings.json` 已啟用 `codex@openai-codex`，產圖流程與 `-i` 參數陷阱見 `docs/notes/pitfalls.md`。
+- **設計 vs 進度**: 設計變更改 `docs/game-design.md`，進度變更改 `docs/progress.md`，踩到的坑加 `docs/notes/pitfalls.md`，自主拍板的取捨接著編號記 `docs/notes/decisions.md`，不在本檔重寫。
 
 ## 環境設定
 
@@ -201,6 +213,6 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## 遊戲設計文件
 
-這個專案要做的是「shell 解謎遊戲」，方向、劇情、技術選型與待討論項目都記錄在 [`docs/game-design.md`](./docs/game-design.md)。動工前先讀它，設計有變更時直接改那份文件。
+這個專案要做的是「shell 解謎遊戲」，方向、劇情、技術選型都記錄在 [`docs/game-design.md`](./docs/game-design.md)，還在等 Danny 確認的自主決策在 [`docs/notes/decisions.md`](./docs/notes/decisions.md)。動工前先讀它，設計有變更時直接改那份文件。文件地圖在 [`docs/README.md`](./docs/README.md)。
 
-目前進度、下一步與已知陷阱記錄在 [`docs/progress.md`](./docs/progress.md)。開新 session 時先照它的第 0 節檢查清單走；每次收工要更新它的現況快照、任務勾選與工作日誌，並一起 commit。
+目前進度、下一步記錄在 [`docs/progress.md`](./docs/progress.md)，已知陷阱在 [`docs/notes/pitfalls.md`](./docs/notes/pitfalls.md)。開新 session 時先照 progress.md 第 0 節檢查清單走；每次收工要更新它的現況快照與待辦勾選、在 `docs/notes/worklog.md` 加一筆日誌，並一起 commit。

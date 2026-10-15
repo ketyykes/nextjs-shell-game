@@ -58,7 +58,7 @@ pnpm build        # 正式建置（三個路由都是靜態輸出）
 - **zustand** + persist：劇情旗標、進度與存檔
 - **Tailwind CSS v4** + shadcn/ui
 
-設計定案見 [`docs/game-design.md`](docs/game-design.md)，開發進度與已知陷阱見 [`docs/progress.md`](docs/progress.md)。
+設計定案見 [`docs/game-design.md`](docs/game-design.md)，開發進度見 [`docs/progress.md`](docs/progress.md)，已知陷阱見 [`docs/notes/pitfalls.md`](docs/notes/pitfalls.md)。
 
 ## 素材與授權
 

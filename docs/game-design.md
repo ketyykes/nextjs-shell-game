@@ -1,6 +1,6 @@
 # Shell 解謎遊戲設計文件
 
-> 狀態：設計已定案；2026-10-01 六章程式全部完成（第一版只做第一章的範圍已擴到六章，六個甲板共用同一張平面圖，見 progress.md 第 8 節 #23）。本文件記錄 2026-09-22 的討論結論，是「設計定案」；目前做到哪、下一步是什麼請看 [`progress.md`](./progress.md)。設計有變更請直接改這份文件，進度變更請改 progress.md。
+> 狀態：設計已定案；2026-10-15 M0 到 M15 全部完成。六章程式在 2026-10-01 完成（第一版只做第一章的範圍已擴到六章，六個甲板共用同一張平面圖，見 notes/decisions.md #23），之後陸續做了 M9 小尾巴、M10 到 M14 優化路線與 M15 遊戲化（4.12 到 4.14）。本文件起於 2026-09-22 的討論結論，之後的設計變更都直接改在這裡，是「設計定案」；目前做到哪、下一步是什麼請看 [`progress.md`](./progress.md)。設計有變更請直接改這份文件，進度變更請改 progress.md。自主實作時自己拍板、還在等 Danny 確認的取捨列在 [`notes/decisions.md`](./notes/decisions.md)，文中「決策 #N」都指那裡，「第 N 場」見 [`notes/worklog.md`](./notes/worklog.md)，「M 任務編號」見 [`archive/progress-milestones-m0-m15.md`](./archive/progress-milestones-m0-m15.md)。
 
 ## 1. 專案目標
 
@@ -19,13 +19,13 @@
 | 遊戲型態 | 俯視角像素走動，終端機是彈出視窗 | 純文字冒險（靜態插圖 + 終端機）：工作量小但沒有探索感，保留為降級方案 |
 | 遊戲引擎 | Phaser 4（已安裝 4.2.1） | PixiJS + @pixi/react：只有渲染層，tilemap、碰撞、鏡頭都要自己寫。Kaplay：Tiled 整合弱。Excalibur：0.x 有破壞性變更 |
 | Shell 核心 | 自製 TypeScript 虛擬檔案系統與指令解析器，零依賴 | WebAssembly 真 shell：套件大、要 COOP/COEP、過關判定難。後端沙箱：要伺服器與安全隔離 |
-| 終端機 UI | 自製 React 元件，外框與打字動畫可用 Magic UI 的 Terminal | @xterm/xterm：只能輸出 ANSI 字串，NOVA 對話框做不成元件。現成 React 終端機套件都停在 2025 年初沒維護 |
-| Phaser 與 React 溝通 | 官方範本的 EventBus 事件橋接 | 無替代，Phaser 有自己的生命週期，必須用事件同步 |
+| 終端機 UI | 自製 React 元件，像素外框、打字動畫、輸入列都自己寫 | @xterm/xterm：只能輸出 ANSI 字串，NOVA 對話框做不成元件。現成 React 終端機套件都停在 2025 年初沒維護。Magic UI 的 Terminal：試裝過，外框是固定圓角加 macOS 三色圓點、沒有輸入列，跟像素邊框對不上，已移除（archive/progress-milestones-m0-m15.md 的 M2-4） |
+| Phaser 與 React 溝通 | EventBus 事件橋接（沿用官方範本的做法，但 emitter 自己寫、零相依，`src/game/phaser/EventBus.ts`） | 無替代，Phaser 有自己的生命週期，必須用事件同步。不用 `Phaser.Events.EventEmitter`：Phaser 4 一 import 就讀 `window`，HUD 這類會被 SSR 的元件引用到就會掛掉 |
 | 狀態管理 | zustand + persist middleware | React context：slice 多了會亂 |
 | 連線模式 | 單機，進度存 localStorage | 多人連線：要 WebSocket 後端與位置同步，範圍太大 |
 | 素材 | tileset 與角色用 CC0 素材包，codex 只產插圖 | 全部用 AI 產：tileset 格線對不齊、sprite sheet 動畫幀不一致 |
 | 調性 | 恐怖驚悚，心理恐怖，無追逐無血腥 | 輕鬆或溫暖路線 |
-| 第一版範圍 | 只做第一章 | 三章或六章：先把引擎與流程跑通再加內容 |
+| 第一版範圍 | 先只做第一章，跑通後擴到六章（2026-10-01 六章完成，見 notes/decisions.md #23 起） | 一開始就做三章或六章：先把引擎與流程跑通再加內容 |
 
 ## 3. 技術架構
 
@@ -34,14 +34,14 @@
 │  React（DOM 層）                                         │
 │  ┌──────────────┐  ┌─────────────────┐  ┌────────────┐ │
 │  │ 終端機彈窗    │  │ NOVA 對話框      │  │ 目標／速查  │ │
-│  │ (shadcn      │  │ (打字動畫)       │  │ 側邊面板    │ │
-│  │  Dialog)     │  │                 │  │            │ │
+│  │ (自製        │  │ (打字動畫)       │  │ 側邊面板    │ │
+│  │  Modal/Frame)│  │                 │  │            │ │
 │  └──────┬───────┘  └────────┬────────┘  └─────┬──────┘ │
 │         │                   │                 │        │
 │         └─────────┬─────────┴─────────────────┘        │
 │                   │ zustand store（劇情旗標、進度、FS）   │
 │                   │                                     │
-│              EventBus（Phaser.Events.EventEmitter）      │
+│              EventBus（自製型別化 emitter，零相依）     │
 │                   │                                     │
 │  ┌────────────────┴────────────────────────────────┐   │
 │  │  Phaser 4（canvas 層）                            │   │
@@ -52,17 +52,18 @@
 
 ### 3.1 事件橋接
 
-- Phaser 發 `terminal:open`，帶終端機 id，React 開啟對應的 shell 彈窗並暫停 Phaser 場景。
+- Phaser 發 `terminal:open`，帶終端機 id，並自己暫停場景（`TerminalZone` 呼叫 `scene.pause()`）；React 開啟對應的 shell 彈窗。
 - React 發 `terminal:close`，Phaser 恢復場景。
-- React 發 `puzzle:solved`，帶終端機 id，Phaser 播對應演出，例如燈亮、門開、人影閃現。
+- React 發 `puzzle:solved`，帶終端機 id，Phaser 依劇本宣告的過關演出（`SolvedEffect`：亮燈、開門、人影、燈閃、斷電）播放，終端機開著時延到關閉才播。
 - Phaser 發 `room:enter`，帶艙區 id，React 觸發 NOVA 的進房台詞。
-- 事件名稱與 payload 用 TypeScript 型別集中定義，避免打錯字沒人發現。
+- 以上是主要流程。其他事件（`terminal:nearby`、`scene:ready`、`sfx:play`、`ambient:flicker`、`audio:settings`、`effects:settings`、`game:pause`／`game:resume`、`player:stopped`、`assets:error`）見 `src/game/phaser/events.ts` 的 `GameEventMap`。
+- 事件名稱與 payload 用 TypeScript 型別集中定義在 `events.ts`，避免打錯字沒人發現。
 
 ### 3.2 Next.js 整合
 
 - 官方範本 `phaserjs/template-nextjs` 用的是 Pages Router，這個專案是 App Router，要改寫。
 - `PhaserGame` 元件是 client component，用 `next/dynamic` 加 `ssr: false` 載入，因為 Phaser 會碰 `window`。
-- 用 `useLayoutEffect` 建立 `new Phaser.Game()`，卸載時 `game.destroy(true)`，並防 React 嚴格模式重複建立。
+- 用 `useLayoutEffect` 排一個 `requestAnimationFrame`，下一幀才呼叫 `startGame`（`main.ts` 裡 `new Phaser.Game()`）；卸載時取消排程並 `game.destroy(true)`。延後一幀是防 React 嚴格模式的 mount → unmount → mount：第一次的 cleanup 在同一幀內就取消排程，第一個遊戲不會建出來，也不會殘留兩層 canvas。`character` 或 `chapter` 變動時先銷毀再重建。
 - 遊戲設定：`pixelArt: true` 讓像素放大不糊，`type: Phaser.AUTO`。
 - 預取：標題流程（`usePlayPrefetch`）在標題淡入動畫跑完後的閒置時段 `router.prefetch("/play")`，並動態 import `PhaserGame` 模組（`preloadPhaserGame`，跟 `PhaserGameDynamic` 同一個 chunk），所以 **`PhaserGame` 的整個模組圖會在標題頁評估**，那條 import 鏈上不要放有副作用或依賴 `/play` 狀態的頂層程式碼。引擎排完接著預載要進的那一章插圖；進 `/play` 掛載時（`useScenePreload`）也會排本章插圖，兩邊共用同一條一次一張、低優先的 `Image` 佇列（`lib/preload.ts`），載過的留在記憶體快取，插圖卡顯示時不再發請求。
 - 只用 arcade 物理，打包時用 `next.config.ts` 的 `turbopack.resolveAlias` 把 `phaser` 換成不含 Matter.js 的 `phaser-arcade-physics` 建置（M12-3）。
@@ -100,7 +101,7 @@
 ### 3.4 關卡與劇本格式
 
 - 每章一個 TypeScript 模組，例如 `src/game/chapters/ch1-life-support.ts`。
-- 內容包含：地圖上終端機的位置、每台終端機的初始檔案系統、目標判定函式、三段式提示、NOVA 台詞與觸發條件。
+- 內容包含：每台終端機所在的艙區（`story/decks.ts` 的 `deckTerminalIdentity`，地圖上的格座標由 `scripts/build-map.mjs` 產生的地圖決定）、每台終端機的初始檔案系統、教的指令、目標判定函式、三段式提示、過關演出、NOVA 台詞與觸發條件。
 - 用 zod 定義 schema，寫劇本時欄位打錯會直接報錯。
 - 檔案內容就是劇本，寫劇情等於在寫檔案。
 
@@ -211,17 +212,17 @@ NOVA 從未被回滾，「失憶」是演的。公司規定無人站點滿三年
 ### 4.7 遊戲流程、存檔與設定
 
 ```
-標題畫面 → 開場 boot log → 遊玩（地圖 + 終端機）→ 章節結束 → 下一章／回標題
-              ▲                    │ Esc
-              │                    ▼
-              └──────────── 暫停選單（繼續／回標題／重玩本章）
+標題畫面 → 選角 → 開場 boot log → 開場插圖 → 遊玩（地圖 + 終端機）→ 章節結束 → 下一章／回標題
+                                                ▲         │ Esc
+                                                │         ▼
+                                                └────── 暫停選單（繼續／設定／重玩本章／回標題）
 ```
 
 - **標題畫面**：黑底、Kepler-9 像素標題、CRT 掃描線。選單依序是「繼續」「通關紀錄」「選章」「新遊戲」「設定」「存檔管理」「練習模式」，沒有的條件就不出現。「繼續」只在有存檔時出現，「新遊戲」若有存檔要先確認覆蓋。「存檔管理」與「練習模式」有沒有存檔都會出現；練習模式按下直接進沙盒（見 4.11），不必確認也不動存檔。
 - **副標**：有存檔顯示目前章節（例如「資料中心 · 第二章」），沒有存檔顯示第一章。通關後停在片尾之後（見下面「通關」）改成「已逃離 Kepler-9」。
 - **選角**：按「新遊戲」後先選四個外觀之一，畫面只有四個站立的 sprite 放大顯示與方向鍵切換，不做背景故事介紹。
-- **開場**：不做過場動畫，直接用終端機打字動畫跑喚醒程序的 boot log，名單查詢卡在「查無此人」，NOVA 的第一句話出現在這裡，然後淡入地圖。玩家在拿到操控權之前就已經看過終端機、知道它會說話。
-- **暫停選單**：在地圖上按 Esc 開啟，項目為繼續、回標題、重玩本章。
+- **開場**：不做過場動畫，直接用終端機打字動畫跑喚醒程序的 boot log，名單查詢卡在「查無此人」，NOVA 的第一句話出現在這裡，接著一張開場插圖卡（`scene-intro`，冷凍艙），然後淡入地圖。玩家在拿到操控權之前就已經看過終端機、知道它會說話。
+- **暫停選單**：在地圖上按 Esc 開啟，項目依序為繼續、設定、重玩本章、回標題。Esc 等同繼續；「重玩本章」先跳內嵌確認（預設選取消）；「設定」開的是跟標題同一個設定選單。
 - **章節結束**：先播過場插圖與 NOVA 結尾台詞，再顯示「指令回顧卡」列出本章學會的指令與一句話說明，下方一行「本章紀錄」（用時、指令出錯幾次、看提示幾次，見下面「遊玩統計」），自動存檔。第六章的回顧卡之後接片尾（4.3），片尾最後一句按 Enter 回標題。
 - **通關**（M14-1，存檔 v3）：片尾最後一句按 Enter 回標題時記下「已逃離」（第一次的時間，之後再通關不改；只有新遊戲會清）。回到標題時：
   - 副標「已逃離 Kepler-9」，「繼續」不出現（已經沒有可以接著玩的地方，以前按「繼續」會重播回顧卡與片尾），第一項換成「通關紀錄」，選章、新遊戲照常。
@@ -248,7 +249,7 @@ NOVA 從未被回滾，「失憶」是演的。公司規定無人站點滿三年
   - 存檔版本比程式新（例如部署回滾）：不讀也不寫，原始存檔原封不動，畫面頂端提示；這個分頁照樣能從頭玩，只是不存檔。
   - 舊版存檔升級前，原始字串備份到 `kepler9-save.backup.v<舊版號>`。
 - **選章**：標題畫面在有存檔且到過兩章以上時多一項「選章」，只列第一章到最遠到過的章節。選定後確認「從頭重玩」，只清該章的進度，其他章節與最遠章節保留；選第一章會重走 boot log。
-- **設定選單第一版三項**：文字速度、關閉閃爍效果、關閉 CRT 掃描線。關閉閃爍是光敏體質玩家的安全項，恐怖遊戲常閃燈，這項不能省。音量等有音效再加。
+- **設定選單**：文字速度（慢、普通、快、立即四段）、閃爍效果、CRT 掃描線、暗角、音量、靜音六項，標題與暫停選單共用同一個。閃爍效果標「光敏體質請關閉」，是光敏體質玩家的安全項，恐怖遊戲常閃燈，這項不能省。音量與靜音見 4.10。
   - 關閉閃爍時：CRT 閃爍、環境燈閃、`flicker` 過關演出、開門的鏡頭閃光、人影出現時的鏡頭震動都不播；人影改成約 1.4 秒的淡入淡出，劇情點保留。亮燈序列與斷電是緩慢淡變，照播。
 
 ### 4.8 教學曲線與防呆
@@ -480,7 +481,7 @@ NOVA 從未被回滾，「失憶」是演的。公司規定無人站點滿三年
 └──────────────────────────────────────────────────────────────┘
 ```
 
-**上方 HUD**：左上 O2 與正下方的除役倒數（4.13），上方中央是第一章 T1 過關前的操作提示（4.6），右上艙區名，右側邊緣是「已學指令」「對話紀錄」兩個面板標籤（4.8、4.9）；底部左邊目標面板、右邊 NOVA 對話框，「按 E」提示在兩者中間（1280 以下往上移）。存檔出問題的提示水平置中、從 96 px 開始，讓開上方 HUD 與除役倒數；音效載入失敗的提示再往下、從 176 px 開始，768 寬時存檔提示折成兩行也不會跟它疊到。
+**上方 HUD**：左上 O2 與正下方的除役倒數（4.13），上方中央是第一章 T1 過關前的操作提示（4.6），右上艙區名，右側邊緣是「已學指令」「對話紀錄」「阿彬的留言」三個面板標籤（4.8、4.9、4.12；「阿彬的留言」要第一章宿舍那台過關後才出現）；底部左邊目標面板、右邊 NOVA 對話框，「按 E」提示在兩者中間（1280 以下往上移）。存檔出問題的提示水平置中、從 96 px 開始，讓開上方 HUD 與除役倒數；音效載入失敗的提示再往下、從 176 px 開始，768 寬時存檔提示折成兩行也不會跟它疊到。
 
 **目前目標面板跟著終端機走**：地圖不鎖順序，所以面板不固定指向編號最小的那台，而是依序取「開著且未過關的那台」「附近（出現按 E 提示）且未過關的那台」「這一章第一台未過關的」；已過關的終端機不搶目標。目標說明寫出終端機所在的艙區，玩家看面板就知道要往哪走。
 
@@ -508,75 +509,25 @@ NOVA 從未被回滾，「失憶」是演的。公司規定無人站點滿三年
 
 ### 6.3 codex 產圖流程
 
-實測可行，一張約兩分鐘，輸出 1254x1254 PNG：
+實測可行，一張約一到兩分鐘。場景插圖輸出大多約 1672x941（16:9），第十場改用 640x360 縮圖當風格參考時，有些只輸出 640x360（遊戲本來就用這個尺寸，見 notes/worklog.md 第十場）；NOVA 立繪是 1254x1254 PNG。提示詞從 stdin 餵、選項用 `--` 結束（`-i <FILE>...` 是可變數量參數，提示詞直接接在後面會被吃成圖片路徑，見 notes/pitfalls.md）：
 
 ```bash
-cd public/scenes && codex exec --skip-git-repo-check -s workspace-write \
-  "請用你的 image_generation 工具產生一張圖：<固定風格前綴> <描述>。產生後把圖片存成目前目錄下的 <name>.png"
+cd docs/assets-draft/scenes && codex exec --skip-git-repo-check -s workspace-write -i scene-cryo-original.png -- <<PROMPT
+請用你的 image_generation 工具產生一張圖：<固定風格前綴> <描述> 產生後把圖片存成目前目錄下的 scene-<name>-original.png
+PROMPT
 ```
 
 - codex 會先存到 `~/.codex/generated_images/<session>/`，再複製到指定路徑。
 - 固定風格前綴確保幾十張圖看起來是同一個世界，例如「16-bit 像素風、深色廢棄太空站、冷藍色調、CRT 掃描線質感」。
 - 不用它產 tileset 與 sprite sheet，格線對不齊。
-- 第一章實際產出：NOVA 立繪 2 張（`nova-eye`、`nova-core`）、角色 sprite 4 張、六個艙區各 1 張場景插圖、開場與結尾過場 2 張。八張場景圖由 `docs/assets-draft/scenes/generate.sh` 批次產生，成品在 `public/scenes/`。
-- 產第二版以後的圖時用 `-i <參考圖>` 把已定稿的圖附上，風格才會一致。
+- 實際產出：NOVA 立繪 2 張（`nova-eye`、`nova-core`）、角色 sprite 4 張、場景插圖 44 張。第一章 8 張（六個艙區、開場與結尾過場）由 `docs/assets-draft/scenes/generate.sh` 批次產生，第二到六章 36 張（每章六個艙區加結尾過場，外加片尾）由 `generate-ch2-6.sh` 產生。原圖用 `node scripts/resize-scenes.mjs` 縮成 `public/scenes/` 的 640x360 WebP 與 `docs/assets-draft/scenes/` 的 256x144 PNG 預覽。
+- 冷凍艙先產當風格基準，其餘用 `-i` 附它當參考圖，風格才會一致。
 - 草稿圖放在 `docs/assets-draft/`，定稿後才搬到 `public/`。
-- 命名規則：原始大圖加 `-original` 後綴，例如 `nova-portrait-original.png`，已在 .gitignore 忽略；縮小後的預覽圖不加後綴，例如 `nova-portrait.png`（256px）、`technician-b.png`（128px），會進版控。`.psd`、`.blend`、`.aseprite` 這類美術原始檔一律不進版控。
+- 命名規則：原始大圖加 `-original` 後綴，例如 `nova-eye-original.png`、`scenes/scene-cryo-original.png`，已在 .gitignore 忽略；縮小後的預覽圖不加後綴，例如 `nova-eye.png`（256px）、`technician-c.png`（128px）、`scenes/scene-cryo.png`（256x144），會進版控。`.psd`、`.blend`、`.aseprite` 這類美術原始檔一律不進版控。
 
-## 7. 目錄規劃
+## 7. 甲板地圖配置（六章共用）
 
-```
-src/
-├── app/
-│   ├── play/page.tsx          # 遊戲頁面，dynamic import PhaserGame
-│   └── sandbox/page.tsx       # 練習模式（4.11），只有終端機
-├── components/
-│   ├── terminal/              # Terminal、OutputBlock、DialogueBlock、PromptInput
-│   ├── game/                  # PhaserGame、ObjectivePanel、NovaDialogue、CommandCheatSheet
-│   └── ui/                    # shadcn 元件
-├── game/
-│   ├── phaser/
-│   │   ├── main.ts            # Phaser 設定與 StartGame
-│   │   ├── EventBus.ts        # 事件橋接
-│   │   ├── events.ts          # 事件名稱與 payload 型別
-│   │   └── scenes/            # Boot、Preloader、Station
-│   ├── shell/
-│   │   ├── fs/                # 虛擬檔案系統
-│   │   ├── parser/            # 指令解析、管線、重導向
-│   │   ├── commands/          # 每個指令一個檔案
-│   │   └── shell.ts           # 執行入口
-│   ├── story/
-│   │   ├── schema.ts          # zod schema
-│   │   ├── flags.ts           # 劇情旗標
-│   │   └── objectives.ts      # 目標判定
-│   ├── chapters/
-│   │   └── ch1-life-support.ts
-│   ├── sandbox/               # 練習模式的檔案系統與 shell session
-│   └── store/                 # zustand store 與 persist
-public/
-├── tiles/                     # tileset
-├── sprites/                   # 角色
-├── scenes/                    # codex 產的插圖
-└── maps/                      # 地圖資料
-docs/
-└── game-design.md             # 本文件
-```
-
-## 8. 第一版範圍與工作順序
-
-第一版只做第一章，順序如下，每一步都要能跑、能測。
-
-1. **Shell 引擎與單元測試**：pwd、ls、ls -a、ls -l、cd、cat、hint、help，路徑解析、Tab 補全、歷史。
-2. **終端機 UI 與 store**：先不接 Phaser 與劇情，能在頁面上打指令看結果。
-3. **Phaser 地圖與角色**：載入 tileset、畫第一章地圖、角色走動與碰撞、走近終端機提示。
-4. **事件橋接**：按 E 開終端機、Esc 關、過關後地圖演出。
-5. **第一章劇本**：六台終端機的檔案系統、NOVA 台詞、目標判定、三段式提示。
-6. **圖片**：codex 產八張場景圖並接上（艙區插圖卡、開場與結尾過場）。
-7. **存檔與標題畫面**：localStorage、繼續遊戲、重新開始。
-
-## 9. 第一章地圖配置草案
-
-冷凍艙為起點，一條主走廊串起所有房間，主艙門在走廊盡頭。斷電時只看得到角色周圍，終端機的光是唯一指引。
+冷凍艙為起點，一條主走廊串起所有房間，主艙門在走廊盡頭。斷電時只看得到角色周圍，終端機的光是唯一指引。這張平面圖由 `scripts/build-map.mjs`（`SLOT_GEOMETRY`、`buildDeckLayout`）產生，六個甲板共用（notes/decisions.md #23），每章只換艙區名稱、終端機標題、配色、通風格與控制台 tile；下圖用第一章的艙區名。
 
 ```
 ┌──────────┐   ┌──────────┐   ┌──────────┐
@@ -595,14 +546,6 @@ docs/
 └──────────┘   └──────────┘
 ```
 
-- T1 到 T6 是六台終端機，編號就是建議的遊玩順序，但玩家可以自由走動，只有主艙門在 T4 過關前打不開。
-- 房間門在斷電時全開，避免玩家卡住；只有主艙門是鎖的。
-- 地圖尺寸初估 40 x 24 格，32px 一格，鏡頭放大兩倍跟隨角色。
-
-## 10. 尚未定案
-
-| 項目 | 狀態 |
-|---|---|
-| 角色 sprite | 已定案，A、C、D、E 四版正式檔在 `public/sprites/`，見 6.2 |
-| 存檔細節 | 已定案，見 4.7 |
-| 音效與音樂 | 已定案，見 4.10 |
+- T1 到 T6 是六台終端機，編號就是建議的遊玩順序，但玩家可以自由走動，不鎖順序。T4（配電室）過關恢復供電、燈一盞盞亮起；主艙門在 T6（主艙門控制台本身）過關時才打開，T6 先過時燈也一起全亮。
+- 房間門不碰撞、一律可通行，避免玩家卡住；只有每章出口的主艙門是鎖的。
+- 地圖 40 x 24 格，32px 一格，鏡頭放大兩倍跟隨角色。
