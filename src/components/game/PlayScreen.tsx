@@ -23,6 +23,7 @@ import { ChapterEndScreen } from "@/components/game/ChapterEndScreen";
 import { shouldShowControlsHint } from "@/components/game/ControlsHint";
 import { CrtOverlay } from "@/components/game/CrtOverlay";
 import { Hud } from "@/components/game/Hud";
+import { isOxygenCritical, shouldWhisperOnRoomEnter } from "@/components/game/lowOxygen";
 import { NovaDialogue } from "@/components/game/NovaDialogue";
 import { objectiveDisplay } from "@/components/game/objectiveDisplay";
 import { ObjectivePanel } from "@/components/game/ObjectivePanel";
@@ -34,6 +35,7 @@ import { SidePanels } from "@/components/game/SidePanels";
 import { TerminalModal } from "@/components/game/TerminalModal";
 import { useAbinNotes } from "@/components/game/useAbinNotes";
 import { useChapterNavigation } from "@/components/game/useChapterNavigation";
+import { useHeartbeat } from "@/components/game/useHeartbeat";
 import { useNovaReactions } from "@/components/game/useNovaReactions";
 import { useNovaTriggers } from "@/components/game/useNovaTriggers";
 import { usePauseMenu } from "@/components/game/usePauseMenu";
@@ -52,6 +54,7 @@ import { useTerminalSessions } from "@/components/game/useTerminalSessions";
 import { SettingsMenu } from "@/components/title/SettingsMenu";
 import { chapterTeaches, findTerminal, getChapter, isChapterComplete } from "@/game/chapters";
 import { endingLinesFor } from "@/game/chapters/ending";
+import { emitGameEvent } from "@/game/phaser/EventBus";
 import { ROOM_NAMES, type GameEventMap, type RoomId } from "@/game/phaser/events";
 import { novaPortraitFor, type TerminalDefinition } from "@/game/story";
 import { endingImage, outroImageForChapter, sceneImageForRoom } from "@/game/story/scenes";
@@ -151,6 +154,9 @@ function PlayScreenReady({ character }: PlayScreenReadyProps) {
 	const playTimeRunning = !isChapterComplete(chapter, solvedTerminals) && !pauseMenu.menuOpen;
 	usePlayTime(chapter.chapter, playTimeRunning);
 	const chapterStats = useGameStore((state) => state.stats[String(chapter.chapter)]);
+	// 低氧氣的後果（4.25）：低於 20% 心跳聲循環、地圖上的 NOVA 斷句；終端機的亂碼由 TerminalModal 依氧氣處理
+	useHeartbeat(oxygen);
+	const oxygenCritical = isOxygenCritical(oxygen);
 
 	// 關閉終端機後，地圖上的 NOVA 重說這次過關台詞的最後一句（#5）
 	const handleCloseTerminal = useCallback(() => {
@@ -166,6 +172,10 @@ function PlayScreenReady({ character }: PlayScreenReadyProps) {
 		setCurrentRoom(roomId);
 		if (!nova.enterRoom(roomId)) {
 			return;
+		}
+		// 第六章第一次走進 NOVA 核心艙：耳邊一段聽不清楚的低語（4.25）
+		if (shouldWhisperOnRoomEnter(chapter.chapter, roomId)) {
+			emitGameEvent("sfx:play", { sound: "whisper" });
 		}
 		// 第一次進艙區：先秀插圖卡，NOVA 的進房台詞接在後面（#16）
 		const image = sceneImageForRoom(roomId);
@@ -264,7 +274,13 @@ function PlayScreenReady({ character }: PlayScreenReadyProps) {
 					abinTabUnlocked ? { found: abinNotes.found, furthestChapter, reply: abinNotes.reply } : undefined
 				}
 			/>
-			<NovaDialogue queue={nova.queue} textSpeed={settings.textSpeed} onShown={nova.dismiss} portrait={novaPortrait} />
+			<NovaDialogue
+				queue={nova.queue}
+				textSpeed={settings.textSpeed}
+				onShown={nova.dismiss}
+				portrait={novaPortrait}
+				stutter={oxygenCritical}
+			/>
 
 			<AnimatePresence>
 				{openTerminal !== null && (

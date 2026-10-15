@@ -38,12 +38,14 @@ vi.mock("@/components/game/NovaDialogue", () => ({
 		queue,
 		onShown,
 		portrait,
+		stutter,
 	}: {
 		queue: { id: string; text: string }[];
 		onShown: (id: string) => void;
 		portrait?: string;
+		stutter?: boolean;
 	}) => (
-		<div data-testid="nova-stub" data-portrait={portrait ?? "eye"}>
+		<div data-testid="nova-stub" data-portrait={portrait ?? "eye"} data-stutter={stutter === true ? "true" : "false"}>
 			<ol>
 				{queue.map((message) => (
 					<li key={message.id} data-testid="nova-queue-item" data-id={message.id}>
@@ -495,6 +497,59 @@ describe("PlayScreen 卡關反應", () => {
 	});
 });
 
+describe("PlayScreen 低氧氣的後果（4.25）", () => {
+	function whispers(events: { name: GameEventName; payload: unknown }[]) {
+		return events.filter((event) => (event.payload as { sound?: string }).sound === "whisper");
+	}
+
+	it("第六章第一次走進 NOVA 核心艙播一次低語，再進去不播，別的艙區不播", () => {
+		seedSave({ progress: { chapter: 6 }, storyFlags: { [introShownFlag(6)]: true } });
+		const events = recordEvents(["sfx:play"]);
+		render(<PlayScreen />);
+
+		emit("room:enter", { roomId: "nv_entry" });
+		expect(whispers(events)).toEqual([]);
+		emit("room:enter", { roomId: "nv_core" });
+		expect(whispers(events)).toHaveLength(1);
+		emit("room:enter", { roomId: "nv_corridor" });
+		emit("room:enter", { roomId: "nv_core" });
+		expect(whispers(events)).toHaveLength(1);
+	});
+
+	it("存檔氧氣低於 20%：一進來就開心跳、HUD 標顯示不穩、地圖上的 NOVA 斷句", () => {
+		seedSave({ progress: { oxygen: 12 } });
+		const events = recordEvents(["audio:heartbeat"]);
+		render(<PlayScreen />);
+		emit("scene:ready", { sceneKey: "Station" });
+
+		expect(events.at(-1)).toEqual({ name: "audio:heartbeat", payload: { active: true, intensity: 0.5 } });
+		expect(screen.getByTestId("hud-oxygen-unstable").textContent).toContain("顯示不穩");
+		expect(screen.getByTestId("nova-stub").getAttribute("data-stutter")).toBe("true");
+	});
+
+	it("氧氣回到 20% 以上（過關回 100%）：心跳停、標示收掉、不再斷句", () => {
+		seedSave({ progress: { oxygen: 12 } });
+		const events = recordEvents(["audio:heartbeat"]);
+		render(<PlayScreen />);
+
+		act(() => {
+			const state = useGameStore.getState();
+			useGameStore.setState({ progress: { ...state.progress, oxygen: 100 } });
+		});
+
+		expect(events.at(-1)).toEqual({ name: "audio:heartbeat", payload: { active: false, intensity: 0 } });
+		expect(screen.queryByTestId("hud-oxygen-unstable")).toBeNull();
+		expect(screen.getByTestId("nova-stub").getAttribute("data-stutter")).toBe("false");
+	});
+
+	it("氧氣正常時不開心跳、不斷句", () => {
+		const events = recordEvents(["audio:heartbeat"]);
+		render(<PlayScreen />);
+		expect(events).toEqual([{ name: "audio:heartbeat", payload: { active: false, intensity: 0 } }]);
+		expect(screen.getByTestId("nova-stub").getAttribute("data-stutter")).toBe("false");
+	});
+});
+
 describe("PlayScreen HUD 與目標", () => {
 	it("走到終端機旁顯示「按 E」提示，目標面板改指向那一台（M10-2）", () => {
 		render(<PlayScreen />);
@@ -857,8 +912,9 @@ describe("PlayScreen 訂閱穩定性（A4、A19）", () => {
 	it("Phaser 事件只在掛載時訂閱一次，之後的 render 不會拆掉重掛", () => {
 		seedSave({ storyFlags: {} });
 		render(<PlayScreen />);
-		// 掛載時 intro 排進佇列已經造成一次重新 render
-		expect(vi.mocked(onGameEvent)).toHaveBeenCalledTimes(5);
+		// 掛載時 intro 排進佇列已經造成一次重新 render。
+		// usePhaserBridge 的五個，加上 useHeartbeat 的 scene:ready（Station 建好時補發心跳狀態，4.25）
+		expect(vi.mocked(onGameEvent)).toHaveBeenCalledTimes(6);
 
 		emit("room:enter", { roomId: "cryo" });
 		emit("terminal:nearby", { terminalId: "ch1-t1" });
@@ -869,7 +925,7 @@ describe("PlayScreen 訂閱穩定性（A4、A19）", () => {
 		closeTerminalWithEscape();
 		fireEvent.click(screen.getAllByText("NOVA 下一則")[0]);
 
-		expect(vi.mocked(onGameEvent)).toHaveBeenCalledTimes(5);
+		expect(vi.mocked(onGameEvent)).toHaveBeenCalledTimes(6);
 	});
 
 	it("角色停下存位置不會讓整個畫面重新 render", () => {

@@ -100,7 +100,7 @@ export class Preloader extends Phaser.Scene {
 		});
 	}
 
-	/** 載入五種音效，同時給 ogg 與 mp3，Phaser 會挑瀏覽器支援的格式。 */
+	/** 載入 `AUDIO_KEYS` 的每一種音效（含 4.25 的心跳與低語），同時給 ogg 與 mp3，Phaser 會挑瀏覽器支援的格式。 */
 	private loadAudio(): void {
 		const names = Object.keys(AUDIO_KEYS) as SfxName[];
 		for (const name of names) {

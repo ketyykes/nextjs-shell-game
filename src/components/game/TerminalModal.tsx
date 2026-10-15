@@ -1,13 +1,15 @@
 "use client";
 
 import { motion } from "motion/react";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { Terminal } from "@/components/terminal";
+import { DisplayInstabilityContext } from "@/components/terminal/DisplayInstabilityContext";
 import type { Shell } from "@/game/shell/shell";
 import type { ShellExecution } from "@/game/shell/types";
 import { terminalOpenedFlag, type TerminalDefinition } from "@/game/story";
-import { useGameStore } from "@/game/store";
+import { selectOxygen, useGameStore } from "@/game/store";
 import type { OutputEntry, SettingsState } from "@/game/store/types";
+import { displayInstabilityFor } from "./lowOxygen";
 import { createDialogueEntries } from "./terminalSession";
 
 export interface TerminalModalProps {
@@ -28,6 +30,9 @@ export function TerminalModal({ definition, shell, textSpeed, onClose, onExecute
 	const saveTerminalSession = useGameStore((state) => state.saveTerminalSession);
 	const appendTranscript = useGameStore((state) => state.appendTranscript);
 	const entries = record?.transcript ?? [];
+	// 氧氣是整數，換算出來的值只在跨過門檻或掉一格時變，memo 住免得每次 render 都換新物件讓整個輸出區重算
+	const oxygen = useGameStore(selectOxygen);
+	const instability = useMemo(() => displayInstabilityFor(oxygen), [oxygen]);
 
 	// 第一次開這台時 NOVA 的開場白：掛載後才 push，Terminal 才會播打字動畫。
 	// 用劇情旗標去重，跨重整也不重說；不看輸出紀錄，因為 clear 或超過上限被截掉後開場白就不在裡面了
@@ -75,17 +80,20 @@ export function TerminalModal({ definition, shell, textSpeed, onClose, onExecute
 			data-testid="terminal-modal"
 		>
 			<div className="flex h-[80vh] w-full max-w-4xl">
-				<Terminal
-					title={definition.title}
-					shell={shell}
-					entries={entries}
-					onEntriesChange={handleEntriesChange}
-					onExecuted={handleExecuted}
-					onClose={onClose}
-					learnedCommands={shell.learnedCommands}
-					textSpeed={textSpeed}
-					solved={solved}
-				/>
+				{/* 低氧時輸出區顯示不穩（4.25）；沙盒的終端機不在這裡，沒有氧氣也就不受影響 */}
+				<DisplayInstabilityContext value={instability}>
+					<Terminal
+						title={definition.title}
+						shell={shell}
+						entries={entries}
+						onEntriesChange={handleEntriesChange}
+						onExecuted={handleExecuted}
+						onClose={onClose}
+						learnedCommands={shell.learnedCommands}
+						textSpeed={textSpeed}
+						solved={solved}
+					/>
+				</DisplayInstabilityContext>
 			</div>
 		</motion.div>
 	);

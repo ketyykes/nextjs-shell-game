@@ -95,4 +95,20 @@ describe("OxygenReadout", () => {
 		rerender(<OxygenReadout oxygen={100} raised />);
 		expect(screen.getByTestId("hud-oxygen").className).toContain("z-[41]");
 	});
+
+	it("低於 20% 時旁邊標「顯示不穩」，讓玩家知道亂碼是故意的；回到 20% 就收掉", () => {
+		const { rerender } = render(<OxygenReadout oxygen={19} raised />);
+		const note = screen.getByTestId("hud-oxygen-unstable");
+		expect(note.textContent).toContain("顯示不穩");
+		// 跟數值分開，不會擠進「O2 19%」那一段
+		expect(readoutText().textContent).toBe("O2 19%");
+
+		rerender(<OxygenReadout oxygen={20} raised />);
+		expect(screen.queryByTestId("hud-oxygen-unstable")).toBeNull();
+	});
+
+	it("20% 到 29% 只有琥珀色，沒有顯示不穩的標示", () => {
+		render(<OxygenReadout oxygen={25} raised={false} />);
+		expect(screen.queryByTestId("hud-oxygen-unstable")).toBeNull();
+	});
 });

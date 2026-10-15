@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
+import { useStutter } from "@/components/terminal/DisplayInstabilityContext";
 import { useTypewriter } from "@/components/terminal/useTypewriter";
 import type { NovaPortrait } from "@/game/story/flags";
 import { TEXT_SPEED_MS, type TextSpeed } from "@/game/store/types";
@@ -39,6 +40,8 @@ export interface NovaDialogueProps {
 	holdMs?: number;
 	/** 立繪，預設 `eye`；第六章進核心艙後父層改傳 `core`。 */
 	portrait?: NovaPortrait;
+	/** 低氧斷句（4.25）：氧氣低於 20% 時父層傳 true，每隔幾個字插「……」停一下；只改畫面，對話紀錄存原文。 */
+	stutter?: boolean;
 }
 
 const PORTRAITS: Record<NovaPortrait, { src: string; alt: string }> = {
@@ -109,13 +112,17 @@ export function NovaDialogue({
 	onShown,
 	holdMs = DEFAULT_HOLD_MS,
 	portrait = "eye",
+	stutter = false,
 }: NovaDialogueProps) {
 	const current = queue[0];
 	const currentId = current?.id;
 	const currentText = current?.text ?? "";
 
-	const displayed = useTypewriter(currentText, TEXT_SPEED_MS[textSpeed]);
-	const isTyping = current !== undefined && displayed !== currentText;
+	const stutterControls = useStutter(currentText, stutter);
+	const typed = useTypewriter(currentText, TEXT_SPEED_MS[textSpeed], stutterControls.typewriter);
+	// 打完了沒有看原文前綴，「……」只是畫面上插的；停在斷點上也還算在打字
+	const isTyping = current !== undefined && typed !== currentText;
+	const displayed = stutterControls.apply(typed);
 
 	// 已進入淡出階段的訊息 id；與目前訊息相同時，AnimatePresence 會播離場動畫
 	const [leavingId, setLeavingId] = useState<string | null>(null);

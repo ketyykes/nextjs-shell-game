@@ -5,8 +5,11 @@
  * 這個檔案不可以 import Phaser 或 React，讓 store、劇本、測試都能引用。
  */
 
-/** 第一版五種音效（4.10），Phaser 的 SoundManager 是唯一出口。 */
-export type SfxName = "ambient" | "key" | "door" | "power" | "nova-blip";
+/**
+ * 音效名稱，Phaser 的 SoundManager 是唯一出口。第一版五種（4.10）加第二批自產的兩種（4.25）：
+ * `heartbeat` 是低氧時的循環心跳，只走 `audio:heartbeat`，`sfx:play` 播不了；`whisper` 是 NOVA 低語，用 `sfx:play` 播一次。
+ */
+export type SfxName = "ambient" | "key" | "door" | "power" | "nova-blip" | "heartbeat" | "whisper";
 
 export interface GameEventMap {
 	/** Phaser 發：玩家在終端機旁按 E。React 開啟對應的 shell 彈窗。 */
@@ -27,6 +30,11 @@ export interface GameEventMap {
 	"ambient:flicker": { durationMs: number };
 	/** React 發：設定選單改了音量或靜音，Phaser 的 AudioManager 即時套用。 */
 	"audio:settings": { volume: number; muted: boolean };
+	/**
+	 * React 發：低氧心跳（4.25）。氧氣低於 20% 時 `active` 為 true、`intensity` 0 到 1（越低越大聲），回到 20% 以上 false。
+	 * 氧氣變動與每次 `scene:ready` 都會發，Station 晚於 React 建好也接得到。
+	 */
+	"audio:heartbeat": { active: boolean; intensity: number };
 	/** React 發：設定選單切換「閃爍」，Phaser 的人影、鏡頭震動與閃光、燈閃即時套用（光敏安全項）。 */
 	"effects:settings": { flickerEnabled: boolean };
 	/** React 發：暫停選單或設定選單開啟，Phaser 停住角色輸入。 */

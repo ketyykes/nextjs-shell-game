@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import type { OutputEntry } from "@/game/store/types";
+import { useDisplayedOutputLines } from "./DisplayInstabilityContext";
 
 /** 只接受指令輸出與系統訊息兩種區塊，NOVA 對話交給 `DialogueBlock`。 */
 export type OutputBlockEntry = Extract<OutputEntry, { kind: "command" } | { kind: "system" }>;
@@ -24,6 +25,8 @@ const LINE_CLASS = "break-all whitespace-pre-wrap";
  * - `system`：不是玩家打的（歡迎行、Tab 候選列表），用暗色；`tone: "success"`（過關的「目標達成」行）用青綠成功色。
  */
 export function OutputBlock({ entry }: OutputBlockProps) {
+	// 低氧時指令輸出的少數字元換成亂碼（4.25），系統行與 hint、help 的輸出照原文
+	const outputLines = useDisplayedOutputLines(entry);
 	if (entry.kind === "system") {
 		let toneClass = "text-game-dim";
 		if (entry.tone === "success") {
@@ -45,7 +48,7 @@ export function OutputBlock({ entry }: OutputBlockProps) {
 			<div className={LINE_CLASS}>
 				<span className="text-game-prompt">{entry.prompt}</span> {entry.input}
 			</div>
-			{entry.lines.map((line, index) => (
+			{outputLines.map((line, index) => (
 				<div key={index} className={cn(LINE_CLASS, entry.isError && "text-game-amber")}>
 					{displayLine(line)}
 				</div>

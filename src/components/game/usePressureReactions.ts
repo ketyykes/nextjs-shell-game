@@ -28,6 +28,7 @@ export interface UsePressureReactionsOptions {
  * - 燈閃：發 `ambient:flicker`，設定關閉閃爍時不發（光敏安全）。
  * - 門聲：發 `sfx:play door`。
  * - 第 9 次錯誤的 NOVA 台詞、卡關台詞：只內嵌在終端機（#21），地圖對話框被彈窗蓋住看不到。
+ *   第 9 次的台詞同時發 `sfx:play whisper`（NOVA 低語，4.25）。
  *   重複的卡關提醒用系統行提示輸入 hint（M10-5），第一次才是 NOVA 的劇本台詞。
  * - 第六章 T4 過關（NOVA 核心被終止）之後不說第 9 次錯誤的台詞（4.14）：T5、T6 只剩系統自動回覆，
  *   燈閃與門聲照舊；第一次卡關用的是那兩台劇本寫好的自動回覆，也照舊。
@@ -68,6 +69,8 @@ export function usePressureReactions({
 						openTerminal.id,
 						createDialogueEntries(`nova-error-${openTerminal.id}-${reaction.lineIndex}-${Date.now()}`, [text]),
 					);
+					// 它說話的同時，耳邊有一段聽不清楚的低語（4.25）
+					emitGameEvent("sfx:play", { sound: "whisper" });
 					return;
 				}
 				case "stuck":

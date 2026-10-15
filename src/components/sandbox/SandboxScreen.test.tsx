@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SANDBOX_BANNER } from "@/game/sandbox/practice";
+import { useGameStore } from "@/game/store";
 import { SandboxScreen, type SandboxScreenProps } from "./SandboxScreen";
 
 // vitest 沒開 globals，Testing Library 不會自動 cleanup
@@ -40,6 +41,17 @@ describe("SandboxScreen", () => {
 		expect(screen.getByRole("heading", { name: "練習模式" })).toBeDefined();
 		expect(getLog().textContent).toContain(SANDBOX_BANNER[0]);
 		expect(document.activeElement).toBe(getInput());
+	});
+
+	it("沙盒沒有氧氣：主線存檔的氧氣再低，輸出也不會顯示不穩（4.25）", () => {
+		const state = useGameStore.getState();
+		useGameStore.setState({ progress: { ...state.progress, oxygen: 5 } });
+		renderSandbox();
+		const text = "crew_manifest.txt pod_01 pod_02 pod_03 pod_04 pod_05 wake_up.txt";
+		runCommand(`echo ${text}`);
+		const blocks = getLog().querySelectorAll('[data-entry-kind="command"]');
+		expect(blocks[blocks.length - 1].children[1].textContent).toBe(text);
+		useGameStore.setState({ progress: state.progress });
 	});
 
 	it("可以直接打指令，所有指令都開放", () => {
