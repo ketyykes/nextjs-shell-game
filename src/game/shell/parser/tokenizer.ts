@@ -11,7 +11,7 @@
  *
  * 不支援的語法（M13-1，第十九場縮小範圍）：引號外遇到背景執行的 `&`、`<<`、`<<<`、`<(`、`<&`、`<>`、
  * `>&2` 這類把輸出接到別的檔案描述元的寫法、`|&`、`1`、`2` 以外的檔案描述元（`3>`、`0<`），
- * 或是引號外與雙引號內的算術 `$((`，直接回傳 `UNSUPPORTED_SYNTAX`，detail 是那個符號，不默默當成一般字元。
+ * 或是引號外與雙引號內的數字計算 `$((`，直接回傳 `UNSUPPORTED_SYNTAX`，detail 是那個符號，不默默當成一般字元。
  * 單引號內與反斜線跳脫過的都是字面值。
  * 檔案描述元只認「整個 word 都是引號外打的數字」緊接 `>` 或 `<`，所以 `a2>b`、`2 > b`、`"2">b` 都是一般重導向。
  *
@@ -279,7 +279,7 @@ type SubstitutionScan = { ok: true; span: SubstitutionSpan | null } | { ok: fals
 
 /**
  * `chars[index]` 是 `$(` 或反引號時讀出整段指令替換；不是的話 `span` 為 null。
- * `$((` 是算術運算，不支援。
+ * `$((` 是數字計算，不支援。
  */
 function scanSubstitution(chars: string[], index: number): SubstitutionScan {
 	if (chars[index] === "$" && chars[index + 1] === "(") {

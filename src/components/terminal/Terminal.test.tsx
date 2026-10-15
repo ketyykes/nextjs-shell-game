@@ -548,7 +548,7 @@ describe("Terminal 的 Ctrl+R 歷史搜尋（第十九場）", () => {
 		expect(screen.getByText("': cat wake_up.txt | wc -l")).toBeDefined();
 	});
 
-	it("輸入法組字中、⌘R、Ctrl+Shift+R 都不攔", () => {
+	it("輸入法組字中、Command+R、Ctrl+Shift+R 都不攔", () => {
 		renderWithHistory();
 		expect(pressCtrlR({ isComposing: true })).toBe(true);
 		expect(fireEvent.keyDown(getInput(), { key: "r", metaKey: true })).toBe(true);

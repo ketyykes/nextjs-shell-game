@@ -55,7 +55,7 @@ function isImeComposing(event: KeyboardEvent<HTMLInputElement>): boolean {
 }
 
 /**
- * 是不是單純的 Ctrl+字母：Mac 也是 Control 鍵（不是 ⌘），加了 Shift、Alt 的不算
+ * 是不是單純的 Ctrl+字母：Mac 也是 Control 鍵（不是 Command），加了 Shift、Alt 的不算
  * （Ctrl+Shift+R 是瀏覽器的強制重新整理，留給瀏覽器）。
  */
 function isCtrlLetter(event: KeyboardEvent<HTMLInputElement>, letter: string): boolean {
@@ -163,9 +163,14 @@ export function useTerminalKeyboard({
 				lastSearchQueryRef.current = state.query;
 			}
 			setSearch(null);
+			// 搜尋時 value 一直留著原本的輸入；沒變的話 replaceInput 的游標 effect 不會跑，旗標會殘留到下一次打字，
+			// 這時輸入框從關鍵字換回原本的內容，瀏覽器自己會把游標放到結尾
+			if (next === value) {
+				return;
+			}
 			replaceInput(next);
 		},
-		[replaceInput],
+		[replaceInput, value],
 	);
 
 	/** 搜尋模式時輸入框的 onChange：改的是關鍵字，改完馬上重找。 */

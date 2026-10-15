@@ -20,7 +20,7 @@ export interface PromptInputProps {
 	search?: HistorySearchView | null;
 }
 
-/** 關鍵字輸入框的寬度（以 `ch` 計）：中日韓文字算兩格，多留一格放游標。 */
+/** 關鍵字輸入框的寬度（以 `ch` 計）：中文這類全形字算兩格，多留一格放游標。 */
 function queryWidth(query: string): number {
 	let width = 1;
 	for (const char of query) {

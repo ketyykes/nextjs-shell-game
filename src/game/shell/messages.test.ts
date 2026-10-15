@@ -315,8 +315,8 @@ describe("仍不支援的語法（M13-1，第十九場縮小範圍）", () => {
 		}
 	});
 
-	it("$(( 說明不支援算術", () => {
-		expect(joinLines(unsupportedSyntax("$(("))).toContain("算術");
+	it("$(( 說明不支援數字計算", () => {
+		expect(joinLines(unsupportedSyntax("$(("))).toContain("數字計算");
 	});
 });
 

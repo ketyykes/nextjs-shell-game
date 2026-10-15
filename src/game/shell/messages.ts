@@ -168,7 +168,7 @@ export function unsupportedSyntax(detail: string): string[] {
 	}
 	if (detail === "$((") {
 		return [
-			"這個遊戲的 shell 不支援 `$(( ))`（算術運算）。",
+			"這個遊戲的 shell 不支援 `$(( ))`（數字計算）。",
 			"數字請自己算好再打進指令；要數行數或個數用 wc，例如 ls | wc -l。",
 		];
 	}
