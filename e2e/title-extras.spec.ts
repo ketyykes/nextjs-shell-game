@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { answerFlickerPrompt } from "./helpers/title";
 
 /** 設計文件 4.20：光敏首次確認、製作名單 /credits、真實世界橋接頁 /real-world。 */
 
@@ -33,4 +34,41 @@ test("第一次進站先問光敏確認：Enter 選預設的「關閉」，設�
 	await page.reload();
 	await expect(page.getByRole("button", { name: "新遊戲" })).toBeVisible();
 	await expect(prompt).toHaveCount(0);
+});
+
+test("製作名單：沒有存檔也在標題選單最後一項，進 /credits 後「返回標題」與 Esc 都回得去，授權全文跟著網站散佈", async ({
+	page,
+}) => {
+	await page.goto("/");
+	await page.evaluate(() => window.localStorage.clear());
+	await page.reload();
+	await answerFlickerPrompt(page);
+
+	const menuItems = page.getByRole("navigation", { name: "標題選單" }).getByRole("button");
+	await expect(menuItems.last()).toHaveText(/製作名單/);
+	await page.getByRole("button", { name: "製作名單" }).click();
+	await expect(page).toHaveURL(/\/credits$/);
+	await expect(page.getByRole("heading", { level: 1, name: "製作名單" })).toBeVisible();
+	await expect(page.getByRole("region", { name: "字型" })).toContainText("Fusion Pixel Font");
+
+	// 從標題進來是 client 端導頁，Esc 的監聽已經掛好
+	await page.keyboard.press("Escape");
+	await expect(page).toHaveURL(/:\d+\/$/);
+	await expect(page.getByRole("button", { name: "新遊戲" })).toBeVisible();
+
+	// 直接打開網址：「返回標題」是一般連結，不等 JavaScript 也能按
+	await page.goto("/credits");
+	await page.getByRole("link", { name: "返回標題" }).first().click();
+	await expect(page).toHaveURL(/:\d+\/$/);
+	await expect(page.getByRole("button", { name: "新遊戲" })).toBeVisible();
+
+	for (const [file, text] of [
+		["OFL-1.1.txt", "SIL OPEN FONT LICENSE Version 1.1"],
+		["LICENSE-fusion-pixel.txt", "TakWolf"],
+		["LICENSE-kenney.txt", "Kenney"],
+	] as const) {
+		const response = await page.request.get(`/licenses/${file}`);
+		expect(response.status(), file).toBe(200);
+		expect(await response.text()).toContain(text);
+	}
 });

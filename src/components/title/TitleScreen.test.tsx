@@ -255,6 +255,43 @@ describe("TitleScreen", () => {
 		});
 	});
 
+	describe("製作名單（設計文件 4.20）", () => {
+		it("沒給 onCredits 時不顯示", () => {
+			renderTitle({ onPractice: vi.fn() });
+			expect(screen.queryByRole("button", { name: "製作名單" })).toBeNull();
+		});
+
+		it("沒有存檔也有「製作名單」，排在練習模式後面、是最後一項；↑ 從第一項繞到它，Enter 呼叫 onCredits", () => {
+			const onCredits = vi.fn();
+			const props = renderTitle({ hasSave: false, onManageSave: vi.fn(), onPractice: vi.fn(), onCredits });
+			const names = screen.getAllByRole("button").map((button) => button.textContent?.trim());
+			expect(names).toEqual(
+				["新遊戲", "設定", "存檔管理", "練習模式", "製作名單"].map((name) => expect.stringContaining(name)),
+			);
+
+			press("ArrowUp");
+			press("Enter");
+			expect(onCredits).toHaveBeenCalledTimes(1);
+			expect(props.onNewGame).not.toHaveBeenCalled();
+		});
+
+		it("通關後的選單也是最後一項，滑鼠點了呼叫 onCredits", () => {
+			const onCredits = vi.fn();
+			renderTitle({
+				hasSave: true,
+				finished: true,
+				clearRecord: { chapters: [{ number: 1, label: "第一章 冷凍艙" }], stats: {} },
+				onPractice: vi.fn(),
+				onCredits,
+			});
+			const names = screen.getAllByRole("button").map((button) => button.textContent?.trim());
+			expect(names[names.length - 1]).toContain("製作名單");
+
+			fireEvent.click(screen.getByRole("button", { name: "製作名單" }));
+			expect(onCredits).toHaveBeenCalledTimes(1);
+		});
+	});
+
 	it("CRT 效果預設全開，可由 props 關閉", () => {
 		renderTitle();
 		expect(screen.getByTestId("crt-scanlines")).toBeDefined();

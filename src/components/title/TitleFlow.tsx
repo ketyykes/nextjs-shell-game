@@ -7,7 +7,7 @@
  * 讀檔完成前只顯示載入字樣，確保「繼續」的出現與否是可信的。
  * 第一次進遊戲先疊光敏確認，選了要不要關閉閃爍效果才進標題選單，選過就不再問（設計文件 4.20）。
  * 觸控為主的裝置再疊一層「需要實體鍵盤」的提示，可以略過（設計文件 4.6）；兩個都要出現時光敏確認先。
- * 練習模式：不看存檔，直接進 /sandbox（設計文件 4.11）。
+ * 練習模式：不看存檔，直接進 /sandbox（設計文件 4.11）。製作名單：同樣不看存檔，進 /credits（設計文件 4.20）。
  * 存檔管理（M14-2）：匯出與匯入存檔，匯入成功後整頁重新載入讓 store 重新讀檔。
  * 通關（M14-1）：片尾播完回來時副標換成「已逃離 Kepler-9」、「繼續」換成「通關紀錄」；選章重玩後「繼續」回來。
  */
@@ -134,6 +134,10 @@ function TitleFlowReady() {
 		router.push("/sandbox");
 	}, [router]);
 
+	const goToCredits = useCallback(() => {
+		router.push("/credits");
+	}, [router]);
+
 	const handleSelectChapter = useCallback(
 		(chapter: number) => {
 			if (!selectChapter(chapter)) {
@@ -196,6 +200,7 @@ function TitleFlowReady() {
 				onSelectChapter={handleSelectChapter}
 				onPractice={goToSandbox}
 				onManageSave={() => setSaveManagerOpen(true)}
+				onCredits={goToCredits}
 				keyboardEnabled={!settingsOpen && !saveManagerOpen && !touchWarningVisible && !flickerPromptVisible}
 				crt={{
 					scanlines: settings.scanlinesEnabled,

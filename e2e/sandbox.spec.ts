@@ -17,8 +17,10 @@ async function run(page: Page, command: string): Promise<void> {
 	await input.press("Enter");
 }
 
-/** 練習模式是標題選單的最後一項：從第一項按 ↑ 繞到最後。 */
+/** 練習模式是標題選單的倒數第二項（最後一項是製作名單，4.20）：從第一項按兩次 ↑ 繞過去。 */
 async function enterSandboxByKeyboard(page: Page): Promise<void> {
+	await page.keyboard.press("ArrowUp");
+	await expect(page.getByRole("button", { name: "製作名單" })).toHaveAttribute("data-selected", "true");
 	await page.keyboard.press("ArrowUp");
 	await expect(page.getByRole("button", { name: "練習模式" })).toHaveAttribute("data-selected", "true");
 	await page.keyboard.press("Enter");

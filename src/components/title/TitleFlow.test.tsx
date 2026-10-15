@@ -7,8 +7,10 @@ import { TitleFlow } from "./TitleFlow";
 import { REDUCED_MOTION_QUERY } from "./usePrefersReducedMotion";
 import { TOUCH_PRIMARY_QUERY } from "./useTouchWarning";
 
+// push 共用一個，才能檢查選單項目導去哪一頁
+const { push } = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({
-	useRouter: () => ({ prefetch: vi.fn(), push: vi.fn(), replace: vi.fn() }),
+	useRouter: () => ({ prefetch: vi.fn(), push, replace: vi.fn() }),
 }));
 
 // 預取 Phaser 與插圖跟這組測試無關
@@ -46,10 +48,21 @@ function promptSeenSave(): SaveData {
 beforeEach(() => {
 	useGameStore.setState(createInitialSaveData());
 	localStorage.clear();
+	push.mockClear();
 });
 
 afterEach(() => {
 	cleanup();
+});
+
+describe("TitleFlow 的製作名單（設計文件 4.20）", () => {
+	it("沒有存檔也能從「製作名單」進 /credits", async () => {
+		await renderWithSave(promptSeenSave());
+
+		fireEvent.click(screen.getByRole("button", { name: "製作名單" }));
+
+		expect(push).toHaveBeenCalledWith("/credits");
+	});
 });
 
 describe("TitleFlow 的存檔管理（M14-2）", () => {
