@@ -20,6 +20,12 @@ describe("summarizeAssetFailure", () => {
 		});
 	});
 
+	it("第二批自產音效（心跳、低語，4.25）載不到也一樣只是少了聲音", () => {
+		expect(
+			summarizeAssetFailure([{ url: "/audio/heartbeat.ogg" }, { url: "/audio/whisper.mp3" }], CRITICAL_ALL_LOADED),
+		).toEqual({ files: ["/audio/heartbeat.ogg", "/audio/whisper.mp3"], fatal: false });
+	});
+
 	it("地圖不在 cache 裡就是致命錯誤，即使 loader 沒發 loaderror（例如 JSON 解析失敗）", () => {
 		const critical = CRITICAL_ALL_LOADED.map((asset) => ({
 			...asset,

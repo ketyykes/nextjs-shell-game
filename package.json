@@ -11,7 +11,8 @@
     "test:e2e": "playwright test",
     "sprites:slice": "node scripts/slice-sprites.mjs",
     "font:subset": "python3 scripts/subset-font.py",
-    "map:build": "node scripts/build-map.mjs"
+    "map:build": "node scripts/build-map.mjs",
+    "audio:synth": "node scripts/synth-audio.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",

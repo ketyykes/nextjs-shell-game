@@ -142,4 +142,54 @@ describe("TerminalModal", () => {
 		renderModal();
 		expect(screen.getByText(/已完成/)).toBeDefined();
 	});
+
+	describe("低氧顯示不穩（4.25）", () => {
+		function setOxygen(oxygen: number): void {
+			const state = useGameStore.getState();
+			useGameStore.setState({ progress: { ...state.progress, oxygen } });
+		}
+
+		/** 最後一筆指令輸出：畫面上的輸出行（不含提示符那一行）與 store 裡存的原文。 */
+		function lastCommand(): { shown: string[]; saved: string[] } {
+			const blocks = document.querySelectorAll('[data-entry-kind="command"]');
+			const block = blocks[blocks.length - 1];
+			// 空行在畫面上是不換行空白，trim 掉才比得了
+			const shown = Array.from(block.children)
+				.slice(1)
+				.map((line) => (line.textContent ?? "").trim());
+			const transcript = useGameStore.getState().terminals[CRYO.id]?.transcript ?? [];
+			const entry = transcript.filter((item) => item.kind === "command").at(-1);
+			let saved: string[] = [];
+			if (entry !== undefined && entry.kind === "command") {
+				saved = entry.lines.map((line) => line.trim());
+			}
+			return { shown, saved };
+		}
+
+		it("氧氣低於 20% 時指令輸出換掉少數字元，store 存的還是原文", () => {
+			setOxygen(12);
+			renderModal();
+			runCommand("cat wake_up.txt");
+			const { shown, saved } = lastCommand();
+			expect(saved[0]).toBe("冷凍艙喚醒排程");
+			expect(shown).toHaveLength(saved.length);
+			expect(shown.join("\n")).not.toBe(saved.join("\n"));
+		});
+
+		it("hint 的輸出照原文，新手照著打不會錯", () => {
+			setOxygen(5);
+			renderModal();
+			runCommand("hint");
+			const { shown, saved } = lastCommand();
+			expect(shown).toEqual(saved);
+		});
+
+		it("氧氣 20% 以上照原文", () => {
+			setOxygen(20);
+			renderModal();
+			runCommand("cat wake_up.txt");
+			const { shown, saved } = lastCommand();
+			expect(shown).toEqual(saved);
+		});
+	});
 });

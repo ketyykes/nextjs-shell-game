@@ -11,6 +11,9 @@ import type { AbinNotesProgress, GameStore, ProgressState, SettingsState, StoryF
 /** 氧氣低於這個百分比時 HUD 進入警示狀態。 */
 export const OXYGEN_LOW_THRESHOLD = 30;
 
+/** 氧氣低於這個百分比時終端機顯示不穩、NOVA 斷句、心跳聲出現（設計文件 4.25）。 */
+export const OXYGEN_CRITICAL_THRESHOLD = 20;
+
 export function selectSettings(state: GameStore): SettingsState {
 	return state.settings;
 }

@@ -1,5 +1,6 @@
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { applyStutter, STUTTER_MARK, stutterPoints } from "@/components/terminal/displayGlitch";
 import { computeHoldMs, type NovaMessage, NovaDialogue } from "./NovaDialogue";
 
 // vitest 未啟用 globals，需手動在每個測試後卸載畫面
@@ -143,5 +144,34 @@ describe("NovaDialogue", () => {
 		});
 		expect(onShown).not.toHaveBeenCalled();
 		expect(screen.getByTestId("nova-cursor")).toBeDefined();
+	});
+
+	describe("低氧斷句（4.25）", () => {
+		const longMessage: NovaMessage = { id: "room-nv_core-0", text: "你確定你是技師嗎我查不到你的名字這不太對應該有名字的" };
+
+		it("stutter 時每隔幾個字插入……，螢幕閱讀器仍讀原文", () => {
+			render(<NovaDialogue queue={[longMessage]} textSpeed="instant" onShown={vi.fn()} stutter />);
+			const shown = screen.getByTestId("nova-text").textContent ?? "";
+			expect(shown).toBe(applyStutter(longMessage.text, stutterPoints(longMessage.text)));
+			expect(shown).toContain(STUTTER_MARK);
+			expect(screen.getByText(longMessage.text, { selector: ".sr-only" })).toBeDefined();
+		});
+
+		it("打字中停在斷點時仍算在打字（游標還在、還沒開始算停留）", () => {
+			const onShown = vi.fn();
+			render(<NovaDialogue queue={[longMessage]} textSpeed="normal" onShown={onShown} holdMs={100} stutter />);
+			const first = stutterPoints(longMessage.text)[0];
+			act(() => {
+				vi.advanceTimersByTime(30 * first + 30);
+			});
+			expect(screen.getByTestId("nova-text").textContent).toContain(STUTTER_MARK);
+			expect(screen.getByTestId("nova-cursor")).toBeDefined();
+			expect(onShown).not.toHaveBeenCalled();
+		});
+
+		it("沒有 stutter 時不斷句", () => {
+			render(<NovaDialogue queue={[longMessage]} textSpeed="instant" onShown={vi.fn()} />);
+			expect(screen.getByTestId("nova-text").textContent).toBe(longMessage.text);
+		});
 	});
 });

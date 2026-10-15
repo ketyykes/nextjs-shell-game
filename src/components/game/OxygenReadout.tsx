@@ -5,10 +5,12 @@
  *
  * 每次錯誤只扣 1%，低於 30% 才有暗角，正常遊玩幾乎感覺不到；所以扣氧那一刻數字閃琥珀並浮出「-1」，
  * 數值規則不動、不加警示音（4.10）。`prefers-reduced-motion` 時只變色（見 CSS module）。
+ * 低於 20% 時數值右邊標「缺氧：顯示不穩」（4.25），玩家才知道終端機亂碼、NOVA 斷句是故意的。
  */
 
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { isOxygenCritical } from "./lowOxygen";
 import styles from "./OxygenReadout.module.css";
 
 /** 扣氧後數字維持琥珀、「-1」浮字存在的毫秒數，跟 CSS 的浮字動畫等長。 */
@@ -68,20 +70,29 @@ export function OxygenReadout({ oxygen, raised }: OxygenReadoutProps) {
 
 	return (
 		<div
-			className={cn("pointer-events-none absolute top-4 left-4 text-2xl", layerClass)}
+			className={cn("pointer-events-none absolute top-4 left-4 flex items-baseline text-2xl", layerClass)}
 			aria-live="polite"
 			data-testid="hud-oxygen"
 		>
-			<span
-				key={loss?.id ?? 0}
-				className={cn(colorClass, loss !== null && styles.pulse)}
-				data-testid="hud-oxygen-value"
-			>
-				O2 {oxygen}%
+			{/* 「-1」浮字貼著數值，低氧標示排在後面，兩者不重疊 */}
+			<span className="relative">
+				<span
+					key={loss?.id ?? 0}
+					className={cn(colorClass, loss !== null && styles.pulse)}
+					data-testid="hud-oxygen-value"
+				>
+					O2 {oxygen}%
+				</span>
+				{loss !== null && (
+					<span key={`loss-${loss.id}`} className={styles.float} aria-hidden="true" data-testid="hud-oxygen-loss">
+						-{loss.amount}
+					</span>
+				)}
 			</span>
-			{loss !== null && (
-				<span key={`loss-${loss.id}`} className={styles.float} aria-hidden="true" data-testid="hud-oxygen-loss">
-					-{loss.amount}
+			{/* 低於 20% 終端機亂碼、NOVA 斷句（4.25），標出來免得玩家以為遊戲壞了；墊底色跟除役倒數一樣，地圖亮時才看得清楚 */}
+			{isOxygenCritical(oxygen) && (
+				<span className="ml-12 bg-game-bg/75 px-2 text-game-amber" data-testid="hud-oxygen-unstable">
+					缺氧：顯示不穩
 				</span>
 			)}
 		</div>

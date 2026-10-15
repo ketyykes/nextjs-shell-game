@@ -1,5 +1,6 @@
 "use client";
 
+import { useStutter } from "./DisplayInstabilityContext";
 import { useTypewriter } from "./useTypewriter";
 
 export interface DialogueBlockProps {
@@ -13,9 +14,12 @@ export interface DialogueBlockProps {
 /**
  * 終端機輸出區裡的 NOVA 對話區塊（設計文件 4.9）：
  * 左側全息藍邊、上方名字標籤、文字逐字出現，跟指令輸出排在一起，不打斷打字。
+ * 低氧時不亂碼，改成每隔幾個字插「……」停一下（4.25，只改畫面，紀錄存原文）。
  */
 export function DialogueBlock({ speaker, text, msPerChar }: DialogueBlockProps) {
-	const displayed = useTypewriter(text, msPerChar);
+	const stutter = useStutter(text);
+	const typed = useTypewriter(text, msPerChar, stutter.typewriter);
+	const displayed = stutter.apply(typed);
 
 	return (
 		<div className="my-1 border-l-[3px] border-game-holo pl-3" data-testid="dialogue-block">

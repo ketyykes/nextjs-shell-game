@@ -98,6 +98,15 @@ describe("usePressureReactions", () => {
 		expect(dialogueTexts()).toContain(novaErrorLine(CHAPTER_ONE.novaErrorLines, 0));
 	});
 
+	it("錯 9 次 NOVA 說話那一刻播一次低語（4.25），3 次、6 次不播", () => {
+		const { result } = setup();
+		const whispers = () => events.filter((event) => event.name === "sfx:play" && (event.payload as { sound: string }).sound === "whisper");
+		recordErrors(result.current.recordExecution, 8);
+		expect(whispers()).toEqual([]);
+		recordErrors(result.current.recordExecution, 1);
+		expect(whispers()).toHaveLength(1);
+	});
+
 	it("卡關提示給過之後，隔了重複提醒間隔再卡住改插系統行提示 hint", () => {
 		const { result } = setup();
 		recordErrors(result.current.recordExecution, 5);

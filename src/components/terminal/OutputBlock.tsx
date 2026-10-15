@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import type { OutputEntry } from "@/game/store/types";
 import { buildOutputFieldLegend, claimLegendAutoExpand } from "./outputFields";
 import type { OutputFieldLegend } from "./outputFields";
+import { useDisplayedOutputLines } from "./DisplayInstabilityContext";
 
 /** 只接受指令輸出與系統訊息兩種區塊，NOVA 對話交給 `DialogueBlock`。 */
 export type OutputBlockEntry = Extract<OutputEntry, { kind: "command" } | { kind: "system" }>;
@@ -65,13 +66,15 @@ interface CommandBlockProps {
 function CommandBlock({ entry, autoExpandLegend }: CommandBlockProps) {
 	// 每打一個字終端機都會重新渲染整個輸出區，entry 物件不變就不重新解析
 	const legend = useMemo(() => buildOutputFieldLegend(entry), [entry]);
+	// 低氧時指令輸出的少數字元換成亂碼（4.25），系統行與 hint、help、explain 的輸出照原文
+	const displayedLines = useDisplayedOutputLines(entry);
 
 	const promptLine = (
 		<>
 			<span className="text-game-prompt">{entry.prompt}</span> {entry.input}
 		</>
 	);
-	const outputLines = entry.lines.map((line, index) => (
+	const outputLines = displayedLines.map((line, index) => (
 		<div key={index} className={cn(LINE_CLASS, entry.isError && "text-game-amber")}>
 			{displayLine(line)}
 		</div>
