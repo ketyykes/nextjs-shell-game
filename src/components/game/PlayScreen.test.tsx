@@ -851,6 +851,27 @@ describe("PlayScreen 片尾", () => {
 		expect(lines.some((line) => line.includes("「我醒了」"))).toBe(true);
 		expect(lines.at(-1)).toBe("其餘內容無法辨識。仍在解壓縮。");
 	});
+
+	it("片尾最後一句按 Enter 出現兩個選項；連線救援船終端機先記下已逃離再進 /argo（4.23）", () => {
+		seedFinalChapter();
+		expect(readEnding().at(-1)).toBe("你是……");
+		fireEvent.keyDown(window, { key: "Enter" });
+		expect(screen.getByTestId("chapter-end-ending-choices")).toBeDefined();
+		expect(useGameStore.getState().progress.clearedAt).toBeNull();
+
+		fireEvent.keyDown(window, { key: "Enter" });
+		expect(mocks.routerPush).toHaveBeenCalledWith("/argo");
+		expect(typeof useGameStore.getState().progress.clearedAt).toBe("string");
+	});
+
+	it("兩個選項選「回標題」：一樣記下已逃離，回首頁", () => {
+		seedFinalChapter();
+		readEnding();
+		fireEvent.keyDown(window, { key: "Enter" });
+		fireEvent.click(within(screen.getByTestId("chapter-end-ending-choices")).getByRole("button", { name: "回標題" }));
+		expect(mocks.routerPush).toHaveBeenCalledWith("/");
+		expect(typeof useGameStore.getState().progress.clearedAt).toBe("string");
+	});
 });
 
 describe("PlayScreen 訂閱穩定性（A4、A19）", () => {

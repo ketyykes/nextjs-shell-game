@@ -239,6 +239,67 @@ describe("ChapterEndScreen", () => {
 		expect(onReturnToTitle).toHaveBeenCalledTimes(1);
 	});
 
+	it("有給 onConnectRescue 時，片尾最後一句按 Enter 先出現兩個選項，預設選「連線救援船終端機」", () => {
+		const onReturnToTitle = vi.fn();
+		const onConnectRescue = vi.fn();
+		render(
+			<ChapterEndScreen
+				{...createProps({ onReturnToTitle, onConnectRescue })}
+				ending={{ lines: ["喚醒程序……完成。", "你是……"] }}
+			/>,
+		);
+		goToRecap();
+		pressEnter();
+		pressEnter();
+		expect(screen.getByTestId("chapter-end-continue-hint").textContent).toBe("按 Enter 繼續");
+		expect(screen.queryByRole("button", { name: "連線救援船終端機" })).toBeNull();
+
+		pressEnter();
+		const choices = screen.getByTestId("chapter-end-ending-choices");
+		expect(choices.textContent).toContain("連線救援船終端機");
+		expect(choices.textContent).toContain("回標題");
+		// 最後一句還留在畫面上
+		expect(screen.getByTestId("chapter-end-outro-text").textContent).toBe("你是……");
+		expect(onReturnToTitle).not.toHaveBeenCalled();
+		expect(onConnectRescue).not.toHaveBeenCalled();
+
+		pressEnter();
+		expect(onConnectRescue).toHaveBeenCalledTimes(1);
+		expect(onReturnToTitle).not.toHaveBeenCalled();
+	});
+
+	it("兩個選項用方向鍵切換，選「回標題」按 Enter 回標題", () => {
+		const onReturnToTitle = vi.fn();
+		const onConnectRescue = vi.fn();
+		render(
+			<ChapterEndScreen {...createProps({ onReturnToTitle, onConnectRescue })} ending={{ lines: ["你是……"] }} />,
+		);
+		goToRecap();
+		pressEnter();
+		pressEnter();
+		fireEvent.keyDown(window, { key: "ArrowDown" });
+		pressEnter();
+		expect(onReturnToTitle).toHaveBeenCalledTimes(1);
+		expect(onConnectRescue).not.toHaveBeenCalled();
+	});
+
+	it("兩個選項也可以用滑鼠點；點畫面其他地方不會選", () => {
+		const onReturnToTitle = vi.fn();
+		const onConnectRescue = vi.fn();
+		render(
+			<ChapterEndScreen {...createProps({ onReturnToTitle, onConnectRescue })} ending={{ lines: ["你是……"] }} />,
+		);
+		goToRecap();
+		pressEnter();
+		pressEnter();
+		fireEvent.click(screen.getByTestId("chapter-end-screen"));
+		expect(onReturnToTitle).not.toHaveBeenCalled();
+		expect(onConnectRescue).not.toHaveBeenCalled();
+		fireEvent.click(screen.getByRole("button", { name: "連線救援船終端機" }));
+		expect(onConnectRescue).toHaveBeenCalledTimes(1);
+		expect(onReturnToTitle).not.toHaveBeenCalled();
+	});
+
 	it("卸載後不再監聽 Enter", () => {
 		const onReturnToTitle = vi.fn();
 		const { unmount } = render(<ChapterEndScreen {...createProps({ onReturnToTitle })} />);

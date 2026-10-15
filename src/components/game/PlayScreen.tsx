@@ -299,6 +299,7 @@ function PlayScreenReady({ character }: PlayScreenReadyProps) {
 					}
 					onMounted={chapterNavigation.handleChapterEndMounted}
 					onReturnToTitle={chapterNavigation.handleReturnToTitle}
+					onConnectRescue={chapterNavigation.handleConnectRescue}
 					onNextChapter={chapterNavigation.handleNextChapter}
 					skipOutro={chapterNavigation.outroAlreadyShown}
 					stats={chapterStats}

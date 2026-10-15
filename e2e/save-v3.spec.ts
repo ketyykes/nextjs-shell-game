@@ -56,14 +56,15 @@ test("第六章片尾播完回標題：副標顯示已逃離、「繼續」換�
 	await expect(page.getByTestId("chapter-end-stats")).toContainText("指令出錯 3 次");
 	await recap.getByRole("button", { name: "繼續" }).click();
 
-	// 片尾逐句，最後一句再 Enter 回標題
+	// 片尾逐句，最後一句再 Enter 出現兩個選項（設計文件 4.23），選「回標題」
 	const hint = page.getByTestId("chapter-end-continue-hint");
 	for (let presses = 0; presses < 12 && !(await hint.isVisible()); presses += 1) {
 		await page.keyboard.press("Enter");
 		await page.waitForTimeout(300);
 	}
-	await expect(hint).toHaveText("按 Enter 回標題");
+	await expect(hint).toHaveText("按 Enter 繼續");
 	await page.keyboard.press("Enter");
+	await page.getByTestId("chapter-end-ending-choices").getByRole("button", { name: "回標題" }).click();
 
 	await expect(page.getByTestId("title-subtitle")).toHaveText("已逃離 Kepler-9");
 	await expect(page.getByRole("button", { name: "繼續" })).toHaveCount(0);

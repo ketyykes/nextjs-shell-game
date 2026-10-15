@@ -44,11 +44,21 @@ export interface TitleScreenProps {
 	finished?: boolean;
 	/** 通關過才給：顯示「通關紀錄」（finished 時排第一，否則排在「繼續」後面）。 */
 	clearRecord?: ClearRecord;
+	/** 通關過才給：顯示「救援船 ARGO」（排在「通關紀錄」後面），片尾之後的尾聲（設計文件 4.23）。 */
+	onArgo?: () => void;
 	/** 有給才顯示「存檔管理」（排在設定後面），匯出與匯入存檔（M14-2），沒有存檔也能進去匯入。 */
 	onManageSave?: () => void;
 }
 
-type TitleAction = "continue" | "clearRecord" | "selectChapter" | "newGame" | "settings" | "manageSave" | "practice";
+type TitleAction =
+	| "continue"
+	| "clearRecord"
+	| "argo"
+	| "selectChapter"
+	| "newGame"
+	| "settings"
+	| "manageSave"
+	| "practice";
 
 /** 選單下方顯示的內容：主選單、新遊戲覆蓋確認、選章清單、重玩某章的確認。 */
 type TitlePanel =
@@ -72,6 +82,7 @@ interface MenuConditions {
 	canPractice: boolean;
 	finished: boolean;
 	hasClearRecord: boolean;
+	canBoardArgo: boolean;
 	canManageSave: boolean;
 }
 
@@ -83,6 +94,9 @@ function buildItems(conditions: MenuConditions): TitleItem[] {
 	}
 	if (conditions.hasSave && conditions.hasClearRecord) {
 		items.push({ action: "clearRecord", label: "通關紀錄" });
+	}
+	if (conditions.canBoardArgo) {
+		items.push({ action: "argo", label: "救援船 ARGO" });
 	}
 	if (conditions.hasSave && conditions.canSelectChapter) {
 		items.push({ action: "selectChapter", label: "選章" });
@@ -117,6 +131,7 @@ export function TitleScreen({
 	onPractice,
 	finished = false,
 	clearRecord,
+	onArgo,
 	onManageSave,
 }: TitleScreenProps) {
 	const canSelectChapter = chapters.length >= 2 && onSelectChapter !== undefined;
@@ -126,6 +141,7 @@ export function TitleScreen({
 		canPractice: onPractice !== undefined,
 		finished,
 		hasClearRecord: clearRecord !== undefined,
+		canBoardArgo: onArgo !== undefined,
 		canManageSave: onManageSave !== undefined,
 	});
 	const [panel, setPanel] = useState<TitlePanel>({ kind: "menu" });
@@ -149,6 +165,10 @@ export function TitleScreen({
 		}
 		if (item.action === "manageSave") {
 			onManageSave?.();
+			return;
+		}
+		if (item.action === "argo") {
+			onArgo?.();
 			return;
 		}
 		if (item.action === "clearRecord") {
