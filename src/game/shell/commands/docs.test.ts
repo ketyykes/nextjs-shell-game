@@ -50,6 +50,11 @@ describe("COMMAND_DOCS", () => {
 		expect(text).toContain("-la");
 	});
 
+	it("ls 的說明提到 -l 輸出旁可以點開的「欄位說明」（4.17）", () => {
+		const text = COMMAND_DOCS.ls.description.join("\n");
+		expect(text).toMatch(/-l.*「\[\?\] 欄位說明」/);
+	});
+
 	it("cd 的說明涵蓋 ..、~ 與不帶參數", () => {
 		const text = COMMAND_DOCS.cd.description.join("\n");
 		expect(text).toContain("..");

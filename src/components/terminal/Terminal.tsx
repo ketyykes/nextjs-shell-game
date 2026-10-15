@@ -185,7 +185,8 @@ export function Terminal({
 									/>
 								);
 							}
-							return <OutputBlock key={entry.id} entry={entry} />;
+							// 還原的舊輸出跟對話不重播打字動畫一樣，不自動展開欄位說明（4.17）
+							return <OutputBlock key={entry.id} entry={entry} autoExpandLegend={!initialEntryIds.has(entry.id)} />;
 						})}
 					</div>
 					<PromptInput
