@@ -589,6 +589,85 @@ export function teeNeedsPipe(): string[] {
 	return ["tee 要放在 | 的右邊：把左邊指令的輸出印在畫面上，同時存進檔案。", "例如 ls | tee list.txt，-a 是接在檔案結尾。"];
 }
 
+/** `sed` 這裡支援的三種指令，錯誤訊息的範例共用。 */
+const SED_SUPPORTED = "只支援 s（取代）、p（印出）、d（刪除），例如 sed 's/舊/新/' 檔名、sed -n '3p' 檔名、sed '/^#/d' 檔名";
+
+/** `sed` 腳本裡用了這裡不支援的指令（`a`、`i`、`c`、`y`、`h`、`w`、`!`、`q` 等），或看不懂的字。 */
+export function sedUnsupportedCommand(command: string): string[] {
+	return [`\`${command}\` 不是這裡的 sed 支援的指令：${SED_SUPPORTED}。`];
+}
+
+/** `s` 指令沒寫完，例如 `s/a/b`（GNU：unterminated `s' command）。 */
+export function sedUnterminatedS(script: string): string[] {
+	return [`\`${script}\` 沒寫完：s 指令要寫成 s/舊/新/，三條斜線都要有，例如 sed 's/ERROR/錯誤/' log.txt。`];
+}
+
+/** `s/舊/新/` 後面接了不認得的旗標（GNU：unknown option to `s'）。 */
+export function sedUnknownSFlag(flag: string): string[] {
+	return [`s/舊/新/ 後面的 \`${flag}\` 看不懂：可以接 g（整行都換）、i（不分大小寫）、p（換了就印出），或數字（只換第幾個）。`];
+}
+
+/** `s` 的數字是 0（GNU：number option to `s' command may not be zero）。 */
+export function sedZeroOccurrence(): string[] {
+	return ["s 指令後面的數字從 1 開始，代表換第幾個符合的地方，例如 s/a/b/2 換第二個。"];
+}
+
+/** `sed` 的樣式不是合法的正規表示式。原因跟 grep 共用，第二行換成 sed 的寫法（sed 沒有 -F）。 */
+export function sedInvalidPattern(pattern: string, code: RegexErrorCode): string[] {
+	return [
+		`\`${pattern}\` 不是合法的樣式：${REGEX_ERROR_REASONS[code]}。`,
+		"sed 的樣式寫法跟 grep 一樣：. * [ ] ^ $ \\ 是特殊符號，要找它們本身就在前面加 \\，例如 s/\\./,/；加 -E 才能直接用 + ? | ( )。",
+	];
+}
+
+/** `sed` 的樣式是空的（GNU 會沿用上一個樣式，這裡不支援）。 */
+export function sedEmptyPattern(): string[] {
+	return ["樣式是空的：這裡的 sed 不支援用 // 沿用上一個樣式，請把要找的字寫進去，例如 s/ERROR/錯誤/。"];
+}
+
+/** 取代的部分用了樣式裡沒有的群組，例如 `s/a/\1/`（GNU：invalid reference on `s' command's RHS）。 */
+export function sedInvalidReference(reference: string, groupCount: number): string[] {
+	return [
+		`取代的部分用了 \`${reference}\`，但前面的樣式只有 ${groupCount} 組括號。`,
+		"\\1 到 \\9 要對應樣式裡的 \\( \\)（加 -E 時是 ( )），例如 sed 's/\\(A[0-9]\\) OPEN/\\1 開啟/'；整個符合的字串用 &。",
+	];
+}
+
+/** 位址後面少了指令，例如 `sed 3`（GNU：missing command）。 */
+export function sedMissingCommand(script: string): string[] {
+	return [`\`${script}\` 後面少了指令：行號或 /樣式/ 後面要接 p、d 或 s，例如 sed -n '3p' 檔名、sed '/^#/d' 檔名。`];
+}
+
+/** 一個指令後面多了東西，例如 `p x`（GNU：extra characters after command）。 */
+export function sedExtraCharacters(script: string): string[] {
+	return [`\`${script}\` 看不懂：一個指令寫完要用 ; 隔開下一個，例如 sed -n '1p;3p' 檔名。`];
+}
+
+/** 位址用了第 0 行（GNU：invalid usage of line address 0）。 */
+export function sedInvalidLineZero(): string[] {
+	return ["sed 的行號從 1 開始數，沒有第 0 行，例如 sed -n '1p' 檔名 印第一行。"];
+}
+
+/** 範圍的逗號後面沒有接好結尾（GNU：unexpected `,'）。 */
+export function sedUnexpectedComma(): string[] {
+	return ["範圍的 , 後面要接結尾：行號、$（最後一行）或 /樣式/，例如 sed -n '2,5p' 檔名、sed '3,$d' 檔名。"];
+}
+
+/** 位址的樣式沒有結尾的 `/`，例如 `/abc`（GNU：unterminated address regex）。 */
+export function sedUnterminatedAddress(script: string): string[] {
+	return [`\`${script}\` 的樣式少了結尾的 /，要寫成 /樣式/，例如 sed -n '/ERROR/p' 檔名。`];
+}
+
+/** `sed -i` 後面黏著備份副檔名（`-i.bak`），這裡不支援；`-in` 這種想合併選項的寫法也會被當成副檔名。 */
+export function sedInPlaceSuffix(option: string): string[] {
+	return [`這裡的 sed 不支援 \`${option}\` 這種備份副檔名的寫法，直接寫 -i；要跟 -n 一起用就分開寫成 -n -i。`];
+}
+
+/** `sed -i` 沒給檔名（GNU：no input files）。 */
+export function sedNoInputFiles(): string[] {
+	return ["sed -i 是直接改檔案，後面要接檔名，例如 sed -i 's/舊/新/' notes.txt；管線的輸出沒有檔案可以改。"];
+}
+
 /** `tr` 不認得的字元類別，例如 `[:digits:]`。 */
 export function trInvalidClass(name: string): string[] {
 	return [`\`[:${name}:]\` 不是 tr 認得的字元類別，可以用 [:upper:]、[:lower:]、[:digit:]、[:space:]、[:alpha:]、[:alnum:]。`];

@@ -1284,4 +1284,18 @@ describe("第十九場開放的指令", () => {
 		expect(shell.execute("ls | tee list.txt | wc -l")).toMatchObject({ isError: false, lines: ["7"] });
 		expect(shell.execute("cat list.txt").lines).toEqual(LISTING);
 	});
+
+	it("sed 讀檔或管線，單引號包住的 $ 不會被當成變數", () => {
+		const shell = createShell();
+
+		expect(shell.execute("sed -n '$p' wake_up.txt").lines).toEqual(["修改者："]);
+		expect(shell.execute("cat wake_up.txt | sed 's/三年後/明天/' | head -n 1").lines).toEqual(["喚醒排程：明天"]);
+	});
+
+	it("sed -i 改寫虛擬檔案系統裡的檔案", () => {
+		const shell = createShell();
+
+		expect(shell.execute("sed -i '2d' wake_up.txt")).toMatchObject({ isError: false, lines: [] });
+		expect(shell.execute("cat wake_up.txt").lines).toEqual(["喚醒排程：三年後", "修改者："]);
+	});
 });

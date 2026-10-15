@@ -275,6 +275,11 @@ class PatternTranslator {
 		return renderFrame(this.frames[0]);
 	}
 
+	/** 樣式裡括號群組的數目（`translate` 之後才有意義）。 */
+	get groups(): number {
+		return this.groupCount;
+	}
+
 	private get frame(): Frame {
 		return this.frames[this.frames.length - 1];
 	}
@@ -714,6 +719,30 @@ function buildCompiled(source: string, ignoreCase: boolean, wholeWord: boolean):
 	};
 }
 
+/** 轉換結果：JS 樣式原始碼（要配 `u` 旗標用）與括號群組的數目，或錯誤代碼。 */
+export type TranslatedPattern = { ok: true; source: string; groupCount: number } | { ok: false; error: RegexErrorCode };
+
+/**
+ * 把 BRE 或 ERE 轉成 JS 樣式原始碼，不包成 `RegExp`。`sed` 的取代要用擷取群組與自訂旗標，
+ * 而且要知道群組數才能檢查取代字串裡的 `\1` 到 `\9`。群組編號跟原樣式一樣（轉換不會多出擷取群組）。
+ *
+ * @example translatePattern("\\(a\\)b", "basic") // { ok: true, source: "(a)b", groupCount: 1 }
+ */
+export function translatePattern(pattern: string, syntax: Exclude<GrepSyntax, "fixed">): TranslatedPattern {
+	const translator = new PatternTranslator(pattern, syntax === "extended");
+
+	try {
+		const source = translator.translate();
+		return { ok: true, source, groupCount: translator.groups };
+	} catch (error) {
+		if (error instanceof PatternError) {
+			return { ok: false, error: error.code };
+		}
+
+		throw error;
+	}
+}
+
 /**
  * 編譯 `grep` 的樣式。樣式不合法時回傳錯誤代碼，訊息由 `messages.invalidPattern` 組。
  *
@@ -730,17 +759,11 @@ export function compileGrepPattern(
 		return buildCompiled(translateFixed(pattern), ignoreCase, wholeWord);
 	}
 
-	let source: string;
+	const translated = translatePattern(pattern, syntax);
 
-	try {
-		source = new PatternTranslator(pattern, syntax === "extended").translate();
-	} catch (error) {
-		if (error instanceof PatternError) {
-			return { ok: false, error: error.code };
-		}
-
-		throw error;
+	if (!translated.ok) {
+		return translated;
 	}
 
-	return buildCompiled(source, ignoreCase, wholeWord);
+	return buildCompiled(translated.source, ignoreCase, wholeWord);
 }

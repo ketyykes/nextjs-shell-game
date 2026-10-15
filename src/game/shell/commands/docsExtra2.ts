@@ -40,6 +40,26 @@ export const EXTRA2_COMMAND_DOCS: Record<string, CommandDoc> = {
 			{ command: "tee a.txt b.txt", explanation: "一次存進兩個檔案" },
 		],
 	},
+	sed: {
+		name: "sed",
+		summary: "照腳本逐行取代、挑出或刪掉文字",
+		usage: "sed [-n] [-E] [-i] [-e 腳本]... 腳本 [檔案...]",
+		description: [
+			"sed 一行一行讀進來，照你寫的腳本改過再印出來，原本的檔案不會變。最常用的是 s/舊/新/：把每行第一個「舊」換成「新」；結尾加 g 整行都換，加 i 不分大小寫，加數字只換第幾個。",
+			"「舊」是正規表示式，寫法跟 grep 一樣，加 -E 改用延伸語法。「新」裡的 & 代表整個符合的字串，\\1 到 \\9 代表樣式裡 \\( \\) 包住的那幾段（-E 時是 ( )）。路徑的斜線很多時，分隔字元可以換成別的，例如 s|/deck1|/deck2|。",
+			"指令前面可以加位址，只處理某些行：3 是第 3 行，2,5 是第 2 到 5 行，$ 是最後一行，/ERROR/ 是含 ERROR 的行。p 印出那幾行，d 刪掉那幾行，例如 sed '/^#/d' 去掉註解。",
+			"sed 預設每一行都會印；-n 讓它只印 p 指定的行，所以 sed -n '3p' 只看第 3 行，sed -n '/ERROR/p' 跟 grep ERROR 一樣。",
+			"好幾個指令用 ; 隔開，或給好幾個 -e，會依序套用。-i 直接改寫檔案、畫面上不印，改之前先不加 -i 跑一次確認結果。",
+			"腳本裡有空白、$、* 這些符號時用單引號包起來。這裡的 sed 只做 s、p、d 三種，a、i、c、y 這類指令不支援。沒給檔名時讀 | 左邊的輸出。",
+		],
+		examples: [
+			{ command: "sed 's/action=open/開門/' access.log", explanation: "把每行的 action=open 換成「開門」，檔案本身不變" },
+			{ command: "sed -n '2,5p' sensors.log", explanation: "只印第 2 到 5 行" },
+			{ command: "sed '/INFO/d' sensors.log", explanation: "刪掉含 INFO 的行，只留 WARN 和 ERROR" },
+			{ command: "sed 's/,/ | /g' inventory.csv", explanation: "每個逗號都換成 | ，表格比較好讀" },
+			{ command: "sed -i 's/1200/1500/' config_old.conf", explanation: "直接改寫設定檔裡的數字" },
+		],
+	},
 	date: {
 		name: "date",
 		summary: "顯示現在的日期與時間",
@@ -61,4 +81,4 @@ export const EXTRA2_COMMAND_DOCS: Record<string, CommandDoc> = {
 };
 
 /** 這組指令在側邊面板的顯示順序，排在帳號與登入的彩蛋之後。 */
-export const EXTRA2_COMMAND_ORDER: string[] = ["tr", "tee", "date"];
+export const EXTRA2_COMMAND_ORDER: string[] = ["tr", "tee", "sed", "date"];

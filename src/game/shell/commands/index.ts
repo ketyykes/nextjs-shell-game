@@ -35,6 +35,7 @@ import { mvCommand } from "./mv";
 import { psCommand } from "./ps";
 import { pwdCommand } from "./pwd";
 import { rmCommand } from "./rm";
+import { sedCommand } from "./sed";
 import { sortCommand } from "./sort";
 import { sudoCommand } from "./sudo";
 import { tailCommand } from "./tail";
@@ -107,6 +108,7 @@ export const ALL_COMMANDS: CommandDefinition[] = [
 	// 第十九場：只開放使用，不在劇本裡（設計文件 4.18）
 	trCommand,
 	teeCommand,
+	sedCommand,
 	dateCommand,
 ];
 

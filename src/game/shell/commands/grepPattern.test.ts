@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import type { RegexErrorCode } from "../types";
-import { compileGrepPattern } from "./grepPattern";
+import { compileGrepPattern, translatePattern } from "./grepPattern";
 import type { GrepSyntax } from "./grepPattern";
 
 /** 編譯樣式後挑出符合的行；編譯失敗直接讓測試掛掉。 */
@@ -283,5 +283,29 @@ describe("不合法的樣式", () => {
 		["(a)\\2", "extended", "INVALID_BACKREF"],
 	])("%s（%s）回報 %s", (pattern, syntax, code) => {
 		expect(errorOf(pattern, syntax)).toBe(code);
+	});
+});
+
+describe("translatePattern（sed 用：拿 JS 樣式原始碼與群組數）", () => {
+	it("BRE 的 \\( \\) 變成 JS 的擷取群組，編號照原樣式", () => {
+		const result = translatePattern("\\(A[0-9]\\) \\(OPEN\\)", "basic");
+		if (!result.ok) {
+			throw new Error(result.error);
+		}
+
+		expect(result.groupCount).toBe(2);
+		expect(new RegExp(result.source, "u").exec("21:00 A1 OPEN")?.slice(1)).toEqual(["A1", "OPEN"]);
+	});
+
+	it("ERE 直接用 ( )，沒有群組時是 0", () => {
+		const grouped = translatePattern("(a|b)+", "extended");
+		const plain = translatePattern("a.c", "basic");
+
+		expect(grouped).toMatchObject({ ok: true, groupCount: 1 });
+		expect(plain).toMatchObject({ ok: true, groupCount: 0 });
+	});
+
+	it("不合法的樣式回傳錯誤代碼", () => {
+		expect(translatePattern("[a", "basic")).toEqual({ ok: false, error: "UNMATCHED_BRACKET" });
 	});
 });

@@ -4,7 +4,7 @@ import { ALL_COMMANDS } from ".";
 import { EXTRA2_COMMAND_DOCS, EXTRA2_COMMAND_ORDER } from "./docsExtra2";
 
 /** 第十九場開放使用、沒編進劇本的指令（設計文件 4.18）。 */
-const EXTRA2_COMMANDS = ["tr", "tee", "date"];
+const EXTRA2_COMMANDS = ["tr", "tee", "sed", "date"];
 
 describe("EXTRA2_COMMAND_ORDER", () => {
 	it("順序照設計文件 4.18 的清單", () => {
@@ -53,6 +53,19 @@ describe("EXTRA2_COMMAND_DOCS", () => {
 			expect(text).toContain(token);
 		}
 		expect(doc.examples.some((example) => example.command.includes("-a"))).toBe(true);
+	});
+
+	it("sed 說明 s 的旗標、位址、p 與 d、-n、-E、-i、-e，以及不支援的指令", () => {
+		const doc = EXTRA2_COMMAND_DOCS.sed;
+		const text = doc.description.join("\n");
+		for (const token of ["s/舊/新/", "g", "& ", "\\1", "-E", "2,5", "$", "/ERROR/", "p", "d", "-n", "-i", "-e", ";", "a、i、c、y"]) {
+			expect(text).toContain(token);
+		}
+		for (const flag of ["-n", "-E", "-i", "-e"]) {
+			expect(doc.usage).toContain(flag);
+		}
+		expect(doc.examples.some((example) => example.command.includes("-n"))).toBe(true);
+		expect(doc.examples.some((example) => example.command.includes("-i"))).toBe(true);
 	});
 
 	it("date 說明 UTC、+格式的常用寫法，以及時間不會自己走", () => {
