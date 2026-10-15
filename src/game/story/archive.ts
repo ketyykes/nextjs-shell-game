@@ -6,7 +6,7 @@
  * 阿彬的留言是覆蓋層、不在劇本快照裡（4.12），已找到的直接讀 `ABIN_NOTES` 的內容，沒找到的不列也不提示。
  *
  * 文字原則（`archive.test.ts` 守門）：
- * - 說明只講檔案寫了什麼，不替劇本下結論；用「」引用的字一定要在那份檔案裡找得到。
+ * - 說明只講檔案寫了什麼，不替劇本做判斷；用「」引用的字一定要在那份檔案裡找得到。
  * - 不說破 4.3 的留白：阿彬去了哪裡、NOVA 有沒有死透、兩人份熱負載的第二個人是誰，都只列紀錄不解釋。
  * - 不指涉主角的性別、年齡、名字；不加新劇情。
  * - 時間軸的時間來自檔案的修改時間（`basis: "mtime"`）或檔案內容裡寫的時間（`basis: "content"`），不自己發明。
@@ -111,7 +111,7 @@ export const ARCHIVE_FILES: readonly ArchiveFile[] = [
 		chapter: 1,
 		terminalId: "ch1-t5",
 		path: "/deck1/medbay/records/PT-2028-0601-QN0606.txt",
-		summary: "pod_06 的冷凍入艙表：姓名塗掉，職稱維修技師，醫生備註「名單上找不到此人，手動建檔。」",
+		summary: "pod_06 的冷凍入艙表：姓名「████」，職稱維修技師，醫生備註「名單上找不到此人，手動建檔。」",
 	},
 
 	// 第二章 資料中心
@@ -321,7 +321,7 @@ export const ARCHIVE_TIMELINE: readonly ArchiveTimelineEvent[] = [
 	},
 	{
 		at: "2028-06-01 22:16",
-		text: "pod_06 的冷凍入艙表手動建檔，姓名塗掉：「名單上找不到此人，手動建檔。」",
+		text: "pod_06 的冷凍入艙表手動建檔，姓名欄是「████」，醫生備註「名單上找不到此人，手動建檔。」",
 		terminalId: "ch1-t5",
 		path: "/deck1/medbay/records/PT-2028-0601-QN0606.txt",
 		basis: "mtime",
