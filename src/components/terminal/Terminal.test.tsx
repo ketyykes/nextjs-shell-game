@@ -421,3 +421,137 @@ describe("Terminal 的 less 分頁模式（M13-3）", () => {
 		expect(onExecuted).toHaveBeenCalledWith(expect.objectContaining({ lines: [], isError: false }));
 	});
 });
+
+describe("Terminal 的 nano 編輯器（4.22）", () => {
+	function getEditor(): HTMLElement {
+		return screen.getByRole("region", { name: "nano 編輯器" });
+	}
+
+	function queryEditor(): HTMLElement | null {
+		return screen.queryByRole("region", { name: "nano 編輯器" });
+	}
+
+	function getText(): HTMLTextAreaElement {
+		return screen.getByRole("textbox", { name: "編輯內容" }) as HTMLTextAreaElement;
+	}
+
+	function pressCtrl(letter: string): void {
+		fireEvent.keyDown(document.activeElement ?? document.body, { key: letter, ctrlKey: true });
+	}
+
+	/** ^O、Enter 存檔。 */
+	function save(): void {
+		pressCtrl("o");
+		fireEvent.keyDown(screen.getByRole("textbox", { name: "要寫入的檔名" }), { key: "Enter" });
+	}
+
+	it("nano 檔名：輸出區與輸入框藏起來，改顯示編輯器，焦點在文字區", () => {
+		render(<Harness />);
+		runCommand("nano wake_up.txt");
+
+		expect(getText().value).toBe("喚醒排程：三年後\n原始設定：永不\n修改者：\n");
+		expect(document.activeElement).toBe(getText());
+		expect(screen.queryByRole("log")).toBeNull();
+		expect(getInput().closest("[hidden]")).not.toBeNull();
+	});
+
+	it("新檔案打一行、^O 存檔、^X 離開：寫進 shell 的檔案系統，輸出區多一行摘要，onExecuted 再收到一次", () => {
+		const shell = createShell();
+		const onExecuted = vi.fn();
+		const onEntriesChange = vi.fn();
+		render(<Harness shell={shell} onExecuted={onExecuted} onEntriesChange={onEntriesChange} />);
+		runCommand("nano todo.txt");
+		expect(onExecuted).toHaveBeenCalledTimes(1);
+		expect(shell.fs.exists(shell.cwd, "todo.txt")).toBe(false);
+
+		fireEvent.change(getText(), { target: { value: "換濾網" } });
+		save();
+		pressCtrl("x");
+
+		expect(queryEditor()).toBeNull();
+		expect(document.activeElement).toBe(getInput());
+		expect(shell.fs.readFile(shell.cwd, "todo.txt")).toBe("換濾網\n");
+		expect(within(getLog()).getByText("[ nano 已寫入 todo.txt，1 行 ]")).toBeDefined();
+		expect(onEntriesChange).toHaveBeenLastCalledWith([
+			expect.objectContaining({ kind: "command", input: "nano todo.txt" }),
+			expect.objectContaining({ kind: "system", lines: ["[ nano 已寫入 todo.txt，1 行 ]"] }),
+		]);
+		expect(onExecuted).toHaveBeenCalledTimes(2);
+		expect(onExecuted).toHaveBeenLastCalledWith(
+			expect.objectContaining({ input: "nano todo.txt", lines: ["[ nano 已寫入 todo.txt，1 行 ]"], isError: false }),
+		);
+	});
+
+	it("^X 問要不要存時按 Y、Enter：存檔後離開", () => {
+		const shell = createShell();
+		render(<Harness shell={shell} />);
+		runCommand("nano todo.txt");
+		fireEvent.change(getText(), { target: { value: "檢查 B3" } });
+		pressCtrl("x");
+		fireEvent.keyDown(getText(), { key: "y" });
+		fireEvent.keyDown(screen.getByRole("textbox", { name: "要寫入的檔名" }), { key: "Enter" });
+
+		expect(queryEditor()).toBeNull();
+		expect(shell.fs.readFile(shell.cwd, "todo.txt")).toBe("檢查 B3\n");
+	});
+
+	it("不存檔就離開（N）：檔案不建立，輸出區不多東西，onExecuted 不再呼叫", () => {
+		const shell = createShell();
+		const onExecuted = vi.fn();
+		const onEntriesChange = vi.fn();
+		render(<Harness shell={shell} onExecuted={onExecuted} onEntriesChange={onEntriesChange} />);
+		runCommand("nano todo.txt");
+		const callsAfterOpen = onEntriesChange.mock.calls.length;
+		fireEvent.change(getText(), { target: { value: "算了" } });
+		pressCtrl("x");
+		fireEvent.keyDown(getText(), { key: "n" });
+
+		expect(queryEditor()).toBeNull();
+		expect(shell.fs.exists(shell.cwd, "todo.txt")).toBe(false);
+		expect(onEntriesChange).toHaveBeenCalledTimes(callsAfterOpen);
+		expect(onExecuted).toHaveBeenCalledTimes(1);
+	});
+
+	it("編輯器裡的 Esc 只離開編輯器，不關終端機", () => {
+		const onClose = vi.fn();
+		render(<Harness onClose={onClose} />);
+		runCommand("nano wake_up.txt");
+		fireEvent.keyDown(getText(), { key: "Escape" });
+
+		expect(onClose).not.toHaveBeenCalled();
+		expect(queryEditor()).toBeNull();
+		expect(getInput()).toBeDefined();
+	});
+
+	it("編輯中點「[Esc] 關閉」：跟 Esc 一樣先問要不要存，不直接關掉終端機丟掉內容", () => {
+		const onClose = vi.fn();
+		render(<Harness onClose={onClose} />);
+		runCommand("nano todo.txt");
+		fireEvent.change(getText(), { target: { value: "還沒存" } });
+
+		fireEvent.click(screen.getByRole("button", { name: "關閉終端機" }));
+
+		expect(onClose).not.toHaveBeenCalled();
+		expect(within(getEditor()).getByRole("status").textContent).toBe("儲存修改過的緩衝區？");
+	});
+
+	it("編輯中點標題列或底部列，焦點回到文字區", () => {
+		render(<Harness />);
+		runCommand("nano wake_up.txt");
+
+		fireEvent.click(screen.getByRole("heading"));
+		expect(document.activeElement).toBe(getText());
+		fireEvent.click(screen.getByText(/^已學：/));
+		expect(document.activeElement).toBe(getText());
+	});
+
+	it("同一行先 less 再 nano：翻完分頁才開編輯器", () => {
+		render(<Harness />);
+		runCommand("less wake_up.txt ; nano todo.txt");
+
+		expect(queryEditor()).toBeNull();
+		fireEvent.keyDown(screen.getByRole("region", { name: "less 分頁器" }), { key: "q" });
+		expect(getEditor()).toBeDefined();
+		expect(document.activeElement).toBe(getText());
+	});
+});

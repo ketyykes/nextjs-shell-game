@@ -1,5 +1,7 @@
 export { DialogueBlock } from "./DialogueBlock";
 export type { DialogueBlockProps } from "./DialogueBlock";
+export { Editor } from "./Editor";
+export type { EditorHandle, EditorProps } from "./Editor";
 export { OutputBlock } from "./OutputBlock";
 export type { OutputBlockEntry, OutputBlockProps } from "./OutputBlock";
 export { Pager } from "./Pager";
