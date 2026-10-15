@@ -4,7 +4,7 @@ import { VirtualFileSystem } from "@/game/shell/fs";
 import { Shell } from "@/game/shell/shell";
 import type { FsSnapshot } from "@/game/shell/types";
 import { ABIN_REPLY_MAX_LENGTH } from "@/game/story/abinNotes";
-import { createInitialSaveData, useGameStore } from "./gameStore";
+import { createInitialSaveData, useGameStore, writeImportedSave } from "./gameStore";
 import { getSaveIssue, setSaveIssue } from "./saveStatus";
 import { selectHasSave, selectIsGameFinished, selectIsOxygenLow, selectTerminal } from "./selectors";
 import {
@@ -329,6 +329,15 @@ describe("resetSave", () => {
 		expect(after.stats).toEqual({});
 		expect(after.abinNotes).toEqual({ found: [], reply: null });
 		expect(after.settings).toEqual({ ...DEFAULT_SETTINGS, flickerEnabled: false, volume: 0.3 });
+	});
+
+	it("新遊戲不清光敏確認的旗標，標題不會再問一次（設計文件 4.20）", () => {
+		useGameStore.getState().updateSettings({ flickerEnabled: false, flickerPromptSeen: true });
+
+		useGameStore.getState().resetSave();
+
+		expect(useGameStore.getState().settings.flickerPromptSeen).toBe(true);
+		expect(useGameStore.getState().settings.flickerEnabled).toBe(false);
 	});
 });
 
@@ -684,6 +693,26 @@ describe("persist", () => {
 		expect(useGameStore.getState().settings).toEqual({ ...DEFAULT_SETTINGS, textSpeed: "slow" });
 	});
 
+	it("光敏確認上線前的存檔沒有那個旗標：讀進來是還沒問過，閃爍設定照舊（設計文件 4.20）", async () => {
+		const oldSettings = {
+			textSpeed: "fast",
+			flickerEnabled: true,
+			scanlinesEnabled: true,
+			vignetteEnabled: true,
+			volume: 0.8,
+			muted: false,
+		};
+		localStorage.setItem(
+			SAVE_STORAGE_KEY,
+			JSON.stringify({ state: { ...createInitialSaveData(), settings: oldSettings }, version: SAVE_VERSION }),
+		);
+
+		await useGameStore.persist.rehydrate();
+
+		expect(useGameStore.getState().settings.flickerPromptSeen).toBe(false);
+		expect(useGameStore.getState().settings.flickerEnabled).toBe(true);
+	});
+
 	it("v1 存檔一路升級到 v4：最遠章節等於目前章節、沒有位置、沒通關、統計與阿彬留言是空的，其他資料原樣保留", async () => {
 		const v1Progress = {
 			chapter: 3,
@@ -954,6 +983,231 @@ describe("瀏覽器整個封鎖儲存空間", () => {
 		expect(() => useGameStore.persist.clearStorage()).not.toThrow();
 
 		expect(getSaveIssue()).toBe("unavailable");
+	});
+});
+
+describe("兩個分頁同時開遊戲（4.21）", () => {
+	afterEach(async () => {
+		vi.restoreAllMocks();
+		// 重新讀檔就跟上最新的存檔、恢復存檔，後面的測試才不會停在「這個分頁不再存檔」
+		await useGameStore.persist.rehydrate();
+	});
+
+	/** 一份目前版本的存檔原始字串。 */
+	function saveRaw(chapter: number): string {
+		return JSON.stringify({
+			state: { ...createInitialSaveData(), progress: { ...DEFAULT_PROGRESS, chapter, furthestChapter: chapter } },
+			version: SAVE_VERSION,
+		});
+	}
+
+	/** 讀進一份存檔，模擬分頁剛打開、讀完檔的狀態。 */
+	async function openTabWithSave(raw: string): Promise<void> {
+		localStorage.setItem(SAVE_STORAGE_KEY, raw);
+		await useGameStore.persist.rehydrate();
+	}
+
+	/** 模擬別的分頁寫入（或刪除）：先改 localStorage，瀏覽器再把 storage 事件送到這個分頁。 */
+	function otherTabWrites(key: string | null, newValue: string | null): void {
+		const oldValue = key === null ? null : localStorage.getItem(key);
+		if (key === null) {
+			localStorage.clear();
+		} else if (newValue === null) {
+			localStorage.removeItem(key);
+		} else {
+			localStorage.setItem(key, newValue);
+		}
+		window.dispatchEvent(new StorageEvent("storage", { key, oldValue, newValue, storageArea: localStorage }));
+	}
+
+	it("別的分頁改了存檔：這個分頁回報 other-tab，之後的 action 照常改記憶體但不覆蓋存檔、也不丟例外", async () => {
+		vi.spyOn(console, "warn").mockImplementation(() => {});
+		await openTabWithSave(saveRaw(2));
+		const otherRaw = saveRaw(3);
+
+		otherTabWrites(SAVE_STORAGE_KEY, otherRaw);
+		expect(getSaveIssue()).toBe("other-tab");
+
+		expect(() => useGameStore.getState().setCharacter("c")).not.toThrow();
+		useGameStore.getState().touchSave();
+
+		expect(localStorage.getItem(SAVE_STORAGE_KEY)).toBe(otherRaw);
+		expect(useGameStore.getState().progress.character).toBe("c");
+	});
+
+	it("自己連續寫入不會被當成別的分頁改了存檔", async () => {
+		await openTabWithSave(saveRaw(2));
+
+		useGameStore.getState().setCharacter("e");
+		useGameStore.getState().learnCommand("pwd");
+		useGameStore.getState().loseOxygen();
+
+		expect(getSaveIssue()).toBeNull();
+		expect(readStoredSave().state.progress).toMatchObject({ character: "e", learnedCommands: ["pwd"], oxygen: OXYGEN_MAX - 1 });
+	});
+
+	it("別的分頁寫進跟這個分頁最後寫入一模一樣的內容不算改了存檔", async () => {
+		await openTabWithSave(saveRaw(2));
+		useGameStore.getState().setCharacter("e");
+		const mine = localStorage.getItem(SAVE_STORAGE_KEY);
+
+		otherTabWrites(SAVE_STORAGE_KEY, mine);
+		useGameStore.getState().setCharacter("c");
+
+		expect(getSaveIssue()).toBeNull();
+		expect(readStoredSave().state.progress).toMatchObject({ character: "c" });
+	});
+
+	it("升級前的備份 key（kepler9-save.backup.v1）與其他 key 的 storage 事件不算", async () => {
+		await openTabWithSave(saveRaw(2));
+
+		otherTabWrites(`${SAVE_STORAGE_KEY}.backup.v1`, "舊版存檔");
+		otherTabWrites("some-other-key", "x");
+		useGameStore.getState().setCharacter("c");
+
+		expect(getSaveIssue()).toBeNull();
+		expect(readStoredSave().state.progress).toMatchObject({ character: "c" });
+	});
+
+	it("別的分頁刪掉存檔也算改了存檔，這個分頁不會把舊進度寫回去", async () => {
+		vi.spyOn(console, "warn").mockImplementation(() => {});
+		await openTabWithSave(saveRaw(2));
+
+		otherTabWrites(SAVE_STORAGE_KEY, null);
+		useGameStore.getState().setCharacter("c");
+
+		expect(getSaveIssue()).toBe("other-tab");
+		expect(localStorage.getItem(SAVE_STORAGE_KEY)).toBeNull();
+	});
+
+	it("別的分頁清空整個 localStorage（storage 事件的 key 是 null）也算改了存檔", async () => {
+		vi.spyOn(console, "warn").mockImplementation(() => {});
+		await openTabWithSave(saveRaw(2));
+
+		otherTabWrites(null, null);
+		useGameStore.getState().setCharacter("c");
+
+		expect(getSaveIssue()).toBe("other-tab");
+		expect(localStorage.getItem(SAVE_STORAGE_KEY)).toBeNull();
+	});
+
+	it("storage 事件沒送到時，寫入前比對發現存檔被別的分頁改過：讀檔後的第一次寫入就略過並回報 other-tab", async () => {
+		vi.spyOn(console, "warn").mockImplementation(() => {});
+		await openTabWithSave(saveRaw(2));
+		const otherRaw = saveRaw(3);
+		// 只改 localStorage、不發事件（分頁被凍結、從上一頁快取還原時收不到）
+		localStorage.setItem(SAVE_STORAGE_KEY, otherRaw);
+
+		useGameStore.getState().setCharacter("c");
+
+		expect(getSaveIssue()).toBe("other-tab");
+		expect(localStorage.getItem(SAVE_STORAGE_KEY)).toBe(otherRaw);
+	});
+
+	it("寫入前比對：自己寫過幾次之後存檔才被別的分頁改掉，一樣略過", async () => {
+		vi.spyOn(console, "warn").mockImplementation(() => {});
+		await openTabWithSave(saveRaw(2));
+		useGameStore.getState().setCharacter("e");
+		useGameStore.getState().learnCommand("ls");
+		const otherRaw = saveRaw(4);
+		localStorage.setItem(SAVE_STORAGE_KEY, otherRaw);
+
+		useGameStore.getState().learnCommand("cat");
+		useGameStore.getState().loseOxygen();
+
+		expect(getSaveIssue()).toBe("other-tab");
+		expect(localStorage.getItem(SAVE_STORAGE_KEY)).toBe(otherRaw);
+	});
+
+	it("寫入前比對：存檔不見了（沒有別人的新進度要保護）照常寫入，把記憶體裡的進度存回去", async () => {
+		await openTabWithSave(saveRaw(2));
+		useGameStore.getState().setCharacter("e");
+		localStorage.removeItem(SAVE_STORAGE_KEY);
+
+		useGameStore.getState().learnCommand("ls");
+
+		expect(getSaveIssue()).toBeNull();
+		expect(readStoredSave().state.progress).toMatchObject({ chapter: 2, character: "e", learnedCommands: ["ls"] });
+	});
+
+	it("停止存檔後 persist 的 clearStorage 也不會刪掉別的分頁的存檔", async () => {
+		vi.spyOn(console, "warn").mockImplementation(() => {});
+		await openTabWithSave(saveRaw(2));
+		const otherRaw = saveRaw(3);
+		otherTabWrites(SAVE_STORAGE_KEY, otherRaw);
+
+		useGameStore.persist.clearStorage();
+
+		expect(localStorage.getItem(SAVE_STORAGE_KEY)).toBe(otherRaw);
+	});
+
+	it("存檔失敗之後別的分頁改了存檔：提示換成 other-tab，之後也不再寫", async () => {
+		vi.spyOn(console, "warn").mockImplementation(() => {});
+		await openTabWithSave(saveRaw(2));
+		const setItem = failAllWrites();
+		useGameStore.getState().loseOxygen();
+		expect(getSaveIssue()).toBe("write-failed");
+		setItem.mockRestore();
+		const otherRaw = saveRaw(3);
+
+		otherTabWrites(SAVE_STORAGE_KEY, otherRaw);
+		useGameStore.getState().loseOxygen();
+
+		expect(getSaveIssue()).toBe("other-tab");
+		expect(localStorage.getItem(SAVE_STORAGE_KEY)).toBe(otherRaw);
+	});
+
+	it("重新讀檔就跟上最新的存檔：提示消失，之後又能存檔", async () => {
+		vi.spyOn(console, "warn").mockImplementation(() => {});
+		await openTabWithSave(saveRaw(2));
+		otherTabWrites(SAVE_STORAGE_KEY, saveRaw(3));
+		expect(getSaveIssue()).toBe("other-tab");
+
+		await useGameStore.persist.rehydrate();
+		useGameStore.getState().setCharacter("d");
+
+		expect(getSaveIssue()).toBeNull();
+		expect(readStoredSave().state.progress).toMatchObject({ chapter: 3, character: "d" });
+	});
+
+	it("匯入存檔是這個分頁自己的寫入：不回報 other-tab，重新載入前的 action 也不會把匯入的存檔蓋回去", async () => {
+		await openTabWithSave(saveRaw(2));
+		const imported = saveRaw(5);
+
+		writeImportedSave(imported);
+		useGameStore.getState().setCharacter("c");
+		useGameStore.getState().touchSave();
+
+		expect(getSaveIssue()).toBeNull();
+		expect(localStorage.getItem(SAVE_STORAGE_KEY)).toBe(imported);
+	});
+
+	it("匯入存檔寫不進去時丟例外、存檔不動，之後照常存檔", async () => {
+		const original = saveRaw(2);
+		await openTabWithSave(original);
+		const setItem = failAllWrites();
+
+		expect(() => writeImportedSave(saveRaw(5))).toThrow("儲存空間已滿");
+		expect(localStorage.getItem(SAVE_STORAGE_KEY)).toBe(original);
+
+		setItem.mockRestore();
+		useGameStore.getState().setCharacter("c");
+		expect(readStoredSave().state.progress).toMatchObject({ chapter: 2, character: "c" });
+	});
+
+	it("還沒讀過存檔的分頁收到 storage 事件不理會：等一下讀檔就會讀到最新的", async () => {
+		// 換一份全新的模組，確保 store 還沒讀寫過存檔
+		vi.resetModules();
+		const freshStore = await import("./gameStore");
+		const freshStatus = await import("./saveStatus");
+		const latest = saveRaw(3);
+
+		otherTabWrites(SAVE_STORAGE_KEY, latest);
+		await freshStore.useGameStore.persist.rehydrate();
+		freshStore.useGameStore.getState().setCharacter("c");
+
+		expect(freshStatus.getSaveIssue()).toBeNull();
+		expect(readStoredSave().state.progress).toMatchObject({ chapter: 3, character: "c" });
 	});
 });
 

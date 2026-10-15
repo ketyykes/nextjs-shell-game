@@ -1,6 +1,7 @@
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setSaveIssue } from "@/game/store/saveStatus";
+import { reloadPage } from "./reloadPage";
 import { SaveStatusNotice } from "./SaveStatusNotice";
 
 const pathname = vi.hoisted(() => ({ current: "/" }));
@@ -8,9 +9,13 @@ vi.mock("next/navigation", () => ({
 	usePathname: () => pathname.current,
 }));
 
+// jsdom 的 window.location.reload 不能被替換，整個模組換成 spy
+vi.mock("./reloadPage", () => ({ reloadPage: vi.fn() }));
+
 beforeEach(() => {
 	setSaveIssue(null);
 	pathname.current = "/";
+	vi.mocked(reloadPage).mockClear();
 });
 
 // vitest 未啟用 globals，需手動在每個測試後卸載畫面
@@ -50,6 +55,42 @@ describe("SaveStatusNotice", () => {
 		render(<SaveStatusNotice />);
 
 		expect(screen.getByRole("alert").textContent).toContain("不會存檔");
+	});
+
+	it("另一個分頁改了存檔：說明這個分頁已停止存檔，按「重新載入」整頁重新載入接續最新進度", () => {
+		setSaveIssue("other-tab");
+		render(<SaveStatusNotice />);
+
+		const text = screen.getByRole("alert").textContent ?? "";
+		expect(text).toContain("另一個分頁改了存檔");
+		expect(text).toContain("已停止存檔");
+		expect(text).toContain("最新進度");
+
+		fireEvent.click(screen.getByRole("button", { name: "重新載入" }));
+		expect(reloadPage).toHaveBeenCalledTimes(1);
+	});
+
+	it("提示本身不擋地圖的點擊，只有「重新載入」按鈕接得到滑鼠", () => {
+		setSaveIssue("other-tab");
+		render(<SaveStatusNotice />);
+
+		expect(screen.getByRole("alert").className).toContain("pointer-events-none");
+		expect(screen.getByRole("button", { name: "重新載入" }).className).toContain("pointer-events-auto");
+	});
+
+	it.each(["write-failed", "newer-version", "unavailable"] as const)("%s 的提示重新載入也沒用，不放「重新載入」按鈕", (issue) => {
+		setSaveIssue(issue);
+		render(<SaveStatusNotice />);
+
+		expect(screen.queryByRole("button", { name: "重新載入" })).toBeNull();
+	});
+
+	it("練習模式本來就不存檔，另一個分頁改了存檔也不在練習模式提示", () => {
+		pathname.current = "/sandbox";
+		setSaveIssue("other-tab");
+		const { container } = render(<SaveStatusNotice />);
+
+		expect(container.firstChild).toBeNull();
 	});
 
 	it("練習模式本來就不存檔，不顯示存檔提示", () => {

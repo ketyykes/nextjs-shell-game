@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
 import { enterPlay, seedSave, TERMINALS_PER_CHAPTER, walkToTerminal } from "./helpers/deck";
+import { answerFlickerPrompt } from "./helpers/title";
 
 /**
  * 存檔 v3：通關狀態與遊玩統計（M14-1）、存檔匯出匯入（M14-2）、劇本改版偵測（M12-4）。
@@ -103,9 +104,10 @@ test("存檔管理：匯出成 JSON 檔，清掉存檔後再匯入，重新載�
 	await expect(page.getByTestId("save-manager-message")).toContainText("已下載");
 	await page.keyboard.press("Escape");
 
-	// 換一台電腦的情境：沒有存檔
+	// 換一台電腦的情境：沒有存檔，標題先問光敏確認（4.20）
 	await page.evaluate(() => window.localStorage.clear());
 	await page.reload();
+	await answerFlickerPrompt(page);
 	await expect(page.getByRole("button", { name: "新遊戲" })).toBeVisible();
 	await expect(page.getByRole("button", { name: "繼續" })).toHaveCount(0);
 

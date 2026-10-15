@@ -32,6 +32,11 @@ export interface SettingsState {
 	/** 0 到 1。 */
 	volume: number;
 	muted: boolean;
+	/**
+	 * 標題畫面的光敏確認（設計文件 4.20）選過了沒，選過就不再問。
+	 * 放在設定裡，所以新遊戲不清、匯出匯入跟著走；上線前的存檔沒有這個欄位，讀檔時補成 false，會被問一次。
+	 */
+	flickerPromptSeen: boolean;
 }
 
 export const DEFAULT_SETTINGS: SettingsState = {
@@ -41,6 +46,7 @@ export const DEFAULT_SETTINGS: SettingsState = {
 	vignetteEnabled: true,
 	volume: 0.8,
 	muted: false,
+	flickerPromptSeen: false,
 };
 
 // ---------------------------------------------------------------------------

@@ -5,7 +5,7 @@
  * 伺服器端或純邏輯模組只需要型別與常數時，請直接從 `@/game/store/types` 引用。
  */
 
-export { createInitialSaveData, useGameStore, useStoreHydration } from "./gameStore";
+export { createInitialSaveData, useGameStore, useStoreHydration, writeImportedSave } from "./gameStore";
 export {
 	OXYGEN_LOW_THRESHOLD,
 	selectAbinNotes,

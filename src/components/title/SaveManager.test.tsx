@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createInitialSaveData, useGameStore } from "@/game/store";
-import { setSaveIssue } from "@/game/store/saveStatus";
+import { getSaveIssue, setSaveIssue } from "@/game/store/saveStatus";
 import { DEFAULT_PROGRESS, SAVE_STORAGE_KEY, SAVE_VERSION } from "@/game/store/types";
 import type { SaveData } from "@/game/store/types";
 import { SaveManager } from "./SaveManager";
@@ -102,6 +102,41 @@ describe("SaveManager 匯出", () => {
 		fireEvent.click(screen.getByRole("button", { name: /匯出存檔/ }));
 
 		expect(await blobs[0].text()).toBe(raw);
+	});
+});
+
+describe("SaveManager 與另一個分頁（4.21）", () => {
+	afterEach(async () => {
+		// 重新讀檔讓這個分頁恢復存檔，後面的測試才不會停在「不再存檔」
+		await useGameStore.persist.rehydrate();
+	});
+
+	it("另一個分頁改了存檔（這個分頁的進度已過期）：照原樣匯出 localStorage 裡最新的存檔，不拿記憶體裡的舊進度頂替", async () => {
+		useGameStore.setState(playedSave(2));
+		const latest = JSON.stringify({ state: playedSave(4), version: SAVE_VERSION });
+		localStorage.setItem(SAVE_STORAGE_KEY, latest);
+		setSaveIssue("other-tab");
+		const { blobs } = captureDownloads();
+		renderManager();
+
+		fireEvent.click(screen.getByRole("button", { name: /匯出存檔/ }));
+
+		expect(await blobs[0].text()).toBe(latest);
+	});
+
+	it("匯入的存檔是這個分頁自己寫的：不提示另一個分頁改了存檔，重新載入前的 action 也不會把它蓋回去", async () => {
+		vi.spyOn(console, "warn").mockImplementation(() => {});
+		useGameStore.setState(playedSave(1));
+		renderManager();
+		const imported = JSON.stringify({ state: playedSave(3), version: SAVE_VERSION });
+
+		await chooseFile(imported);
+		await screen.findByTestId("confirm-panel");
+		fireEvent.click(screen.getByRole("button", { name: "匯入" }));
+		useGameStore.getState().setCharacter("d");
+
+		expect(getSaveIssue()).toBeNull();
+		expect(JSON.parse(localStorage.getItem(SAVE_STORAGE_KEY) as string)).toEqual({ state: playedSave(3), version: SAVE_VERSION });
 	});
 });
 

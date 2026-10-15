@@ -12,8 +12,9 @@ import { useSyncExternalStore } from "react";
  * - `write-failed`：最近一次寫入 localStorage 失敗（配額滿、瀏覽器封鎖儲存），之後寫入成功就清掉。
  * - `newer-version`：存檔版本比程式新，這次不讀也不寫，保住原始存檔；整個分頁期間都維持。
  * - `unavailable`：連讀取都被瀏覽器擋下（封鎖網站資料），這個分頁完全不能存檔。
+ * - `other-tab`：另一個分頁改了存檔（4.21），這個分頁記憶體裡的進度已經過期，停止存檔直到重新載入。
  */
-export type SaveIssue = "write-failed" | "newer-version" | "unavailable";
+export type SaveIssue = "write-failed" | "newer-version" | "unavailable" | "other-tab";
 
 let currentIssue: SaveIssue | null = null;
 const listeners = new Set<() => void>();

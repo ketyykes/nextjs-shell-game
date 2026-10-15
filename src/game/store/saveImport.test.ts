@@ -176,6 +176,7 @@ describe("parseSaveImport", () => {
 		["目前版本卻沒有阿彬留言紀錄", (save: MutableSave) => delete save.abinNotes],
 		["找到的留言不是字串陣列", (save: MutableSave) => (save.abinNotes!.found = "ch1-jokes")],
 		["回信不是字串也不是 null", (save: MutableSave) => (save.abinNotes!.reply = 42)],
+		["光敏確認的旗標不是布林", (save: MutableSave) => ((save.settings as Record<string, unknown>).flickerPromptSeen = "yes")],
 	])("%s：內容壞掉，拒絕", (_label, mutate) => {
 		const save = JSON.parse(JSON.stringify(createSave())) as MutableSave;
 		mutate(save);
@@ -191,5 +192,16 @@ describe("parseSaveImport", () => {
 		save.settings = { textSpeed: "slow" };
 
 		expect(parseSaveImport(exported(save)).ok).toBe(true);
+	});
+
+	it("光敏確認的旗標照存檔裡的匯入：問過的不會再問（設計文件 4.20）", () => {
+		const save = createSave();
+		save.settings = { ...save.settings, flickerEnabled: false, flickerPromptSeen: true };
+
+		const result = parseSaveImport(exported(save));
+
+		expect(result.ok).toBe(true);
+		expect(result.ok && result.data.settings.flickerPromptSeen).toBe(true);
+		expect(result.ok && result.data.settings.flickerEnabled).toBe(false);
 	});
 });
