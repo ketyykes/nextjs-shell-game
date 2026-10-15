@@ -5,7 +5,8 @@
  * 標題 → 新遊戲：選角 → 開場 boot log → /play；繼續：直接 /play；設定：覆蓋在標題上。
  * 選章：重玩到過的某一章，第一章重走 boot log（NOVA 第一句在那裡說），其他章直接 /play。
  * 讀檔完成前只顯示載入字樣，確保「繼續」的出現與否是可信的。
- * 觸控為主的裝置先疊一層「需要實體鍵盤」的提示，可以略過（設計文件 4.6）。
+ * 第一次進遊戲先疊光敏確認，選了要不要關閉閃爍效果才進標題選單，選過就不再問（設計文件 4.20）。
+ * 觸控為主的裝置再疊一層「需要實體鍵盤」的提示，可以略過（設計文件 4.6）；兩個都要出現時光敏確認先。
  * 練習模式：不看存檔，直接進 /sandbox（設計文件 4.11）。
  * 存檔管理（M14-2）：匯出與匯入存檔，匯入成功後整頁重新載入讓 store 重新讀檔。
  * 通關（M14-1）：片尾播完回來時副標換成「已逃離 Kepler-9」、「繼續」換成「通關紀錄」；選章重玩後「繼續」回來。
@@ -16,6 +17,7 @@ import { useCallback, useState } from "react";
 import { SceneCard } from "@/components/game/SceneCard";
 import { BootLog } from "@/components/title/BootLog";
 import { CharacterSelect } from "@/components/title/CharacterSelect";
+import { FlickerPromptPanel } from "@/components/title/FlickerPromptPanel";
 import { SaveManager } from "@/components/title/SaveManager";
 import { SettingsMenu } from "@/components/title/SettingsMenu";
 import type { ChapterOption } from "@/components/title/ChapterSelectPanel";
@@ -23,6 +25,7 @@ import type { ClearRecord } from "@/components/title/ClearRecordPanel";
 import { TitleScreen } from "@/components/title/TitleScreen";
 import { TouchWarningPanel } from "@/components/title/TouchWarningPanel";
 import { usePlayPrefetch } from "@/components/title/usePlayPrefetch";
+import { usePrefersReducedMotion } from "@/components/title/usePrefersReducedMotion";
 import { useTouchWarning } from "@/components/title/useTouchWarning";
 import { chapterLabel, chapterNumeral, getChapterMeta, LAST_CHAPTER, NOVA_FIRST_LINE } from "@/game/chapters/meta";
 import { INTRO_SCENE_IMAGE } from "@/game/story/scenes";
@@ -93,8 +96,19 @@ function TitleFlowReady() {
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [saveManagerOpen, setSaveManagerOpen] = useState(false);
 	const touchWarning = useTouchWarning();
+	const reducedMotion = usePrefersReducedMotion();
 	// 標題、選角、boot log 的空檔先把 /play、Phaser 引擎與要進的那一章插圖抓進快取
 	usePlayPrefetch(progress.chapter);
+
+	// 光敏確認（4.20）：選過就寫進設定，之後不再問；觸控提示排在它後面
+	const flickerPromptVisible = !settings.flickerPromptSeen;
+	const touchWarningVisible = touchWarning.visible && !flickerPromptVisible;
+	const handleFlickerChoice = useCallback(
+		(flickerEnabled: boolean) => {
+			updateSettings({ flickerEnabled, flickerPromptSeen: true });
+		},
+		[updateSettings],
+	);
 
 	const handleNewGame = useCallback(() => {
 		// 覆蓋確認已在 TitleScreen 內做過，這裡直接清進度（設定保留）
@@ -182,11 +196,12 @@ function TitleFlowReady() {
 				onSelectChapter={handleSelectChapter}
 				onPractice={goToSandbox}
 				onManageSave={() => setSaveManagerOpen(true)}
-				keyboardEnabled={!settingsOpen && !saveManagerOpen && !touchWarning.visible}
+				keyboardEnabled={!settingsOpen && !saveManagerOpen && !touchWarningVisible && !flickerPromptVisible}
 				crt={{
 					scanlines: settings.scanlinesEnabled,
 					vignette: settings.vignetteEnabled,
-					flicker: settings.flickerEnabled,
+					// 還沒回答光敏確認之前，面板後面的標題也不閃
+					flicker: settings.flickerEnabled && !flickerPromptVisible,
 				}}
 			/>
 			{settingsOpen && (
@@ -195,7 +210,8 @@ function TitleFlowReady() {
 			{saveManagerOpen && (
 				<SaveManager onClose={() => setSaveManagerOpen(false)} onImported={() => window.location.reload()} />
 			)}
-			{touchWarning.visible && <TouchWarningPanel onDismiss={touchWarning.dismiss} />}
+			{flickerPromptVisible && <FlickerPromptPanel reducedMotion={reducedMotion} onChoose={handleFlickerChoice} />}
+			{touchWarningVisible && <TouchWarningPanel onDismiss={touchWarning.dismiss} />}
 		</>
 	);
 }

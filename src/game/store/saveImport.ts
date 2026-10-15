@@ -59,6 +59,8 @@ const settingsSchema = z.looseObject({
 	vignetteEnabled: z.boolean().optional(),
 	volume: z.number().min(0).max(1).optional(),
 	muted: z.boolean().optional(),
+	// 光敏確認（4.20）：照存檔裡的匯入，沒有就是還沒問過
+	flickerPromptSeen: z.boolean().optional(),
 });
 
 const chapterStatsSchema = z.looseObject({

@@ -670,6 +670,8 @@ export async function seedSave(page: Page, options: SeedOptions): Promise<void> 
 				vignetteEnabled: true,
 				volume: 0.8,
 				muted: true,
+				// 光敏確認（設計文件 4.20）當作問過了，不然回標題時面板會擋在選單前面
+				flickerPromptSeen: true,
 			},
 			terminals: {},
 			storyFlags: flags,

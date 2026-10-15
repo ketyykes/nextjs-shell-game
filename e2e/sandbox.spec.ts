@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { seedSave } from "./helpers/deck";
+import { answerFlickerPrompt } from "./helpers/title";
 
 /** M14-3 沙盒練習模式（設計文件 4.11）：標題進沙盒、打指令、重置、回標題，存檔不受影響。 */
 
@@ -29,7 +30,10 @@ test("沒有存檔也能進練習模式：所有指令開放、可重置、Esc �
 	await page.goto("/");
 	await page.evaluate(() => window.localStorage.clear());
 	await page.reload();
+	await answerFlickerPrompt(page);
 	await expect(page.getByRole("button", { name: "新遊戲" })).toBeVisible();
+	// 光敏確認的選擇會寫進設定（4.20），這之後到回標題為止存檔都不該再動
+	const before = await readSave(page);
 
 	await enterSandboxByKeyboard(page);
 	await expect(page.getByRole("heading", { name: "練習模式" })).toBeVisible();
@@ -75,7 +79,8 @@ test("沒有存檔也能進練習模式：所有指令開放、可重置、Esc �
 	await expect(page).toHaveURL(/\/$/);
 	await expect(page.getByRole("button", { name: "新遊戲" })).toBeVisible();
 	await expect(page.getByRole("button", { name: "繼續" })).toHaveCount(0);
-	expect(await readSave(page)).toBeNull();
+	expect(await readSave(page)).toBe(before);
+	expect(JSON.parse(before ?? "{}").state.progress.savedAt).toBeNull();
 });
 
 test("有存檔時進練習模式亂改一通再回標題，存檔一個字都沒變、「繼續」照常", async ({ page }) => {

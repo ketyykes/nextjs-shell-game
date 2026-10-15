@@ -4,6 +4,8 @@ import { createInitialSaveData, useGameStore } from "@/game/store";
 import { DEFAULT_PROGRESS, SAVE_STORAGE_KEY, SAVE_VERSION } from "@/game/store/types";
 import type { SaveData } from "@/game/store/types";
 import { TitleFlow } from "./TitleFlow";
+import { REDUCED_MOTION_QUERY } from "./usePrefersReducedMotion";
+import { TOUCH_PRIMARY_QUERY } from "./useTouchWarning";
 
 vi.mock("next/navigation", () => ({
 	useRouter: () => ({ prefetch: vi.fn(), push: vi.fn(), replace: vi.fn() }),
@@ -35,6 +37,12 @@ function finishedSave(): SaveData {
 	};
 }
 
+/** 問過光敏確認的存檔（其餘照預設），測試其他功能時不讓面板擋在前面。 */
+function promptSeenSave(): SaveData {
+	const save = createInitialSaveData();
+	return { ...save, settings: { ...save.settings, flickerPromptSeen: true } };
+}
+
 beforeEach(() => {
 	useGameStore.setState(createInitialSaveData());
 	localStorage.clear();
@@ -46,7 +54,8 @@ afterEach(() => {
 
 describe("TitleFlow 的存檔管理（M14-2）", () => {
 	it("沒有存檔也能打開存檔管理；開著時標題選單不收鍵盤，Esc 關掉", async () => {
-		await renderWithSave(createInitialSaveData());
+		// 光敏確認問過了，鍵盤停用的才確定是存檔管理造成的
+		await renderWithSave(promptSeenSave());
 
 		fireEvent.click(screen.getByRole("button", { name: "存檔管理" }));
 		expect(screen.getByRole("dialog", { name: "存檔管理" })).toBeDefined();
@@ -55,6 +64,91 @@ describe("TitleFlow 的存檔管理（M14-2）", () => {
 		fireEvent.keyDown(window, { key: "Escape" });
 		expect(screen.queryByRole("dialog", { name: "存檔管理" })).toBeNull();
 		expect(screen.getByTestId("title-screen")).toBeDefined();
+	});
+});
+
+/** jsdom 沒有 matchMedia：只讓給定的查詢成立，例如觸控為主的裝置。 */
+function stubMatchMedia(matchingQueries: readonly string[]) {
+	vi.stubGlobal(
+		"matchMedia",
+		vi.fn((query: string) => ({
+			matches: matchingQueries.includes(query),
+			media: query,
+			addEventListener: () => {},
+			removeEventListener: () => {},
+		})),
+	);
+}
+
+describe("TitleFlow 的光敏確認（設計文件 4.20）", () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it("第一次進遊戲先問；開著時標題選單不收鍵盤，Enter 選的是預設的「關閉」，寫進設定後不再出現", async () => {
+		await renderWithSave(createInitialSaveData());
+
+		expect(screen.getByRole("alertdialog", { name: "光敏提醒" })).toBeDefined();
+		fireEvent.keyDown(window, { key: "Enter" });
+
+		// 同一下 Enter 不能順便觸發標題選單的「新遊戲」
+		expect(screen.queryByText("選擇外觀")).toBeNull();
+		expect(screen.queryByRole("alertdialog", { name: "光敏提醒" })).toBeNull();
+		expect(useGameStore.getState().settings.flickerEnabled).toBe(false);
+		expect(useGameStore.getState().settings.flickerPromptSeen).toBe(true);
+
+		// 重新進標題（例如重新整理）不再問
+		cleanup();
+		render(<TitleFlow />);
+		expect(screen.queryByRole("alertdialog", { name: "光敏提醒" })).toBeNull();
+	});
+
+	it("選「保留閃爍效果」：閃爍照舊開著，也記下問過了", async () => {
+		await renderWithSave(createInitialSaveData());
+
+		fireEvent.click(screen.getByRole("button", { name: "保留閃爍效果" }));
+
+		expect(screen.queryByRole("alertdialog", { name: "光敏提醒" })).toBeNull();
+		expect(useGameStore.getState().settings.flickerEnabled).toBe(true);
+		expect(useGameStore.getState().settings.flickerPromptSeen).toBe(true);
+	});
+
+	it("還沒選之前，面板後面的標題也不播 CRT 閃爍；選「保留」之後才播", async () => {
+		await renderWithSave(createInitialSaveData());
+		// CRT 覆蓋層是 aria-hidden 的裝飾，沒有角色可查，只能用 testid
+		expect(screen.queryByTestId("crt-flicker")).toBeNull();
+
+		fireEvent.click(screen.getByRole("button", { name: "保留閃爍效果" }));
+
+		expect(screen.getByTestId("crt-flicker")).toBeDefined();
+	});
+
+	it("問過的存檔直接是標題選單", async () => {
+		await renderWithSave(promptSeenSave());
+
+		expect(screen.queryByRole("alertdialog", { name: "光敏提醒" })).toBeNull();
+		expect(screen.getByRole("button", { name: "新遊戲" })).toBeDefined();
+	});
+
+	it("觸控為主的裝置：光敏確認先問，選完才出現需要實體鍵盤的提示", async () => {
+		stubMatchMedia([TOUCH_PRIMARY_QUERY]);
+		await renderWithSave(createInitialSaveData());
+
+		expect(screen.getByRole("alertdialog", { name: "光敏提醒" })).toBeDefined();
+		expect(screen.queryByRole("alertdialog", { name: "本遊戲需要實體鍵盤" })).toBeNull();
+
+		fireEvent.click(screen.getByRole("button", { name: "關閉閃爍效果" }));
+
+		expect(screen.getByRole("alertdialog", { name: "本遊戲需要實體鍵盤" })).toBeDefined();
+	});
+
+	it("系統設定了減少動態效果時，面板多一句說明", async () => {
+		stubMatchMedia([REDUCED_MOTION_QUERY]);
+		await renderWithSave(createInitialSaveData());
+
+		expect(screen.getByRole("alertdialog", { name: "光敏提醒" }).textContent).toContain(
+			"偵測到你的系統設定了減少動態效果",
+		);
 	});
 });
 

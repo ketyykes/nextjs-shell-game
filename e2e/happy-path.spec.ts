@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { passChapterEnd, playChapter, terminalScripts, type TerminalScript } from "./helpers/deck";
+import { answerFlickerPrompt } from "./helpers/title";
 
 /**
  * 第一章 happy path：標題 → 新遊戲 → 選角 → boot log → 地圖，照劇本順序走到六台終端機各解一關，
@@ -27,6 +28,8 @@ test.describe("第一章 happy path", () => {
 		await page.goto("/");
 		await page.evaluate(() => window.localStorage.clear());
 		await page.reload();
+		// 第一次進遊戲先回答光敏確認（4.20）；保留閃爍，第一章的燈光演出照舊
+		await answerFlickerPrompt(page);
 
 		// 標題 → 新遊戲 → 選角（往右選第二位）→ boot log（Enter 跳過、Enter 進地圖）
 		await expect(page.getByRole("heading", { name: "KEPLER-9" })).toBeVisible();
