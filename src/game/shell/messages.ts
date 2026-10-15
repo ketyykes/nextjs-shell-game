@@ -668,6 +668,34 @@ export function sedNoInputFiles(): string[] {
 	return ["sed -i 是直接改檔案，後面要接檔名，例如 sed -i 's/舊/新/' notes.txt；管線的輸出沒有檔案可以改。"];
 }
 
+/** `alias` 的名稱不合法（bash：invalid alias name）。 */
+export function aliasInvalidName(name: string): string[] {
+	return [`\`${name}\` 不能當別名的名稱：名稱不能是空的，也不能有空白、/、$、=、引號或 | & ; ( ) < > 這些符號。`];
+}
+
+/** `alias 名稱=` 的內容是空的。bash 允許，這裡請玩家改用 unalias 拿掉別名。 */
+export function aliasEmptyValue(name: string): string[] {
+	return [`別名 \`${name}\` 的內容是空的。要拿掉別名用 unalias ${name}；要設定就寫成 alias ${name}='指令 參數'。`];
+}
+
+/** `alias` 的內容不是單純的指令或管線（有 `;`、`&&`、`>` 這類寫法）。 */
+export function aliasUnsupportedValue(name: string): string[] {
+	return [
+		`別名 \`${name}\` 只能是一個指令（可以帶參數），或用 | 串起來的管線，例如 alias errs='grep ERROR | wc -l'。`,
+		"; && > 這些寫法請直接打在指令列上。",
+	];
+}
+
+/** `alias 名稱`、`unalias 名稱` 查不到這個別名（bash：not found）。不算錯誤。 */
+export function aliasNotFound(name: string): string[] {
+	return [`目前沒有叫 \`${name}\` 的別名，alias 不加參數會列出全部。`];
+}
+
+/** `which` 查的是別名：which 只找程式檔（跟 bash 的 which 一樣看不到別名）。`definition` 是 `alias ll='ls -l'` 這種寫法。 */
+export function whichAlias(name: string, definition: string): string[] {
+	return [`\`${name}\` 是這個工作階段設定的別名（${definition}），不是程式檔，所以 which 找不到。`, "別名用 alias 查，alias 不加參數會列出全部。"];
+}
+
 /** `tr` 不認得的字元類別，例如 `[:digits:]`。 */
 export function trInvalidClass(name: string): string[] {
 	return [`\`[:${name}:]\` 不是 tr 認得的字元類別，可以用 [:upper:]、[:lower:]、[:digit:]、[:space:]、[:alpha:]、[:alnum:]。`];

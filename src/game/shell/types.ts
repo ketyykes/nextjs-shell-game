@@ -478,6 +478,8 @@ export interface CommandContext {
 	 * 由 shell 從 `ShellOptions.now` 帶入，沒給時 `date` 用喚醒時間。
 	 */
 	now?: string;
+	/** 這個 shell 目前的別名（第十九場，`alias`、`unalias`、`which` 用），名稱對應展開前的原文。沒給等同沒有別名。 */
+	aliases?: Readonly<Record<string, string>>;
 }
 
 /**
@@ -499,6 +501,8 @@ export interface CommandResult {
 	nextEnv?: Record<string, string>;
 	/** `kill` 用：整份取代程序清單。 */
 	nextProcesses?: ProcessInfo[];
+	/** `alias`、`unalias` 用：整份取代別名（第十九場）。別名只活在這個 shell 物件裡，不存檔。 */
+	nextAliases?: Record<string, string>;
 	/** `less` 用：要求進分頁模式，見 `PagerOutput`。 */
 	pager?: PagerOutput;
 	/**

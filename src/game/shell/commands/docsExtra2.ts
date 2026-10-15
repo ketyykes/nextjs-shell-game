@@ -78,7 +78,40 @@ export const EXTRA2_COMMAND_DOCS: Record<string, CommandDoc> = {
 			{ command: "date +%j", explanation: "今天是這一年的第幾天" },
 		],
 	},
+	alias: {
+		name: "alias",
+		summary: "幫常用的指令取一個短名字",
+		usage: "alias [名稱='指令 參數'...] [名稱...]",
+		description: [
+			"alias 幫一串常打的指令取個短名字，例如 alias ll='ls -l' 之後，打 ll 就等於打 ls -l，後面還能接參數：ll logs 就是 ls -l logs。",
+			"等號兩邊不能有空白，內容有空白就用引號包起來。內容可以是一個指令，或用 | 串起來的管線，例如 alias errs='grep ERROR | wc -l'；; && > 這些寫法不行。",
+			"不加參數的 alias 列出目前所有的別名，alias ll 只看 ll 那一條；不要了用 unalias ll 拿掉。",
+			"只有指令開頭（或 | 後面）的第一個字會換成別名，當參數時不會。想用指令原本的樣子就在前面加反斜線或用引號包起來，例如 alias ls='ls -a' 之後，\\ls 還是原本的 ls。",
+			"別名只存在這台終端機這次的工作階段：關掉再打開還在；換一台終端機、重新整理網頁、回標題，或練習模式按重置之後就沒了。跟真的 shell 一樣，沒寫進設定檔的別名重開就沒了。",
+			"alias 是 shell 的內建指令。which 只找程式檔，查別名時會說明它是別名。",
+		],
+		examples: [
+			{ command: "alias ll='ls -l'", explanation: "之後打 ll 就是 ls -l" },
+			{ command: "alias errs='grep -c ERROR'", explanation: "之後打 errs sensors.log 就知道有幾行錯誤" },
+			{ command: "alias", explanation: "列出目前所有的別名" },
+			{ command: "alias ll", explanation: "只看 ll 那一條" },
+		],
+	},
+	unalias: {
+		name: "unalias",
+		summary: "拿掉別名",
+		usage: "unalias [-a] [名稱...]",
+		description: [
+			"unalias ll 拿掉 ll 這個別名，之後打 ll 就會說找不到指令；一次可以給好幾個名稱。",
+			"-a 把這個工作階段的別名全部拿掉。",
+			"名稱打錯或本來就沒有這個別名時會說明一下，不算打錯指令。unalias 也是 shell 的內建指令。",
+		],
+		examples: [
+			{ command: "unalias ll", explanation: "拿掉 ll 這個別名" },
+			{ command: "unalias -a", explanation: "全部拿掉" },
+		],
+	},
 };
 
 /** 這組指令在側邊面板的顯示順序，排在帳號與登入的彩蛋之後。 */
-export const EXTRA2_COMMAND_ORDER: string[] = ["tr", "tee", "sed", "date"];
+export const EXTRA2_COMMAND_ORDER: string[] = ["tr", "tee", "sed", "date", "alias", "unalias"];

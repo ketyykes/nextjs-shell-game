@@ -2,7 +2,9 @@
  * `which`：印出指令的程式檔放在哪裡（M13-3，只開放使用，不在劇本裡）。
  *
  * 這台站的指令沒有真的放在虛擬檔案系統裡，位置照下面的規則決定（照 Debian 的配置）：
- * - shell 內建、沒有獨立程式檔的 `cd`、`export`、`unset`、`help`、`history`、`exit`、`logout`：找不到，並說明它是內建指令
+ * - shell 內建、沒有獨立程式檔的 `cd`、`export`、`unset`、`help`、`history`、`exit`、`logout`、`alias`、`unalias`：找不到，並說明它是內建指令
+ * - 這個工作階段設定的別名（第十九場）：bash 的 which 是獨立程式、看不到別名，這裡一樣找不到，但說明它是別名、印出定義；
+ *   別名跟指令同名時（`alias ls='ls -a'`）照樣印程式檔的位置
  * - 遊戲自己的 `hint`：`/usr/local/bin/hint`（站上加裝的工具）
  * - 其他已註冊的指令：`/usr/bin/<名稱>`；`/bin` 跟 `/usr/bin` 是同一個目錄（Debian 的 merged /usr），
  *   PATH 裡寫 `/bin` 時印 `/bin/<名稱>`
@@ -19,14 +21,15 @@
 
 import type { CommandContext, CommandDefinition, CommandResult, FsNode } from "../types";
 import { FsError, PLAYER_USER } from "../types";
-import { missingOperand, whichBuiltin, whichNotFound } from "../messages";
+import { missingOperand, whichAlias, whichBuiltin, whichNotFound } from "../messages";
+import { formatAlias } from "./alias";
 import { parseFlagArgs } from "./options";
 
 /** 環境變數沒有 `PATH` 時用的預設值。 */
 export const DEFAULT_PATH = "/usr/local/bin:/usr/bin:/bin";
 
 /** bash 的內建指令，沒有獨立的程式檔。 */
-const SHELL_BUILTINS = new Set(["cd", "export", "unset", "help", "history", "exit", "logout"]);
+const SHELL_BUILTINS = new Set(["cd", "export", "unset", "help", "history", "exit", "logout", "alias", "unalias"]);
 
 /** 遊戲自己的工具，裝在 `/usr/local/bin`。 */
 const LOCAL_TOOLS = new Set(["hint"]);
@@ -125,6 +128,10 @@ function locate(name: string, path: string, all: boolean, context: CommandContex
 
 	const install = installDir(name, context.availableCommands);
 	if (install === null) {
+		const aliases = context.aliases ?? {};
+		if (Object.hasOwn(aliases, name)) {
+			return notFound(whichAlias(name, formatAlias(name, aliases[name])));
+		}
 		return notFound(whichNotFound(name, path, false));
 	}
 

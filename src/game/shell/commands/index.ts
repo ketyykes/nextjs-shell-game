@@ -6,6 +6,7 @@
  * 設計文件 4.8：所有已實作的指令都能打，`help` 只列學過的。
  */
 
+import { aliasCommand } from "./alias";
 import { catCommand } from "./cat";
 import { cdCommand } from "./cd";
 import { chmodCommand } from "./chmod";
@@ -44,6 +45,7 @@ import { topCommand } from "./top";
 import { touchCommand } from "./touch";
 import { trCommand } from "./tr";
 import { treeCommand } from "./tree";
+import { unaliasCommand } from "./unalias";
 import { uniqCommand } from "./uniq";
 import { unsetCommand } from "./unset";
 import { wcCommand } from "./wc";
@@ -110,6 +112,8 @@ export const ALL_COMMANDS: CommandDefinition[] = [
 	teeCommand,
 	sedCommand,
 	dateCommand,
+	aliasCommand,
+	unaliasCommand,
 ];
 
 export { catCommand, cdCommand, clearCommand, helpCommand, hintCommand, historyCommand, lsCommand, manCommand, pwdCommand };

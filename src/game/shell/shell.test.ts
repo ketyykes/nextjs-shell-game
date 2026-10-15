@@ -20,6 +20,7 @@ import {
 	similarCommand,
 	sudoDenied,
 	unsupportedSyntax,
+	whichAlias,
 } from "./messages";
 import { Shell } from "./shell";
 import type { ShellSessionState } from "./shell";
@@ -1292,10 +1293,99 @@ describe("第十九場開放的指令", () => {
 		expect(shell.execute("cat wake_up.txt | sed 's/三年後/明天/' | head -n 1").lines).toEqual(["喚醒排程：明天"]);
 	});
 
+	it("alias 與 unalias 是內建指令，which 找不到程式檔", () => {
+		const shell = createShell();
+
+		expect(shell.execute("which alias unalias").lines.join("\n")).toContain("內建");
+	});
+
 	it("sed -i 改寫虛擬檔案系統裡的檔案", () => {
 		const shell = createShell();
 
 		expect(shell.execute("sed -i '2d' wake_up.txt")).toMatchObject({ isError: false, lines: [] });
 		expect(shell.execute("cat wake_up.txt").lines).toEqual(["喚醒排程：三年後", "修改者："]);
+	});
+});
+
+describe("Shell 別名 alias（第十九場）", () => {
+	it("設定之後打別名等於打它的內容，後面的參數接上去", () => {
+		const shell = createShell();
+
+		expect(shell.execute("alias ll='ls -l'")).toMatchObject({ isError: false, lines: [] });
+		expect(shell.execute("ll pod_06").lines).toEqual(shell.execute("ls -l pod_06").lines);
+		expect(shell.execute("alias").lines).toEqual(["alias ll='ls -l'"]);
+	});
+
+	it("只展開指令名：參數裡的、引號包住的、反斜線跳脫的都不展開", () => {
+		const shell = createShell();
+		shell.execute("alias ll='ls -l'");
+
+		expect(shell.execute("echo ll").lines).toEqual(["ll"]);
+		expect(shell.execute("'ll'").isError).toBe(true);
+		expect(shell.execute("\\ll").isError).toBe(true);
+	});
+
+	it("同名的別名不遞迴：alias ls='ls -a' 之後 ls 看得到隱藏檔", () => {
+		const shell = createShell();
+		shell.execute("alias ls='ls -a'");
+
+		expect(shell.execute("ls").lines).toContain(".nova_cache");
+	});
+
+	it("別名可以是管線，放在管線裡也會展開", () => {
+		const shell = createShell();
+		shell.execute("alias count='wc -l'");
+		shell.execute("alias listing='ls | cat'");
+
+		expect(shell.execute("ls | count").lines).toEqual(["7"]);
+		expect(shell.execute("listing | count").lines).toEqual(["7"]);
+	});
+
+	it("變數在使用時才展開", () => {
+		const shell = createShell();
+		shell.execute("alias where='echo $PWD'");
+		shell.execute("cd pod_06");
+
+		expect(shell.execute("where").lines).toEqual(["/home/tech/pod_06"]);
+	});
+
+	it("同一行先定義再用，馬上生效", () => {
+		const shell = createShell();
+
+		expect(shell.execute("alias hi='echo hello'; hi").lines).toEqual(["hello"]);
+	});
+
+	it("unalias 之後就沒了", () => {
+		const shell = createShell();
+		shell.execute("alias ll='ls -l'");
+		shell.execute("unalias ll");
+
+		expect(shell.execute("ll").isError).toBe(true);
+		expect(shell.execute("alias").lines).toEqual([]);
+	});
+
+	it("別名不進存檔：從存檔還原的 shell 沒有別名", () => {
+		const shell = createShell();
+		shell.execute("alias ll='ls -l'");
+		const state = shell.toState();
+		const restored = Shell.fromState(state, VirtualFileSystem.fromSerialized(state.fs), []);
+
+		expect(state).not.toHaveProperty("aliases");
+		expect(restored.execute("alias").lines).toEqual([]);
+		expect(restored.execute("ll").isError).toBe(true);
+	});
+
+	it("Tab 補得到別名", () => {
+		const shell = createShell();
+		shell.execute("alias pods='ls pod_06'");
+
+		expect(shell.complete("pod").completed).toBe("pods ");
+	});
+
+	it("which 查別名：說明它是別名，不算錯誤", () => {
+		const shell = createShell();
+		shell.execute("alias ll='ls -l'");
+
+		expect(shell.execute("which ll")).toMatchObject({ isError: false, lines: whichAlias("ll", "alias ll='ls -l'") });
 	});
 });

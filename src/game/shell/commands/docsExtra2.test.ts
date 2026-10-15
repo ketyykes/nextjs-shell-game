@@ -4,7 +4,7 @@ import { ALL_COMMANDS } from ".";
 import { EXTRA2_COMMAND_DOCS, EXTRA2_COMMAND_ORDER } from "./docsExtra2";
 
 /** 第十九場開放使用、沒編進劇本的指令（設計文件 4.18）。 */
-const EXTRA2_COMMANDS = ["tr", "tee", "sed", "date"];
+const EXTRA2_COMMANDS = ["tr", "tee", "sed", "date", "alias", "unalias"];
 
 describe("EXTRA2_COMMAND_ORDER", () => {
 	it("順序照設計文件 4.18 的清單", () => {
@@ -66,6 +66,20 @@ describe("EXTRA2_COMMAND_DOCS", () => {
 		}
 		expect(doc.examples.some((example) => example.command.includes("-n"))).toBe(true);
 		expect(doc.examples.some((example) => example.command.includes("-i"))).toBe(true);
+	});
+
+	it("alias 說明定義、列出、只展開指令名、繞過別名的寫法，以及重開就沒了", () => {
+		const doc = EXTRA2_COMMAND_DOCS.alias;
+		const text = doc.description.join("\n");
+		for (const token of ["alias ll='ls -l'", "unalias", "第一個", "\\ls", "|", "重開就沒了", "which"]) {
+			expect(text).toContain(token);
+		}
+	});
+
+	it("unalias 說明拿掉一個與 -a 全部拿掉", () => {
+		const doc = EXTRA2_COMMAND_DOCS.unalias;
+		expect(doc.usage).toContain("-a");
+		expect(doc.description.join("\n")).toContain("-a");
 	});
 
 	it("date 說明 UTC、+格式的常用寫法，以及時間不會自己走", () => {

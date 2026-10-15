@@ -11,6 +11,7 @@
  * 這個檔案不可以 import React 或 Phaser。
  */
 
+import { expandAliases } from "./aliases";
 import { ALL_COMMANDS } from "./commands";
 import { joinContentLines } from "./commands/cat";
 import { commandAtInstallPath } from "./commands/which";
@@ -107,6 +108,8 @@ export class Shell {
 	private currentProcesses: ProcessInfo[];
 	/** 唯讀變數的名稱，來自劇本、不存檔，見 `CommandContext.readonlyEnv`。 */
 	private readonly readonlyEnv: string[];
+	/** 別名（第十九場 `alias`）：只活在這個物件裡，不進 `toState`，跟沒寫進設定檔的別名一樣重開就沒了。 */
+	private aliases: Record<string, string> = {};
 
 	constructor(options: ShellOptions, commands: CommandDefinition[] = ALL_COMMANDS) {
 		this.options = options;
@@ -279,7 +282,8 @@ export class Shell {
 		let clearScreen = false;
 		// 管線的結束碼是最後一個指令的（bash 沒開 pipefail 時的行為），中間的 grep 沒符合不影響
 		let exitStatus = 0;
-		const commands = parsed.pipeline.commands;
+		// 別名在解析之後、查指令之前展開（第十九場），變數與 ~ 用當下的值
+		const commands = expandAliases(parsed.pipeline.commands, this.aliases, { env: this.currentEnv, home: this.home });
 
 		for (const [index, parsedCommand] of commands.entries()) {
 			const name = parsedCommand.name.value;
@@ -344,13 +348,13 @@ export class Shell {
 		return combined;
 	}
 
-	/** Tab 補全，游標視為在輸入結尾。 */
+	/** Tab 補全，游標視為在輸入結尾。指令名的候選包含別名。 */
 	complete(input: string): CompletionResult {
 		return completeInput(input, {
 			cwd: this.currentCwd,
 			home: this.home,
 			fs: this.options.fs,
-			commandNames: this.commandNames,
+			commandNames: [...this.commandNames, ...Object.keys(this.aliases)],
 			env: this.currentEnv,
 		});
 	}
@@ -426,6 +430,7 @@ export class Shell {
 			processes: copyProcesses(this.currentProcesses),
 			readonlyEnv: [...this.readonlyEnv],
 			now: this.options.now,
+			aliases: { ...this.aliases },
 		};
 	}
 
@@ -552,7 +557,7 @@ export class Shell {
 		return commandNotFound(name);
 	}
 
-	/** 套用單一指令結果的副作用：換目錄（同時更新 `PWD`）、hint 計數、環境變數、程序清單。 */
+	/** 套用單一指令結果的副作用：換目錄（同時更新 `PWD`）、hint 計數、環境變數、程序清單、別名。 */
 	private applySideEffects(result: CommandResult): void {
 		if (result.nextEnv !== undefined) {
 			this.currentEnv = { ...result.nextEnv };
@@ -567,6 +572,9 @@ export class Shell {
 		}
 		if (result.nextProcesses !== undefined) {
 			this.currentProcesses = copyProcesses(result.nextProcesses);
+		}
+		if (result.nextAliases !== undefined) {
+			this.aliases = { ...result.nextAliases };
 		}
 	}
 
