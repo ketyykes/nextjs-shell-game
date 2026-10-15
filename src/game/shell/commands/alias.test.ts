@@ -77,6 +77,14 @@ describe("alias 定義", () => {
 		expect(runAlias(["a/b=ls"]).lines).toEqual(aliasInvalidName("a/b"));
 	});
 
+	it("等號兩邊有空白（alias ll = 'ls -l'）時提醒等號兩邊不能有空白", () => {
+		const result = runAlias(["ll", "=", "ls -l"]);
+
+		expect(result.ok).toBe(false);
+		expect(result.lines).toEqual([...aliasNotFound("ll"), ...aliasInvalidName(""), ...aliasNotFound("ls -l")]);
+		expect(aliasInvalidName("").join("\n")).toContain("等號兩邊不能有空白");
+	});
+
 	it("內容是空的：要拿掉別名請用 unalias", () => {
 		expect(runAlias(["ll="])).toEqual({ ok: false, lines: aliasEmptyValue("ll") });
 	});

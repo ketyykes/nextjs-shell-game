@@ -108,11 +108,11 @@ export const ALL_COMMANDS: CommandDefinition[] = [
 	sudoCommand,
 	exitCommand,
 	logoutCommand,
-	// 第十九場：只開放使用，不在劇本裡（設計文件 4.18）
+	// 第十九場：只開放使用，不在劇本裡（設計文件 4.18）。sed 排在 tee 前面，打錯字的 see 同分時建議 sed
+	sedCommand,
 	trCommand,
 	teeCommand,
 	xargsCommand,
-	sedCommand,
 	dateCommand,
 	aliasCommand,
 	unaliasCommand,

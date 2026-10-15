@@ -566,10 +566,10 @@ export function trExtraOperand(operand: string, example: string): string[] {
 	return [`\`${operand}\` 多出來了：tr 不接檔名，只讀 | 左邊指令的輸出。`, `要處理檔案請寫成 cat ${operand} | ${example}。`];
 }
 
-/** `tr` 換字只給了一組字元（GNU：Two strings must be given when translating）。 */
+/** `tr` 換字（或 `-ds`）只給了一組字元（GNU：Two strings must be given when translating）。 */
 export function trNeedsTwoSets(set: string): string[] {
 	return [
-		`tr 換字要給兩組字元，\`${set}\` 要換成什麼？例如 tr a-z A-Z 把小寫換成大寫。`,
+		`\`${set}\` 後面還少一組字元：tr 換字要給兩組，例如 tr a-z A-Z 把小寫換成大寫；-ds 也要兩組，先刪第一組、再壓縮第二組。`,
 		"只想刪掉字元用 tr -d，只想把連續重複的字壓成一個用 tr -s。",
 	];
 }
@@ -668,9 +668,15 @@ export function sedNoInputFiles(): string[] {
 	return ["sed -i 是直接改檔案，後面要接檔名，例如 sed -i 's/舊/新/' notes.txt；管線的輸出沒有檔案可以改。"];
 }
 
-/** `alias` 的名稱不合法（bash：invalid alias name）。 */
+/**
+ * `alias` 的名稱不合法（bash：invalid alias name）。名稱是空的多半是等號兩邊多打了空白（`alias ll = 'ls -l'`），
+ * 那時 `=` 自己變成一個參數。
+ */
 export function aliasInvalidName(name: string): string[] {
-	return [`\`${name}\` 不能當別名的名稱：名稱不能是空的，也不能有空白、/、$、=、引號或 | & ; ( ) < > 這些符號。`];
+	if (name === "") {
+		return ["等號前面要有別名的名稱，而且等號兩邊不能有空白，要寫成 alias ll='ls -l'。"];
+	}
+	return [`\`${name}\` 不能當別名的名稱：不能有空白、/、$、=、引號或 | & ; ( ) < > 這些符號。`];
 }
 
 /** `alias 名稱=` 的內容是空的。bash 允許，這裡請玩家改用 unalias 拿掉別名。 */
