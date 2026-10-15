@@ -1,0 +1,19 @@
+	Kepler-9 synthesized sounds
+
+	heartbeat.ogg, heartbeat.mp3  (low-oxygen heartbeat loop)
+	whisper.ogg, whisper.mp3      (NOVA whisper)
+
+	Created for this project, synthesized from scratch by scripts/synth-audio.mjs
+	(sine pulses and band-passed noise, no samples or third-party recordings).
+	Regenerate with: pnpm audio:synth
+
+			------------------------------
+
+	License: (Creative Commons Zero, CC0)
+	http://creativecommons.org/publicdomain/zero/1.0/
+
+	To the extent possible under law, the authors have waived all copyright
+	and related or neighboring rights to these sound files.
+
+	本專案自產的音效，由 scripts/synth-audio.mjs 從正弦波與帶通噪音合成，
+	沒有使用任何取樣或第三方錄音，以 CC0 釋出。
