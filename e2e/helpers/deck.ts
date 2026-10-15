@@ -2,6 +2,7 @@ import { expect, type Page } from "@playwright/test";
 import { solutionFor } from "../../src/game/chapters/solutions";
 import { DECK_ROOMS, ROOM_NAMES, type RoomSlot } from "../../src/game/phaser/events";
 import { PLAYER_PROBE_KEY, type PlayerProbeSnapshot } from "../../src/game/phaser/objects/playerProbe";
+import { noteInteractCenter, type MapNote } from "../../src/game/story/mapNotes";
 
 /**
  * 六個甲板共用的 e2e 走路與解謎工具。
@@ -560,6 +561,20 @@ export async function walkToTerminal(page: Page, index: number, title: string): 
 		await walkTo(page, { slot, x: spot.x, y: spot.y, tolerance: 4 });
 	}
 	await expect(hint).toHaveText(expected);
+}
+
+/**
+ * 走到地圖便條（設計文件 4.19）的互動區中心，跟走到終端機同一套閉環。
+ * 便條的「按 E」只畫在地圖上、HUD 沒有提示，所以到了就回傳，由呼叫端按 E 看閱讀視窗有沒有出現。
+ */
+export async function walkToMapNote(page: Page, note: MapNote): Promise<void> {
+	const rooms = DECK_ROOMS[note.chapter];
+	const slot = (Object.keys(rooms) as RoomSlot[]).find((key) => rooms[key] === note.roomId);
+	if (slot === undefined) {
+		throw new Error(`便條 ${note.id} 的艙區 ${note.roomId} 不在第 ${note.chapter} 章`);
+	}
+	const center = noteInteractCenter(note);
+	await walkTo(page, { slot, x: center.x, y: center.y, tolerance: TERMINAL_TOLERANCE });
 }
 
 /** 已經站在終端機旁：按 E，打一串指令，確認目標數進到 solvedCount/6，再用 Esc 關掉。 */
