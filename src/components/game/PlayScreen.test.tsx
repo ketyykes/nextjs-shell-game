@@ -670,6 +670,93 @@ describe("PlayScreen NOVA 看狀態（4.14）", () => {
 	});
 });
 
+describe("PlayScreen 地圖便條（4.19）", () => {
+	const NOTE_ID = "ch2-entry-notice";
+
+	beforeEach(() => {
+		seedSave({ progress: { chapter: 2 } });
+	});
+
+	it("note:open 顯示閱讀視窗：標題是物件名、內容逐行；不碰目標面板與終端機的「按 E」", () => {
+		render(<PlayScreen />);
+		const objectiveBefore = screen.getByTestId("objective-title").textContent;
+
+		emit("note:open", { noteId: NOTE_ID });
+
+		const reader = screen.getByRole("dialog", { name: "公告欄" });
+		expect(reader.textContent).toContain("資料中心　進出須知");
+		expect(reader.textContent).toContain("站務組　2028-04-02");
+		expect(screen.getByTestId("objective-title").textContent).toBe(objectiveBefore);
+		expect(screen.queryByTestId("interact-hint")).toBeNull();
+		expect(screen.queryByTestId("terminal-modal")).toBeNull();
+	});
+
+	it("Esc 只關便條並發 note:close，不開暫停選單；關掉之後 Esc 才開暫停選單", () => {
+		const events = recordEvents(["note:close", "game:pause"]);
+		render(<PlayScreen />);
+		emit("note:open", { noteId: NOTE_ID });
+
+		act(() => {
+			fireEvent.keyDown(document.body, { key: "Escape", code: "Escape" });
+		});
+		expect(screen.queryByTestId("map-note-reader")).toBeNull();
+		expect(screen.queryByTestId("pause-menu")).toBeNull();
+		expect(events).toEqual([{ name: "note:close", payload: { noteId: NOTE_ID } }]);
+
+		fireEvent.keyDown(window, { key: "Escape" });
+		expect(screen.getByTestId("pause-menu")).toBeDefined();
+	});
+
+	it("按 E 或點「[Esc] 關閉」也會關，各發一次 note:close", () => {
+		const events = recordEvents(["note:close"]);
+		render(<PlayScreen />);
+
+		emit("note:open", { noteId: NOTE_ID });
+		act(() => {
+			fireEvent.keyDown(document.body, { key: "e", code: "KeyE" });
+		});
+		expect(screen.queryByTestId("map-note-reader")).toBeNull();
+
+		emit("note:open", { noteId: NOTE_ID });
+		fireEvent.click(screen.getByRole("button", { name: "關閉便條" }));
+		expect(screen.queryByTestId("map-note-reader")).toBeNull();
+		expect(events).toHaveLength(2);
+	});
+
+	it("便條開著時 Alt+C 照常開關已學指令面板，便條不關", () => {
+		render(<PlayScreen />);
+		emit("note:open", { noteId: NOTE_ID });
+
+		act(() => {
+			window.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyC", key: "c", altKey: true, bubbles: true }));
+		});
+		expect(screen.getByTestId("side-panel")).toBeDefined();
+		expect(screen.getByTestId("map-note-reader")).toBeDefined();
+	});
+
+	it("讀便條不存檔：存檔內容跟讀之前一樣", () => {
+		render(<PlayScreen />);
+		const before = JSON.stringify(useGameStore.getState());
+
+		emit("note:open", { noteId: NOTE_ID });
+		fireEvent.click(screen.getByRole("button", { name: "關閉便條" }));
+
+		expect(JSON.stringify(useGameStore.getState())).toBe(before);
+	});
+
+	it("資料裡沒有的便條：不開視窗，直接發 note:close 讓 Phaser 恢復", () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+		const events = recordEvents(["note:close"]);
+		render(<PlayScreen />);
+
+		emit("note:open", { noteId: "ch9-nothing" });
+
+		expect(screen.queryByTestId("map-note-reader")).toBeNull();
+		expect(events).toEqual([{ name: "note:close", payload: { noteId: "ch9-nothing" } }]);
+		warn.mockRestore();
+	});
+});
+
 describe("PlayScreen 暫停選單", () => {
 	it("地圖上按 Esc 開暫停選單並停住 Phaser，選繼續後恢復", () => {
 		const events = recordEvents(["game:pause", "game:resume"]);
@@ -858,7 +945,7 @@ describe("PlayScreen 訂閱穩定性（A4、A19）", () => {
 		seedSave({ storyFlags: {} });
 		render(<PlayScreen />);
 		// 掛載時 intro 排進佇列已經造成一次重新 render
-		expect(vi.mocked(onGameEvent)).toHaveBeenCalledTimes(5);
+		expect(vi.mocked(onGameEvent)).toHaveBeenCalledTimes(6);
 
 		emit("room:enter", { roomId: "cryo" });
 		emit("terminal:nearby", { terminalId: "ch1-t1" });
@@ -869,7 +956,7 @@ describe("PlayScreen 訂閱穩定性（A4、A19）", () => {
 		closeTerminalWithEscape();
 		fireEvent.click(screen.getAllByText("NOVA 下一則")[0]);
 
-		expect(vi.mocked(onGameEvent)).toHaveBeenCalledTimes(5);
+		expect(vi.mocked(onGameEvent)).toHaveBeenCalledTimes(6);
 	});
 
 	it("角色停下存位置不會讓整個畫面重新 render", () => {
