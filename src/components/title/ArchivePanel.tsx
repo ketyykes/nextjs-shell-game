@@ -12,7 +12,7 @@
  */
 
 import { motion } from "motion/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { findTerminal } from "@/game/chapters";
 import { CHAPTER_METAS, chapterLabel } from "@/game/chapters/meta";
 import { useGameStore } from "@/game/store";
@@ -34,6 +34,17 @@ const TIMELINE_ROW = CHAPTER_METAS.length;
 
 /** 展開後劇本裡找不到檔案時的替代文字（正常不會出現，`archive.test.ts` 核對過每一份都在）。 */
 const MISSING_CONTENT = "（劇本裡找不到這份檔案。）";
+
+/**
+ * 游標真的動了才算滑鼠移入。第二層的清單會捲動（鍵盤選取跟著捲、PgUp／PgDn），
+ * 列表從靜止的游標底下滑過時瀏覽器也會發 mouseenter，選取若跟著跑，鍵盤選到的那一列就被搶走了。
+ */
+function pointerMoved(event: ReactMouseEvent): boolean {
+	return event.movementX !== 0 || event.movementY !== 0;
+}
+
+/** 第二層「返回」的選取改由外層的 mousemove 處理（見 `pointerMoved`），MenuOption 自己的 mouseenter 不理。 */
+function ignoreHover() {}
 
 export function ArchivePanel({ onClose }: ArchivePanelProps) {
 	const found = useGameStore((state) => state.abinNotes.found);
@@ -212,9 +223,17 @@ function ArchiveEntryList({ entries, onBack }: ArchiveEntryListProps) {
 					/>
 				))}
 			</ul>
-			<MenuOption selected={selectedIndex === backRow} onHover={() => setSelectedIndex(backRow)} onClick={onBack}>
-				返回
-			</MenuOption>
+			<div
+				onMouseMove={(event) => {
+					if (pointerMoved(event)) {
+						setSelectedIndex(backRow);
+					}
+				}}
+			>
+				<MenuOption selected={selectedIndex === backRow} onHover={ignoreHover} onClick={onBack}>
+					返回
+				</MenuOption>
+			</div>
 		</div>
 	);
 }
@@ -250,12 +269,16 @@ function ArchiveEntryRow({ entry, selected, expanded, onHover, onClick }: Archiv
 				aria-current={selected ? "true" : undefined}
 				aria-expanded={expanded}
 				data-selected={selected}
-				onMouseEnter={onHover}
+				onMouseMove={(event) => {
+					if (pointerMoved(event)) {
+						onHover();
+					}
+				}}
 				onClick={onClick}
 				className={cn(
 					"flex w-full cursor-pointer items-start gap-2 px-2 py-1 text-left font-terminal transition-colors focus-visible:outline-none",
 					selected && "text-game-holo",
-					!selected && "text-game-text hover:text-game-holo",
+					!selected && "text-game-text",
 				)}
 			>
 				<span aria-hidden="true" className="inline-block w-4 shrink-0 text-xl text-game-holo">
@@ -265,7 +288,7 @@ function ArchiveEntryRow({ entry, selected, expanded, onHover, onClick }: Archiv
 			</button>
 			{expanded && (
 				<pre
-					className="ms-8 mt-1 border-l-[3px] border-game-prompt pl-3 font-terminal text-lg break-words whitespace-pre-wrap text-game-text"
+					className="ms-8 mt-1 border-l-[3px] border-game-prompt pl-3 font-terminal text-xl break-words whitespace-pre-wrap text-game-text"
 					data-testid="archive-entry-content"
 				>
 					{entry.content?.trimEnd() ?? MISSING_CONTENT}

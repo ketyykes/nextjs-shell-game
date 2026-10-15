@@ -131,6 +131,26 @@ describe("ArchivePanel", () => {
 		expect(buttons.at(-2)?.textContent).toContain("2031-03-12 08:15");
 	});
 
+	it("清單捲動時從靜止的游標底下滑過去，選取不跟著跑；游標真的移動才跟著滑鼠", () => {
+		renderPanel();
+		press("Enter");
+		const crewManifest = screen.getByRole("button", { name: /crew_manifest\.txt/ });
+		const back = screen.getByRole("button", { name: "返回" });
+
+		// 鍵盤選取跟著捲動時，瀏覽器對滑到游標底下的那一列發 mouseenter／沒有位移的 mousemove
+		fireEvent.mouseEnter(crewManifest);
+		fireEvent.mouseOver(crewManifest);
+		fireEvent.mouseMove(crewManifest, { movementX: 0, movementY: 0 });
+		fireEvent.mouseEnter(back);
+		fireEvent.mouseMove(back, { movementX: 0, movementY: 0 });
+		expect(selectedButton().textContent).toContain("/home/tech/wake_up.txt");
+
+		fireEvent.mouseMove(crewManifest, { movementX: 4, movementY: 1 });
+		expect(selectedButton().textContent).toContain("/home/tech/crew_manifest.txt");
+		fireEvent.mouseMove(back, { movementX: 0, movementY: 6 });
+		expect(selectedButton().textContent).toContain("返回");
+	});
+
 	it("滑鼠：點「返回」回上一層，章節清單的「返回」回標題選單", () => {
 		const { onClose } = renderPanel();
 		fireEvent.click(screen.getByRole("button", { name: /第三章 工程艙/ }));
