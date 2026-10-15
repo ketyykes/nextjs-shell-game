@@ -421,3 +421,138 @@ describe("Terminal 的 less 分頁模式（M13-3）", () => {
 		expect(onExecuted).toHaveBeenCalledWith(expect.objectContaining({ lines: [], isError: false }));
 	});
 });
+
+describe("Terminal 的 Ctrl+R 歷史搜尋（第十九場）", () => {
+	function getSearchInput(): HTMLInputElement {
+		return screen.getByLabelText("歷史搜尋關鍵字") as HTMLInputElement;
+	}
+
+	/** 在目前有焦點的輸入框按 Ctrl+R，回傳事件有沒有被放行（false 代表 preventDefault 了）。 */
+	function pressCtrlR(init: Partial<KeyboardEventInit> = {}): boolean {
+		return fireEvent.keyDown(document.activeElement as HTMLElement, { key: "r", ctrlKey: true, ...init });
+	}
+
+	function typeQuery(query: string): void {
+		fireEvent.change(getSearchInput(), { target: { value: query } });
+	}
+
+	/** 先打幾個指令當歷史。 */
+	function renderWithHistory(props: HarnessProps = {}): void {
+		render(<Harness {...props} />);
+		runCommand("cat wake_up.txt");
+		runCommand("pwd");
+		runCommand("cat wake_up.txt | wc -l");
+	}
+
+	it("Ctrl+R 進入搜尋模式並擋掉瀏覽器的重新整理，提示符換成 reverse-i-search", () => {
+		renderWithHistory();
+		expect(pressCtrlR()).toBe(false);
+
+		expect(screen.getByText("(reverse-i-search)`")).toBeDefined();
+		expect(document.activeElement).toBe(getSearchInput());
+		expect(screen.queryByLabelText("指令輸入")).toBeNull();
+	});
+
+	it("打字即時找最新一筆含關鍵字的，再按 Ctrl+R 找更舊的", () => {
+		renderWithHistory();
+		pressCtrlR();
+		typeQuery("cat");
+		expect(screen.getByText("': cat wake_up.txt | wc -l")).toBeDefined();
+
+		pressCtrlR();
+		expect(screen.getByText("': cat wake_up.txt")).toBeDefined();
+	});
+
+	it("沒有符合時提示符換成 failed reverse-i-search", () => {
+		renderWithHistory();
+		pressCtrlR();
+		typeQuery("zzz");
+
+		expect(screen.getByText("(failed reverse-i-search)`")).toBeDefined();
+	});
+
+	it("刪字（Backspace）後重新找", () => {
+		renderWithHistory();
+		pressCtrlR();
+		typeQuery("pwdx");
+		expect(screen.getByText("(failed reverse-i-search)`")).toBeDefined();
+		typeQuery("pwd");
+		expect(screen.getByText("(reverse-i-search)`")).toBeDefined();
+		expect(screen.getByText("': pwd")).toBeDefined();
+	});
+
+	it("Enter 直接執行符合的那筆，回到一般輸入列", () => {
+		const onExecuted = vi.fn();
+		renderWithHistory({ onExecuted });
+		onExecuted.mockClear();
+		pressCtrlR();
+		typeQuery("pw");
+		fireEvent.keyDown(getSearchInput(), { key: "Enter" });
+
+		expect(onExecuted).toHaveBeenCalledTimes(1);
+		expect(onExecuted).toHaveBeenCalledWith(expect.objectContaining({ input: "pwd", lines: ["/home/tech"] }));
+		expect(getInput().value).toBe("");
+		expect(screen.queryByText("(reverse-i-search)`")).toBeNull();
+	});
+
+	it("Esc 只取消搜尋、把符合的那筆帶回輸入列，不關終端機、也不往 window 傳", () => {
+		const onClose = vi.fn();
+		const windowKeyDown = vi.fn();
+		renderWithHistory({ onClose });
+		pressCtrlR();
+		typeQuery("wake");
+		window.addEventListener("keydown", windowKeyDown);
+		try {
+			fireEvent.keyDown(getSearchInput(), { key: "Escape" });
+
+			expect(onClose).not.toHaveBeenCalled();
+			expect(windowKeyDown).not.toHaveBeenCalled();
+			expect(getInput().value).toBe("cat wake_up.txt | wc -l");
+			expect(document.activeElement).toBe(getInput());
+		} finally {
+			window.removeEventListener("keydown", windowKeyDown);
+		}
+	});
+
+	it("← 與 → 也把符合的那筆帶回輸入列", () => {
+		renderWithHistory();
+		for (const key of ["ArrowLeft", "ArrowRight"]) {
+			pressCtrlR();
+			typeQuery("pwd");
+			fireEvent.keyDown(getSearchInput(), { key });
+			expect(getInput().value).toBe("pwd");
+			typeText("");
+		}
+	});
+
+	it("Ctrl+G 放棄搜尋，還原按 Ctrl+R 之前打到一半的內容", () => {
+		renderWithHistory();
+		typeText("echo 打到一半");
+		pressCtrlR();
+		typeQuery("pwd");
+		fireEvent.keyDown(getSearchInput(), { key: "g", ctrlKey: true });
+
+		expect(getInput().value).toBe("echo 打到一半");
+	});
+
+	it("離開搜尋後再按 Ctrl+R 兩下，沿用上一次的關鍵字", () => {
+		renderWithHistory();
+		pressCtrlR();
+		typeQuery("wake");
+		fireEvent.keyDown(getSearchInput(), { key: "Escape" });
+		typeText("");
+		pressCtrlR();
+		pressCtrlR();
+
+		expect(getSearchInput().value).toBe("wake");
+		expect(screen.getByText("': cat wake_up.txt | wc -l")).toBeDefined();
+	});
+
+	it("輸入法組字中、⌘R、Ctrl+Shift+R 都不攔", () => {
+		renderWithHistory();
+		expect(pressCtrlR({ isComposing: true })).toBe(true);
+		expect(fireEvent.keyDown(getInput(), { key: "r", metaKey: true })).toBe(true);
+		expect(fireEvent.keyDown(getInput(), { key: "R", ctrlKey: true, shiftKey: true })).toBe(true);
+		expect(screen.queryByText("(reverse-i-search)`")).toBeNull();
+	});
+});

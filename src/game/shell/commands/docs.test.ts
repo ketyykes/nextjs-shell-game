@@ -61,6 +61,12 @@ describe("COMMAND_DOCS", () => {
 		expect(COMMAND_DOCS.cat.description.join("\n")).toContain("多個");
 	});
 
+	it("history 的說明教 Ctrl+R 搜尋歷史（第十九場），Mac 也是 Ctrl", () => {
+		const text = COMMAND_DOCS.history.description.join("\n");
+		expect(text).toContain("Ctrl+R");
+		expect(text).toContain("Mac");
+	});
+
 	it("unset 的說明涵蓋 -v、-f 與不存在時不報錯，範例不提劇情的變數", () => {
 		const doc = COMMAND_DOCS.unset;
 		const text = doc.description.join("\n");

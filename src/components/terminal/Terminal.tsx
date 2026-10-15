@@ -73,7 +73,7 @@ export function Terminal({
 		[onExecuted],
 	);
 
-	const { value, handleChange, handleKeyDown } = useTerminalKeyboard({
+	const { value, handleChange, handleKeyDown, search } = useTerminalKeyboard({
 		shell,
 		entries,
 		onEntriesChange,
@@ -144,8 +144,9 @@ export function Terminal({
 		inputRef.current?.focus();
 	};
 
+	// Ctrl+R 搜尋模式打的是關鍵字不是指令，不提醒全形字元（歷史裡本來就可能有打錯的全形字元）
 	let warning: string | undefined;
-	const fullwidth = findFullwidthChar(value);
+	const fullwidth = search === null ? findFullwidthChar(value) : null;
 	if (fullwidth !== null) {
 		warning = fullwidthChar(fullwidth)[0];
 	}
@@ -195,6 +196,7 @@ export function Terminal({
 						onKeyDown={handleKeyDown}
 						inputRef={inputRef}
 						warning={warning}
+						search={search}
 					/>
 				</div>
 			</TerminalFrame>

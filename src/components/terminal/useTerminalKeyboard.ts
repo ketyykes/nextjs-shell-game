@@ -1,5 +1,15 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent, RefObject } from "react";
+import {
+	acceptSearch,
+	cancelSearch,
+	currentMatch,
+	searchOlder,
+	searchPromptLabel,
+	startHistorySearch,
+	updateSearchQuery,
+} from "@/game/shell/historySearch";
+import type { HistorySearchState } from "@/game/shell/historySearch";
 import type { Shell } from "@/game/shell/shell";
 import type { ShellExecution } from "@/game/shell/types";
 import type { OutputEntry } from "@/game/store/types";
@@ -14,13 +24,23 @@ export interface UseTerminalKeyboardOptions {
 	inputRef: RefObject<HTMLInputElement | null>;
 }
 
+/** Ctrl+R 搜尋模式時輸入列要顯示的東西（第十九場）。 */
+export interface HistorySearchView {
+	/** 關鍵字前面的提示符：`(reverse-i-search)\``，找不到時 `(failed reverse-i-search)\``。 */
+	label: string;
+	/** 關鍵字後面顯示的那筆歷史；還沒找到時是按 Ctrl+R 之前的輸入。 */
+	match: string;
+}
+
 export interface TerminalKeyboard {
-	/** 輸入框目前的內容。 */
+	/** 輸入框目前的內容；Ctrl+R 搜尋模式時是搜尋的關鍵字。 */
 	value: string;
 	/** 輸入框的 onChange。 */
 	handleChange: (value: string) => void;
 	/** 輸入框的 onKeyDown。 */
 	handleKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
+	/** Ctrl+R 搜尋模式時的提示符內容，不在搜尋模式是 null。 */
+	search: HistorySearchView | null;
 }
 
 /**
@@ -35,7 +55,18 @@ function isImeComposing(event: KeyboardEvent<HTMLInputElement>): boolean {
 }
 
 /**
- * 終端機的鍵盤處理：Enter 執行、Tab 補全、↑↓ 歷史、Esc 關閉。
+ * 是不是單純的 Ctrl+字母：Mac 也是 Control 鍵（不是 ⌘），加了 Shift、Alt 的不算
+ * （Ctrl+Shift+R 是瀏覽器的強制重新整理，留給瀏覽器）。
+ */
+function isCtrlLetter(event: KeyboardEvent<HTMLInputElement>, letter: string): boolean {
+	if (!event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) {
+		return false;
+	}
+	return event.key.toLowerCase() === letter;
+}
+
+/**
+ * 終端機的鍵盤處理：Enter 執行、Tab 補全、↑↓ 歷史、Esc 關閉、Ctrl+R 搜尋歷史。
  * 輸入框內容由這個 hook 持有，輸出區內容由父層持有。
  */
 export function useTerminalKeyboard({
@@ -72,16 +103,16 @@ export function useTerminalKeyboard({
 		setValue(next);
 	}, []);
 
-	const submit = useCallback(() => {
+	const submitLine = useCallback((line: string) => {
 		// 提示符要在 execute 之前取，cd 會改變工作目錄
 		const prompt = shell.prompt();
-		const execution = shell.execute(value);
+		const execution = shell.execute(line);
 
 		const entry: OutputEntry = {
 			kind: "command",
 			id: createId(),
 			prompt,
-			input: value,
+			input: line,
 			lines: execution.lines,
 			isError: execution.isError,
 		};
@@ -97,7 +128,11 @@ export function useTerminalKeyboard({
 
 		setValue("");
 		onExecuted?.(execution);
-	}, [shell, value, entries, onEntriesChange, onExecuted, createId]);
+	}, [shell, entries, onEntriesChange, onExecuted, createId]);
+
+	const submit = useCallback(() => {
+		submitLine(value);
+	}, [submitLine, value]);
 
 	const completeInput = useCallback(() => {
 		const result = shell.complete(value);
@@ -116,10 +151,99 @@ export function useTerminalKeyboard({
 		}
 	}, [shell, value, entries, onEntriesChange, replaceInput, createId]);
 
+	// ---- Ctrl+R 歷史搜尋（第十九場），純邏輯在 `@/game/shell/historySearch` ----
+	const [search, setSearch] = useState<HistorySearchState | null>(null);
+	/** 上一次搜尋的關鍵字：關鍵字空白時再按 Ctrl+R 沿用它（bash 行為）。 */
+	const lastSearchQueryRef = useRef("");
+
+	/** 離開搜尋模式：記下關鍵字，輸入列換成 `next`。 */
+	const finishSearch = useCallback(
+		(state: HistorySearchState, next: string) => {
+			if (state.query !== "") {
+				lastSearchQueryRef.current = state.query;
+			}
+			setSearch(null);
+			replaceInput(next);
+		},
+		[replaceInput],
+	);
+
+	/** 搜尋模式時輸入框的 onChange：改的是關鍵字，改完馬上重找。 */
+	const handleChange = useCallback(
+		(next: string) => {
+			if (search === null) {
+				setValue(next);
+				return;
+			}
+			setSearch(updateSearchQuery(shell.historyEntries, search, next));
+		},
+		[shell, search],
+	);
+
+	/**
+	 * 搜尋模式時的按鍵。Enter 照 bash 直接執行符合的那筆；Esc、←、→（以及 ↑、↓、Tab）把它帶回輸入列；
+	 * Ctrl+G 放棄、還原原本的輸入。打字與 Backspace 交給輸入框的 onChange。
+	 */
+	const handleSearchKey = useCallback(
+		(event: KeyboardEvent<HTMLInputElement>, state: HistorySearchState): void => {
+			const history = shell.historyEntries;
+			if (isCtrlLetter(event, "g")) {
+				event.preventDefault();
+				finishSearch(state, cancelSearch(state));
+				return;
+			}
+			switch (event.key) {
+				case "Enter": {
+					event.preventDefault();
+					if (state.query !== "") {
+						lastSearchQueryRef.current = state.query;
+					}
+					setSearch(null);
+					submitLine(acceptSearch(history, state));
+					break;
+				}
+				case "Escape": {
+					// 只取消搜尋，不關終端機（跟 less 的 Esc 一樣），也不往 window 傳
+					event.preventDefault();
+					event.stopPropagation();
+					finishSearch(state, acceptSearch(history, state));
+					break;
+				}
+				case "ArrowLeft":
+				case "ArrowRight":
+				case "ArrowUp":
+				case "ArrowDown":
+				case "Tab": {
+					event.preventDefault();
+					finishSearch(state, acceptSearch(history, state));
+					break;
+				}
+				default:
+					break;
+			}
+		},
+		[shell, finishSearch, submitLine],
+	);
+
 	const handleKeyDown = useCallback(
 		(event: KeyboardEvent<HTMLInputElement>) => {
 			// 組字中的按鍵交給輸入法（例如注音選字的 Enter、取消組字的 Esc）
 			if (isImeComposing(event)) {
+				return;
+			}
+
+			if (isCtrlLetter(event, "r")) {
+				// 瀏覽器的 Ctrl+R 是重新整理，一定要擋
+				event.preventDefault();
+				if (search === null) {
+					setSearch(startHistorySearch(value));
+				} else {
+					setSearch(searchOlder(shell.historyEntries, search, lastSearchQueryRef.current));
+				}
+				return;
+			}
+			if (search !== null) {
+				handleSearchKey(event, search);
 				return;
 			}
 
@@ -162,8 +286,16 @@ export function useTerminalKeyboard({
 					break;
 			}
 		},
-		[shell, submit, completeInput, replaceInput, onClose],
+		[shell, submit, completeInput, replaceInput, onClose, search, value, handleSearchKey],
 	);
 
-	return { value, handleChange: setValue, handleKeyDown };
+	if (search === null) {
+		return { value, handleChange, handleKeyDown, search: null };
+	}
+	const history = shell.historyEntries;
+	const view: HistorySearchView = {
+		label: searchPromptLabel(search),
+		match: currentMatch(history, search) ?? search.originalLine,
+	};
+	return { value: search.query, handleChange, handleKeyDown, search: view };
 }

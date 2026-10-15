@@ -133,6 +133,7 @@ const CHAPTER_ONE_DOCS: Record<string, CommandDoc> = {
 			"history 會依序列出這一次遊玩中你打過的指令，最舊的在最上面，每行有一個編號。",
 			"想重打之前的指令，不用重新輸入，按鍵盤的向上鍵就能叫回上一個指令。",
 			"多按幾次向上鍵，可以繼續往更早的指令回溯，按向下鍵則往回走。",
+			"記得指令裡的幾個字就按 Ctrl+R（Mac 也是 Ctrl，不是 ⌘），打關鍵字會從最新的往回找，再按 Ctrl+R 找更早的一筆；Enter 直接執行，Esc 或左右鍵把它帶回輸入列，Ctrl+G 放棄。",
 		],
 		examples: [
 			{ command: "history", explanation: "列出目前為止打過的所有指令" },
