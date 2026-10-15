@@ -57,6 +57,7 @@
 	ol.cmds li { margin: 3px 0; }
 	ol.cmds li.final code { border-color: var(--accent-dim); box-shadow: inset 2px 0 0 var(--accent); }
 	ol.cmds li.final::after { content: " ← 過關"; color: var(--accent); font-size: 12px; }
+	ol.cmds.found li.final::after { content: " ← 找到"; }
 	code {
 		background: var(--code-bg); border: 1px solid var(--border); border-radius: 4px;
 		padding: 1px 6px; font-size: 14px; white-space: pre; color: #e8f1f8;
@@ -161,6 +162,8 @@
 				<li><a href="#ch6-t6">T6 逃生艙控制台</a></li>
 			</ul>
 		</li>
+		<li><a href="#abin">阿彬的隱藏留言</a></li>
+		<li><a href="#extras">其他隱藏要素</a></li>
 		<li><a href="#keys">重要密碼與常數</a></li>
 	</ul>
 </nav>
@@ -170,6 +173,7 @@
 <div class="card">
 	<p>每台終端機列出的是 <code>src/game/chapters/solutions.ts</code> 裡經單元測試（<code>solutions.test.ts</code>）用真 Shell 驗過的正解序列，<b>照順序一行一行打，最後一行打完就過關</b>。前面幾行多半是「讀劇情」用，但有些關卡的判定要靠前面的指令改變檔案系統或環境變數（例如第三章 T4、第六章 T6），所以直接整串照抄最保險。</p>
 	<p>終端機的輸入列是單行輸入框，貼多行會被合併成一行。所以「複製全部」把整串指令用 <code> ; </code> 串成一行，貼上按一次 Enter 就全部執行，shell 會逐段判定目標。想一行一行打就自己從清單抄。</p>
+	<p class="muted">第一次用「複製全部」過關時，「目標達成」下面會多一行「☆ <code>;</code> 不在課表上，你自己找到的。」：這是「提前用上的認可」，整份存檔只出現一次，屬預期。</p>
 	<ul>
 		<li><b>操作</b>：方向鍵或 WASD 走路，走到終端機前按 <code>E</code> 開啟，<code>Esc</code> 關閉／暫停。</li>
 		<li><b>終端機內建幫手</b>：<code>hint</code> 連打三次會給到「照抄即可過關」的第三段提示；<code>help</code> 列已學指令；<code>man 指令</code> 看說明。</li>
@@ -191,9 +195,10 @@
 <h2 id="skip">跳章與除錯鉤子</h2>
 <div class="card">
 	<h3>A. 直接跳到第 N 章（寫 localStorage）</h3>
-	<p>在遊戲頁（任何路徑都行）的瀏覽器 console 貼下面的程式，改 <code>chapter</code>，然後重新整理並進 <code>/play</code>。存檔格式跟 e2e 的 <code>seedSave</code> 相同，舊版號會由 <code>migrate.ts</code> 自動升級。</p>
+	<p>在遊戲頁（任何路徑都行）的瀏覽器 console 貼下面的程式，改 <code>chapter</code>，然後重新整理並進 <code>/play</code>。寫的是目前的存檔格式 v4；e2e 的 <code>seedSave</code> 刻意寫 v1，舊版號都會由 <code>migrate.ts</code> 自動升級，兩種都能用。</p>
 <pre><code id="seed-snippet">(() => {
   const chapter = 3; // 改成要跳的章節 1 到 6
+  const allAbinNotes = false; // true：阿彬的八則留言全部算找到（右側面板 8/8，第六章片尾多一段）
   const solvedTerminals = [];
   const storyFlags = {};
   for (let c = 1; c &lt; chapter; c += 1) {
@@ -218,8 +223,14 @@
       terminals: {},
       storyFlags,
       stats: {},
+      abinNotes: {
+        found: allAbinNotes
+          ? ["ch1-jokes", "ch2-backup", "ch2-vault", "ch3-hold", "ch4-relay", "ch4-reply", "ch5-rations", "ch6-shift"]
+          : [],
+        reply: null, // 想看第五、六章的回信證據，改成一句話字串，例如 "我醒了"
+      },
     },
-    version: 3,
+    version: 4,
   };
   localStorage.setItem("kepler9-save", JSON.stringify(save));
   location.href = "/play";
@@ -734,6 +745,123 @@
 </section>
 
 <!-- ===================================================================== -->
+<h2 id="abin">阿彬的隱藏留言 <small class="muted">選讀，不影響過關 · 集滿八則第六章片尾多一段</small></h2>
+<div class="card">
+	<p>每則留言只放在一台終端機，在<b>那一台</b>的輸出裡看到留言的那一句（cat、less、grep 撈到簽名那行都算）才算找到；只列出檔名的 <code>ls</code>、<code>find</code> 不算。找到時終端機插一行「已收進「阿彬的留言」n/8」，右側面板 <code>Alt+A</code>（Mac <code>⌥A</code>）看全文，第一章宿舍那台過關後才會出現這個標籤。</p>
+	<p class="muted">找法跟 <code>src/game/story/abinNotes.ts</code> 的 <code>howToFind</code> 一樣，有單元測試用真 Shell 跑過；相對路徑的那兩台前面多一行 <code>cd</code>，在別的目錄也能直接貼。只想看片尾加段：用上面跳章程式的 <code>allAbinNotes = true</code> 跳到第六章最省事。</p>
+</div>
+<section class="card" id="abin-ch1">
+	<h3>第一章 醫療艙終端機 <small>ch1-t5 · ch1-jokes · <code>/deck1/medbay/.abin_jokes.txt</code></small></h3>
+	<p class="goal">找到醫療艙的隱藏檔（ls -a）</p>
+	<ol class="cmds found">
+		<li><code>cd /deck1/medbay</code></li>
+		<li><code>ls -a</code></li>
+		<li class="final"><code>cat .abin_jokes.txt</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+<section class="card" id="abin-ch2a">
+	<h3>第二章 備援主控台 <small>ch2-t5 · ch2-backup · <code>/deck2/backup/snapshots/2028/05/31/tmp/abin_0530.txt</code></small></h3>
+	<p class="goal">在快照裡 grep 出 abin 的簽名（grep -r）</p>
+	<ol class="cmds found">
+		<li class="final"><code>grep -r abin /deck2/backup</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+<section class="card" id="abin-ch2b">
+	<h3>第二章 資料中心艙門控制台 <small>ch2-t6 · ch2-vault · <code>/deck2/vault/2028/06/.drawer/abin.txt</code></small></h3>
+	<p class="goal">用 find 找檔名帶 abin 的檔案</p>
+	<ol class="cmds found">
+		<li><code>find /deck2/vault -name "*abin*"</code></li>
+		<li class="final"><code>cat /deck2/vault/2028/06/.drawer/abin.txt</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+<section class="card" id="abin-ch3">
+	<h3>第三章 工程艙艙門控制台 <small>ch3-t6 · ch3-hold · <code>/var/nova/hold/.abin</code></small></h3>
+	<p class="goal">NOVA 的保管櫃裡的隱藏檔（ls -a）</p>
+	<ol class="cmds found">
+		<li><code>ls -a /var/nova/hold</code></li>
+		<li class="final"><code>cat /var/nova/hold/.abin</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+<section class="card" id="abin-ch4a">
+	<h3>第四章 中繼機房終端機 <small>ch4-t2 · ch4-relay · <code>/deck4/relay/stations/.RELAY-00.conf</code></small></h3>
+	<p class="goal">中繼站清單裡多一座隱藏的（ls -a）</p>
+	<ol class="cmds found">
+		<li><code>cd /deck4/relay</code></li>
+		<li><code>ls -a stations</code></li>
+		<li class="final"><code>cat stations/.RELAY-00.conf</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+<section class="card" id="abin-ch4b">
+	<h3>第四章 通訊紀錄終端機 <small>ch4-t5 · ch4-reply · <code>/home/abin/.plan</code></small></h3>
+	<p class="goal">阿彬家目錄的隱藏檔，請你回信（回信寫法見下一節）</p>
+	<ol class="cmds found">
+		<li><code>ls /home</code></li>
+		<li><code>ls -a /home/abin</code></li>
+		<li class="final"><code>cat /home/abin/.plan</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+<section class="card" id="abin-ch5">
+	<h3>第五章 逃生艙紀錄台 <small>ch5-t5 · ch5-rations · <code>/deck5/pods/pod_01/.abin</code></small></h3>
+	<p class="goal">grep -r 會連隱藏檔一起搜</p>
+	<ol class="cmds found">
+		<li class="final"><code>grep -r abin /deck5</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+<section class="card" id="abin-ch6">
+	<h3>第六章 排程機房終端機 <small>ch6-t5 · ch6-shift · <code>/home/tech/.night_shift</code></small></h3>
+	<p class="goal">你自己的家目錄裡多了一個檔（find）</p>
+	<ol class="cmds found">
+		<li><code>find ~</code></li>
+		<li class="final"><code>cat ~/.night_shift</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+
+<!-- ===================================================================== -->
+<h2 id="extras">其他隱藏要素</h2>
+<section class="card" id="extra-reply">
+	<h3>回信給阿彬 <small>ch4-t5 通訊紀錄終端機 · 寫 <code>/home/abin/reply.txt</code></small></h3>
+	<p class="goal">寫一句話給阿彬，第五、六章會出現讀過回信的證據</p>
+	<ol class="cmds">
+		<li><code>echo 我醒了 &gt; /home/abin/reply.txt</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+<div class="note">只在 ch4-t5 偵測，取第一個非空行、最多 40 字，之後改寫就用最新的。證據：第五章 ch5-t4 的 <code>/deck5/security/file_audit.log</code>（abin 讀過）、第六章 ch6-t3 的 <code>/deck6/memory/core/episodic/day_1326_reply.mem</code>（NOVA 引用原文）。證據檔在那台終端機第一次開啟時才補寫，所以要在打第五章之前寫好；集滿八則時片尾也會引用這句話。</div>
+<section class="card" id="extra-unset">
+	<h3>重現「那三秒」 <small>ch5-t4 安全管制台 · <code>NOVA_DIR=/opt/nova</code></small></h3>
+	<p class="goal">親手看到 unset 之後 rm 的路徑只剩根目錄</p>
+	<ol class="cmds">
+		<li><code>echo "$NOVA_DIR/"</code></li>
+		<li><code>unset NOVA_DIR</code></li>
+		<li><code>echo "$NOVA_DIR/"</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+<div class="note">第一個 echo 印 <code>/opt/nova/</code>，unset 之後只剩 <code>/</code>，NOVA 會插一句並燈閃（關閉閃爍時不閃）。真的打 <code>rm -rf "$NOVA_DIR/"</code> 會被擋下並算一次錯誤，檔案都還在。第五章 T1 的站務變數、T5 的 <code>POD_DIR</code>、T6 的 <code>AUTH_DIR</code> 是唯讀，unset 不掉。</div>
+<section class="card" id="extra-eggs">
+	<h3>shell 彩蛋 <small>任何一台都能打，不算錯誤、不扣氧</small></h3>
+	<p class="goal">查查自己是誰</p>
+	<ol class="cmds">
+		<li><code>whoami</code></li>
+		<li><code>id</code></li>
+		<li><code>id abin</code></li>
+		<li><code>last</code></li>
+		<li><code>sudo ls</code></li>
+		<li><code>exit</code></li>
+	</ol>
+	<div class="toolbar"><button data-copy-cmds>複製全部</button></div>
+</section>
+<div class="note"><code>whoami</code>、<code>id</code> 在主線會讓 NOVA 插一句；走進 <code>/home/abin</code>（第一、四章）、本章打 hint 六次以上，NOVA 也各有一句。NOVA 的反應每章最多一次，重玩本章會再出現；第六章 T4 終止 NOVA 之後一句都不說。</div>
+
+<!-- ===================================================================== -->
 <h2 id="keys">重要密碼與常數</h2>
 <table>
 	<thead><tr><th>項目</th><th>值</th><th>出處</th></tr></thead>
@@ -749,10 +877,13 @@
 		<tr><td>第六章排程程序 PID</td><td><code>1208</code>（要 kill -9）</td><td>ch6-t5</td></tr>
 		<tr><td>第六章逃生艙發射碼</td><td><code>EP-0606-ARGO</code></td><td>ch6-t6</td></tr>
 		<tr><td>第六章艙門鎖 PID</td><td><code>47731</code>（一般 kill 即可）</td><td>ch6-t6</td></tr>
-		<tr><td>localStorage 存檔 key</td><td><code>kepler9-save</code>（version 3）</td><td>src/game/store/types.ts</td></tr>
+		<tr><td>第五章回滾當下的 NOVA_DIR</td><td><code>/opt/nova</code>（只有這台的 env 有）</td><td>ch5-t4</td></tr>
+		<tr><td>回信路徑</td><td><code>/home/abin/reply.txt</code></td><td>ch4-t5</td></tr>
+		<tr><td>阿彬留言的面板快捷鍵</td><td><code>Alt+A</code>（Mac <code>⌥A</code>）</td><td>src/components/game/useSidePanelShortcuts.ts</td></tr>
+		<tr><td>localStorage 存檔 key</td><td><code>kepler9-save</code>（version 4）</td><td>src/game/store/types.ts</td></tr>
 	</tbody>
 </table>
-<p class="muted">資料來源：<code>src/game/chapters/solutions.ts</code>、<code>src/game/story/decks.ts</code>、各章劇本。劇本改了請同步更新這份文件，或直接以 <code>solutions.ts</code> 為準。</p>
+<p class="muted">資料來源：<code>src/game/chapters/solutions.ts</code>、<code>src/game/story/decks.ts</code>、<code>src/game/story/abinNotes.ts</code>、各章劇本。劇本改了請同步更新這份文件，或直接以 <code>solutions.ts</code> 為準。</p>
 </main>
 </div>
 
