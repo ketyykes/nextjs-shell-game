@@ -314,7 +314,7 @@ export const ARCHIVE_TIMELINE: readonly ArchiveTimelineEvent[] = [
 	},
 	{
 		at: "2028-06-01 21:50",
-		text: "技師帳號的上一次登入（工程艙登錄台）。到這次醒來，兩次登入之間的紀錄是「0 筆」。",
+		text: "技師帳號在工程艙登錄台的上一次登入；到下一次登入之間，紀錄是「0 筆」。",
 		terminalId: "ch3-t1",
 		path: "/home/tech/.login",
 		basis: "content",
