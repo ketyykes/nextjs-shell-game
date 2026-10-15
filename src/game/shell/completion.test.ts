@@ -397,6 +397,13 @@ describe("管線與 man 後補指令名", () => {
 	it("符號後面沒加空白的那一段，第二個參數仍然補路徑", () => {
 		expect(complete("pwd;cat wa", createContext()).completed).toBe("pwd;cat wake_up.txt ");
 	});
+
+	it("< 後面補路徑，沒加空白也只替換 < 後面那一段（第十九場）", () => {
+		const context = { ...createContext(), commandNames: [...COMMAND_NAMES, "sort"] };
+		expect(complete("sort <wa", context).completed).toBe("sort <wake_up.txt ");
+		expect(complete("sort < wa", context).completed).toBe("sort < wake_up.txt ");
+		expect(complete("<wa", context).completed).toBe("<wake_up.txt ");
+	});
 });
 
 describe("路徑裡的環境變數", () => {

@@ -45,11 +45,11 @@ function isWhitespace(char: string): boolean {
 }
 
 /**
- * 最後一個 token 從哪裡開始：往回掃到空白或 `;`、`|`、`&` 就停。
- * 符號後面不加空白（`ls;ca`、`cd logs&&wh`、`cat x|so`）時，要補的只有符號後面那一段。
+ * 最後一個 token 從哪裡開始：往回掃到空白或 `;`、`|`、`&`、`<` 就停。
+ * 符號後面不加空白（`ls;ca`、`cd logs&&wh`、`cat x|so`、`sort <da`）時，要補的只有符號後面那一段。
  */
 function isTokenBoundary(char: string): boolean {
-	return isWhitespace(char) || char === ";" || char === "|" || char === "&";
+	return isWhitespace(char) || char === ";" || char === "|" || char === "&" || char === "<";
 }
 
 /**

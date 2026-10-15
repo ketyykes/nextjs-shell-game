@@ -283,13 +283,16 @@ export function optionCompletionDescription(option: OptionDoc): string {
 }
 
 /** explain 會說明的語法符號。`$` 代表參數裡的 `$名稱`。 */
-export type SyntaxSymbol = "|" | ">" | ">>" | ";" | "&&" | "*" | "?" | "~" | "$" | "..";
+export type SyntaxSymbol = "|" | ">" | ">>" | ";" | "&&" | "||" | "<" | "2>" | "2>>" | "2>&1" | "&>" | "*" | "?" | "~" | "$" | "..";
 
 /** 概念字典沒有的語法符號（它們不在任何章節的 teaches 裡，不需要完整的概念條目）。 */
 const EXTRA_SYNTAX_SUMMARIES: Record<string, string> = {
 	";": "不管前一段成功還是失敗，都接著執行下一段",
 	"&&": "前一段成功了才執行下一段",
 	"?": "萬用字元，代表任意一個字",
+	"2>>": "把錯誤訊息接在檔案結尾",
+	"2>&1": "把錯誤訊息跟一般輸出寫到同一個地方",
+	"&>": "一般輸出與錯誤訊息都寫進同一個檔案",
 };
 
 /** 語法符號的一句話說明：概念字典有的用它的 summary（`$` 查 `$變數`），沒有的用 `EXTRA_SYNTAX_SUMMARIES`。 */

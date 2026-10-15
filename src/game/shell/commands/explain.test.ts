@@ -138,7 +138,7 @@ describe("explain 的基本形式", () => {
 	});
 
 	it("語法錯誤或不支援的寫法印既有的解析錯誤說明，但仍然成功", () => {
-		expect(explain("ls || pwd")).toEqual(parseError({ code: "UNSUPPORTED_SYNTAX", detail: "||" }));
+		expect(explain("ls |& pwd")).toEqual(parseError({ code: "UNSUPPORTED_SYNTAX", detail: "|&" }));
 		expect(explain('cat "wake')).toEqual(parseError({ code: "UNCLOSED_QUOTE", detail: '"' }));
 		expect(explain("ls |")).toEqual(parseError({ code: "EMPTY_COMMAND", detail: "|" }));
 	});
@@ -402,10 +402,10 @@ describe("explain 在 shell 裡（一行的開頭是 explain）", () => {
 	});
 
 	it("語法錯誤印解析錯誤的說明，但不算錯誤", () => {
-		const execution = createShell().execute("explain ls || pwd");
+		const execution = createShell().execute("explain ls |& pwd");
 
 		expect(execution.isError).toBe(false);
-		expect(execution.lines).toEqual(parseError({ code: "UNSUPPORTED_SYNTAX", detail: "||" }));
+		expect(execution.lines).toEqual(parseError({ code: "UNSUPPORTED_SYNTAX", detail: "|&" }));
 	});
 
 	it("只打 explain 印用法；前面有空白也認得", () => {
@@ -495,5 +495,27 @@ describe("explain 說明六章的每一行正解", () => {
 			// 真的執行一次，下一行才看得到這一行的結果（例如 mkdir 之後 cd 進去）
 			shell.execute(line);
 		}
+	});
+});
+
+describe("explain：第十九場的 ||、<、2> 也逐項說明", () => {
+	it("|| 跟 ; 與 && 一樣是段落之間的一行，說明用概念字典的一句話", () => {
+		expect(explain("cat nope || echo 沒有")).toContain(`||  ${CONCEPT_DOCS["||"].summary}`);
+	});
+
+	it("< 列在那個指令下面：符號一行、檔案一行，不存在的檔案標出來", () => {
+		expect(explain("sort < wake_up.txt").slice(-2)).toEqual([`<  ${CONCEPT_DOCS["<"].summary}`, "  檔案 wake_up.txt"]);
+		expect(explain("sort < nope.txt").slice(-1)).toEqual(["  檔案 nope.txt（目前不存在，sort 會讀不到）"]);
+	});
+
+	it("2> 系列：/dev/null 說丟掉、檔案照一般重導向說明、2>&1 沒有目標那一行", () => {
+		expect(explain("cat nope 2>/dev/null").slice(-2)).toEqual([`2>  ${CONCEPT_DOCS["2>"].summary}`, "  /dev/null（錯誤訊息直接丟掉）"]);
+		expect(explain("cat nope 2>> err.log").slice(-2)).toEqual([
+			"2>>  把錯誤訊息接在檔案結尾",
+			"  檔案 err.log（目前不存在，會建立）",
+		]);
+		expect(explain("cat nope 2>&1").slice(-1)).toEqual(["2>&1  把錯誤訊息跟一般輸出寫到同一個地方"]);
+		// > 檔案 2>&1 會被解析成「錯誤訊息也寫進同一個檔」，所以說明跟 2> 檔案 一樣
+		expect(explain("cat nope > out.txt 2>&1")).toContain("  檔案 out.txt（目前不存在，會建立）");
 	});
 });

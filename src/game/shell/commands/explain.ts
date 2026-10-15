@@ -39,6 +39,8 @@ import {
 	explainPattern,
 	explainPid,
 	explainQuotedGlob,
+	explainErrorToNull,
+	explainInputTarget,
 	explainRedirectTarget,
 	explainText,
 	explainUnexpectedArgument,
@@ -53,7 +55,7 @@ import {
 import type { ExplainRedirectTargetState } from "../messages";
 import { parseCommandList, suggestLowercaseCommand, suggestSimilarCommand } from "../parser";
 import type { DetailedCommand, DetailedPipeline, ParsedWord } from "../parser";
-import type { CommandContext, CommandDefinition, CommandResult, ParseOptions } from "../types";
+import type { CommandContext, CommandDefinition, CommandResult, ErrorRedirect, ParseOptions } from "../types";
 import { FsError } from "../types";
 import { getCommandDoc } from "./docs";
 import { getCommandArgsDoc, syntaxSummary } from "./docsOptions";
@@ -574,6 +576,33 @@ function redirectTargetState(target: ExplainWord, context: CommandContext): Expl
 }
 
 /** 一條管線：指令之間是 `|`，結尾的重導向跟指令同一層，目標檔案再縮一層。 */
+/** `<`（第十九場）：符號一行，來源檔案一行；不展開檔名裡的萬用字元，跟 `>` 一樣。 */
+function describeInputRedirect(source: string, commandName: string, context: CommandContext, depth: number): string[] {
+	const target: ExplainWord = { ...toExplainWord(source, false, source, context.home), glob: "none" };
+	const state = redirectTargetState(target, context);
+	return [symbolLine("<", depth), `${indentOf(depth + 1)}${explainInputTarget(target.text, state, commandName)}`];
+}
+
+/** `2>`、`2>>`、`2>&1`、`&>`（第十九場）：符號一行；有目標檔案時再一行，`/dev/null` 說是丟掉。 */
+function describeErrorRedirect(redirect: ErrorRedirect, context: CommandContext, depth: number): string[] {
+	if (redirect.kind === "toStdout") {
+		return [symbolLine("2>&1", depth)];
+	}
+	let symbol: SyntaxSymbol = "2>";
+	if (redirect.kind === "append") {
+		symbol = "2>>";
+	}
+	const lines = [symbolLine(symbol, depth)];
+	if (redirect.target === "/dev/null") {
+		lines.push(`${indentOf(depth + 1)}${explainErrorToNull()}`);
+		return lines;
+	}
+	const target: ExplainWord = { ...toExplainWord(redirect.target, false, redirect.target, context.home), glob: "none" };
+	const state = redirectTargetState(target, context);
+	lines.push(`${indentOf(depth + 1)}${explainRedirectTarget(target.text, state, redirect.kind)}`);
+	return lines;
+}
+
 function describePipeline(
 	pipeline: DetailedPipeline,
 	marked: DetailedPipeline | undefined,
@@ -588,6 +617,12 @@ function describePipeline(
 		}
 		const words = fromParsedCommand(command, marked?.commands[index], context.home);
 		lines.push(...describeCommand(words, context, depth));
+		if (command.input !== undefined) {
+			lines.push(...describeInputRedirect(command.input, words.name.text, context, depth));
+		}
+		if (command.stderr !== undefined) {
+			lines.push(...describeErrorRedirect(command.stderr, context, depth));
+		}
 	});
 
 	const redirect = pipeline.redirect;

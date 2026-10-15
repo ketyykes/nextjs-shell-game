@@ -75,6 +75,17 @@ export function unclosedQuote(quote: string): string[] {
 	return [`引號 ${quote} 沒有關起來，請在結尾補上另一個 ${quote}，或是把引號拿掉再試一次。`];
 }
 
+/**
+ * 指令替換沒有關起來（第十九場），`opening` 是 `$(` 或反引號。
+ * `$(` 裡面的引號沒關時 `)` 也會被吃進引號，所以一併提醒引號要成對。
+ */
+export function unclosedSubstitution(opening: string): string[] {
+	if (opening === "`") {
+		return ["反引號「`」沒有關起來，請在結尾補上另一個 `；或改用比較好讀的 $( ) 寫法，例如 echo $(pwd)。"];
+	}
+	return ["`$(` 沒有關起來，請在結尾補上 )；裡面如果有引號，引號也要成對。例如 echo $(pwd)。"];
+}
+
 /** `|` 的前面或後面沒有指令，例如 `ls |` 或 `| sort`。 */
 export function emptyCommand(operator: string): string[] {
 	return [
@@ -83,12 +94,18 @@ export function emptyCommand(operator: string): string[] {
 	];
 }
 
-/** `;` 或 `&&` 旁邊少了指令，例如 `; ls`、`ls ;; pwd`、`cd logs &&`。 */
+/** `;`、`&&` 或 `||` 旁邊少了指令，例如 `; ls`、`ls ;; pwd`、`cd logs &&`、`ls ||`。 */
 export function emptyListCommand(operator: ListConnector): string[] {
 	if (operator === ";") {
 		return [
 			"`;` 的左邊要有指令，它的意思是「做完左邊再做右邊」，不管左邊成功還是失敗。",
 			"例如 cd logs; ls，先走進 logs，再列出裡面的檔案。",
+		];
+	}
+	if (operator === "||") {
+		return [
+			"`||` 的兩邊都要有指令，它的意思是「左邊失敗了才做右邊」。",
+			"例如 cd logs || echo 沒有這個目錄，走不進 logs 才印出提醒。",
 		];
 	}
 	return [
@@ -97,55 +114,114 @@ export function emptyListCommand(operator: ListConnector): string[] {
 	];
 }
 
+/** 是不是連接符號（`;`、`&&`、`||`）。 */
+function isListConnector(value: string): value is ListConnector {
+	return value === ";" || value === "&&" || value === "||";
+}
+
+/** 輸出重導向的符號：`1>`、`1>>` 就是 `>`、`>>`。 */
+const STDOUT_REDIRECTS: readonly string[] = [">", ">>", "1>", "1>>"];
+
+/** 錯誤輸出重導向的符號。 */
+const STDERR_REDIRECTS: readonly string[] = ["2>", "2>>"];
+
+/** 輸出與錯誤訊息一起導走的符號。 */
+const BOTH_REDIRECTS: readonly string[] = ["&>", "&>>"];
+
+/** 這些符號是「在 EMPTY_COMMAND 時要說明重導向需要搭配指令」的那一類。 */
+const REDIRECT_OPERATORS: readonly string[] = [...STDOUT_REDIRECTS, ...STDERR_REDIRECTS, ...BOTH_REDIRECTS, "<", "2>&1"];
+
 /**
- * 引號外出現遊戲的 shell 不支援的寫法（M13-1），`detail` 是那個符號。
+ * 引號外出現遊戲的 shell 不支援的寫法（M13-1，第十九場縮小範圍），`detail` 是那個符號。
  * 明講不支援，再給一個用支援的語法做得到的替代寫法。
  */
 export function unsupportedSyntax(detail: string): string[] {
-	if (detail === "||") {
-		return [
-			"這個遊戲的 shell 不支援 `||`（前一個指令失敗才執行下一個）。",
-			"請分兩行輸入：先打前一個指令，失敗了再打下一個。要「成功了才接著做」用 &&，例如 cd logs && ls。",
-		];
-	}
 	if (detail === "&") {
 		return [
 			"這個遊戲的 shell 不支援 `&`（把指令丟到背景執行）。",
 			"這裡的指令都會馬上跑完，把 & 拿掉就好；要接著執行下一個指令用 && 或 ;，例如 cd logs && ls。",
 		];
 	}
-	if (detail === "<" || detail === "<<") {
+	if (detail === "<<") {
 		return [
-			`這個遊戲的 shell 不支援 \`${detail}\`（從別的地方讀進輸入）。`,
-			"直接把檔名接在指令後面就好，例如 sort data.txt；或是用 cat 讀出來再接 |，例如 cat data.txt | sort。",
+			"這個遊戲的 shell 不支援 `<<`（here document，在指令後面直接打好幾行輸入）。",
+			"先把內容寫進檔案，再用 < 讀進來，例如 sort < data.txt；或是把檔名接在指令後面，例如 sort data.txt。",
 		];
 	}
-	if (detail === "$(") {
+	if (detail === "<<<") {
 		return [
-			"這個遊戲的 shell 不支援 `$( )`（把一個指令的輸出塞進另一個指令）。",
-			"先單獨執行括號裡的指令，再把看到的結果打進下一個指令。",
+			"這個遊戲的 shell 不支援 `<<<`（把一段文字當成輸入）。",
+			"用 echo 印出來再接 |，例如 echo 3 1 2 | wc -w。",
 		];
 	}
-	if (detail === "`") {
+	if (detail === "<(") {
 		return [
-			"這個遊戲的 shell 不支援反引號「`」（把一個指令的輸出塞進另一個指令）。",
-			"先單獨執行反引號裡的指令，再把看到的結果打進下一個指令。",
+			"這個遊戲的 shell 不支援 `<( )`（把指令的輸出當成檔案）。",
+			"先把輸出存成檔案再用，例如 sort a.txt > a_sorted.txt，再拿 a_sorted.txt 去比。",
 		];
 	}
-	// 其餘都是指定檔案描述元的重導向：2>、2>>、2>&1、1>、&>、>&2、|&
+	if (detail === "|&" || detail === "2>&1 |") {
+		return [
+			`這個遊戲的 shell 不支援 \`${detail}\`（把錯誤訊息也接進管線）。`,
+			"錯誤訊息會直接印在畫面上，不會交給 | 右邊；不想看到就加 2>/dev/null，要存起來用 2> 檔名，例如 cat nope.txt 2> err.txt。",
+		];
+	}
+	if (detail === "$((") {
+		return [
+			"這個遊戲的 shell 不支援 `$(( ))`（數字計算）。",
+			"數字請自己算好再打進指令；要數行數或個數用 wc，例如 ls | wc -l。",
+		];
+	}
+	// 其餘都是指定別的檔案描述元：>&2、1>&2、>&、2>&-、3>、0<、<&、<>
 	return [
-		`這個遊戲的 shell 不支援 \`${detail}\` 這種寫法（在 > 或 | 旁邊加數字或 &，用來另外處理錯誤訊息）。`,
-		"錯誤訊息會直接印在畫面上，把這一段拿掉就好；要把輸出存進檔案用 > 或 >>，例如 ls > list.txt。",
+		`這個遊戲的 shell 不支援 \`${detail}\` 這種寫法（把輸出或輸入接到別的檔案描述元）。`,
+		"能用的是：錯誤訊息存進檔案用 2> 檔名、丟掉用 2>/dev/null，輸出和錯誤訊息存進同一個檔案用 > 檔名 2>&1，從檔案讀輸入用 <。",
 	];
 }
 
-/** `>` 或 `>>` 後面沒有檔名。 */
+/** 重導向符號後面沒有檔名，依符號說明檔名的用途。 */
 export function missingRedirectTarget(operator: string): string[] {
+	if (operator === "<") {
+		return ["`<` 後面要接一個檔名，指令才有東西讀，例如 sort < data.txt。"];
+	}
+	if (STDERR_REDIRECTS.includes(operator)) {
+		return [`\`${operator}\` 後面要接一個檔名，錯誤訊息才有地方存，例如 cat nope.txt 2> err.txt；不想看到錯誤訊息就寫 2>/dev/null。`];
+	}
+	if (BOTH_REDIRECTS.includes(operator)) {
+		return [`\`${operator}\` 後面要接一個檔名，輸出和錯誤訊息才有地方存，例如 ls &> all.txt。`];
+	}
 	return [`\`${operator}\` 後面要接一個檔名，輸出才有地方存，例如 ls > list.txt。`];
 }
 
-/** `>` 或 `>>` 前面沒有指令（例如一行只打 `> out.txt`），或一行出現第二個重導向。 */
+/**
+ * 重導向沒有搭配指令（例如一行只打 `> out.txt`、`< data.txt`），或同一種重導向寫了兩次。
+ * `>`、`>>` 的說法沿用第四章；第十九場的 `<`、`2>`、`2>&1`、`&>` 各自說明意思。
+ */
 export function missingCommandForRedirect(operator: string): string[] {
+	if (operator === "<") {
+		return [
+			"`<` 要搭配一個指令，它的意思是「讓指令從右邊的檔案讀輸入」，一個指令只能有一個。",
+			"例如 sort < data.txt。",
+		];
+	}
+	if (STDERR_REDIRECTS.includes(operator)) {
+		return [
+			`\`${operator}\` 要搭配一個指令，它的意思是「把指令的錯誤訊息存進右邊的檔案」，一個指令只能有一個。`,
+			"例如 cat nope.txt 2> err.txt。",
+		];
+	}
+	if (operator === "2>&1") {
+		return [
+			"`2>&1` 要搭配一個指令，它的意思是「錯誤訊息跟輸出走同一個地方」，一個指令只能有一個。",
+			"例如 cat nope.txt > out.txt 2>&1，輸出和錯誤訊息都存進 out.txt。",
+		];
+	}
+	if (BOTH_REDIRECTS.includes(operator)) {
+		return [
+			`\`${operator}\` 要搭配一個指令，它的意思是「把指令的輸出和錯誤訊息都存進右邊的檔案」，一行只能有一個。`,
+			"例如 ls &> all.txt。",
+		];
+	}
 	return [
 		`\`${operator}\` 的左邊要有一個指令，它的意思是「把左邊指令的輸出存進右邊的檔案」，一行只能有一個。`,
 		"例如 echo MAYDAY > outbox.txt。",
@@ -159,11 +235,13 @@ export function parseError(error: ParseError): string[] {
 			return fullwidthChar(error.detail);
 		case "UNCLOSED_QUOTE":
 			return unclosedQuote(error.detail);
+		case "UNCLOSED_SUBSTITUTION":
+			return unclosedSubstitution(error.detail);
 		case "EMPTY_COMMAND":
-			if (error.detail === ">" || error.detail === ">>") {
+			if (REDIRECT_OPERATORS.includes(error.detail)) {
 				return missingCommandForRedirect(error.detail);
 			}
-			if (error.detail === ";" || error.detail === "&&") {
+			if (isListConnector(error.detail)) {
 				return emptyListCommand(error.detail);
 			}
 			return emptyCommand(error.detail);
@@ -740,6 +818,22 @@ export function explainLiteralDollar(): string {
 
 /** 重導向的目標檔案現在的狀態：檔案、目錄、不存在，或含變數不知道。 */
 export type ExplainRedirectTargetState = "file" | "directory" | "missing" | "unknown";
+
+/** `<` 的來源檔案：目錄讀不了、不存在會讀不到。 */
+export function explainInputTarget(target: string, state: ExplainRedirectTargetState, commandName: string): string {
+	if (state === "directory") {
+		return `目錄 ${target}（目錄不能當輸入）`;
+	}
+	if (state === "missing") {
+		return `檔案 ${target}（目前不存在，${commandName} 會讀不到）`;
+	}
+	return `檔案 ${target}`;
+}
+
+/** `2>` 系列導到 `/dev/null` 的那一行。 */
+export function explainErrorToNull(): string {
+	return "/dev/null（錯誤訊息直接丟掉）";
+}
 
 /** 重導向的目標：`>` 會蓋掉、`>>` 接在結尾、不存在會建立、目錄寫不進去。 */
 export function explainRedirectTarget(

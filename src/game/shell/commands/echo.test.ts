@@ -45,4 +45,10 @@ describe("echo", () => {
 
 		expect(result).toEqual({ ok: true, lines: ["hi"] });
 	});
+
+	it('參數裡的換行（"$(ls)" 代入的結果）印成好幾行，管線與 wc -l 才數得對', () => {
+		const result = echoCommand.run(["a\nb", "c"], createSystemContext());
+
+		expect(result).toEqual({ ok: true, lines: ["a", "b c"] });
+	});
 });

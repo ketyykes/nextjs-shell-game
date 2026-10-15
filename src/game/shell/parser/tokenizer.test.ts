@@ -273,33 +273,27 @@ function unsupportedDetailOf(input: string, options?: ParseOptions): string {
 	return result.error.detail;
 }
 
-describe("tokenize：不支援的語法回傳 UNSUPPORTED_SYNTAX（M13-1）", () => {
+describe("tokenize：仍不支援的語法回傳 UNSUPPORTED_SYNTAX（M13-1，第十九場縮小範圍）", () => {
 	it.each([
-		["ls || echo no", "||"],
-		["ls||echo no", "||"],
 		["sleep 5 &", "&"],
 		["ls & pwd", "&"],
-		["sort < data.txt", "<"],
 		["cat << EOF", "<<"],
-		["ls 2> err.txt", "2>"],
-		["ls 2>err.txt", "2>"],
-		["ls 2>> err.txt", "2>>"],
-		["ls 2>&1", "2>&1"],
-		["ls > out.txt 2>&1", "2>&1"],
-		["ls 1> out.txt", "1>"],
-		["ls &> out.txt", "&>"],
+		["cat <<< hi", "<<<"],
+		["diff <(ls) x", "<("],
+		["sort 0< data.txt", "0<"],
+		["sort <& 3", "<&"],
+		["sort <> data.txt", "<>"],
 		["echo oops >&2", ">&2"],
+		["echo oops 1>&2", "1>&2"],
+		["ls >& out.txt", ">&"],
+		["ls 2>&- x", "2>&-"],
+		["ls 2>&2", "2>&2"],
+		["ls 3> out.txt", "3>"],
 		["ls |& cat", "|&"],
-		["echo $(pwd)", "$("],
-		['echo "今天是 $(date)"', "$("],
-		["echo `pwd`", "`"],
-		['echo "`pwd`"', "`"],
+		["echo $((1+2))", "$(("],
+		['echo "$((1+2))"', "$(("],
 	])("%s → %s", (input, detail) => {
 		expect(unsupportedDetailOf(input)).toBe(detail);
-	});
-
-	it("有給 env 時 $( 一樣攔下，不當成變數", () => {
-		expect(unsupportedDetailOf("echo $(pwd)", { env: { HOME: "/home/tech" } })).toBe("$(");
 	});
 
 	it("單引號內全部是字面值", () => {
@@ -336,6 +330,240 @@ describe("tokenize：不支援的語法回傳 UNSUPPORTED_SYNTAX（M13-1）", ()
 	it("引號包住或變數展開出來的數字不是檔案描述元", () => {
 		expect(tokensOf('echo "2">b')).toEqual([word("echo"), word("2", true), redirect, word("b")]);
 		expect(tokensOf("echo $N>b", { env: { N: "2" } })).toEqual([word("echo"), word("2"), redirect, word("b")]);
+	});
+});
+
+/** `||` token，`offset` 是第一個 `|` 在輸入裡的字元位置。 */
+function or(offset: number): Token {
+	return { kind: "or", value: "||", quoted: false, singleQuoted: false, offset };
+}
+
+/** 重導向類的符號 token（沒有 offset）。 */
+function operator(kind: Token["kind"], value: string): Token {
+	return { kind, value, quoted: false, singleQuoted: false };
+}
+
+const redirectIn = operator("redirectIn", "<");
+const redirectErr = operator("redirectErr", "2>");
+const redirectErrAppend = operator("redirectErrAppend", "2>>");
+const redirectErrToOut = operator("redirectErrToOut", "2>&1");
+const redirectBoth = operator("redirectBoth", "&>");
+const redirectBothAppend = operator("redirectBothAppend", "&>>");
+
+describe("tokenize：||（第十九場）", () => {
+	it("|| 切成 or token 並記下位置", () => {
+		expect(tokensOf("ls || echo no")).toEqual([word("ls"), or(3), word("echo"), word("no")]);
+	});
+
+	it("黏著的 || 也要切開", () => {
+		expect(tokensOf("ls||echo no")).toEqual([word("ls"), or(2), word("echo"), word("no")]);
+	});
+
+	it("引號內與跳脫的 || 是字面值", () => {
+		expect(tokensOf("echo 'a||b' \\|\\|")).toEqual([word("echo"), word("a||b", true, true), word("||", true)]);
+	});
+
+	it("跟 ; 與 && 一起出現時各自記下位置", () => {
+		expect(tokensOf("a && b || c ; d")).toEqual([
+			word("a"),
+			and(2),
+			word("b"),
+			or(7),
+			word("c"),
+			semicolon(12),
+			word("d"),
+		]);
+	});
+});
+
+describe("tokenize：輸入重導向 <（第十九場）", () => {
+	it("< 切成 redirectIn", () => {
+		expect(tokensOf("sort < data.txt")).toEqual([word("sort"), redirectIn, word("data.txt")]);
+	});
+
+	it("黏著的 < 也要切開", () => {
+		expect(tokensOf("wc -l<data.txt")).toEqual([word("wc"), word("-l"), redirectIn, word("data.txt")]);
+	});
+
+	it("< 可以寫在指令前面", () => {
+		expect(tokensOf("< data.txt sort")).toEqual([redirectIn, word("data.txt"), word("sort")]);
+	});
+
+	it("緊接在 < 後面的 ~ 也展開", () => {
+		expect(tokensOf("sort <~/x", { home: "/home/tech" })).toEqual([word("sort"), redirectIn, word("/home/tech/x")]);
+	});
+});
+
+describe("tokenize：錯誤輸出重導向（第十九場）", () => {
+	it("2> 與 2>> 切成 redirectErr、redirectErrAppend", () => {
+		expect(tokensOf("ls 2> err.txt")).toEqual([word("ls"), redirectErr, word("err.txt")]);
+		expect(tokensOf("ls 2>err.txt")).toEqual([word("ls"), redirectErr, word("err.txt")]);
+		expect(tokensOf("ls 2>> err.txt")).toEqual([word("ls"), redirectErrAppend, word("err.txt")]);
+	});
+
+	it("2>/dev/null 的目標是一般 word", () => {
+		expect(tokensOf("find / -name x 2>/dev/null")).toEqual([
+			word("find"),
+			word("/"),
+			word("-name"),
+			word("x"),
+			redirectErr,
+			word("/dev/null"),
+		]);
+	});
+
+	it("2>&1 是一個 token，可以接在 > 後面或前面", () => {
+		expect(tokensOf("ls 2>&1")).toEqual([word("ls"), redirectErrToOut]);
+		expect(tokensOf("ls > out 2>&1")).toEqual([word("ls"), redirect, word("out"), redirectErrToOut]);
+		expect(tokensOf("ls 2>&1>out")).toEqual([word("ls"), redirectErrToOut, redirect, word("out")]);
+	});
+
+	it("&> 與 &>> 切成 redirectBoth、redirectBothAppend", () => {
+		expect(tokensOf("ls &> all.txt")).toEqual([word("ls"), redirectBoth, word("all.txt")]);
+		expect(tokensOf("ls &>>all.txt")).toEqual([word("ls"), redirectBothAppend, word("all.txt")]);
+	});
+
+	it("1> 與 1>> 就是 > 與 >>，符號保留玩家的寫法", () => {
+		expect(tokensOf("ls 1> out")).toEqual([word("ls"), operator("redirect", "1>"), word("out")]);
+		expect(tokensOf("ls 1>>out")).toEqual([word("ls"), operator("redirectAppend", "1>>"), word("out")]);
+	});
+
+	it("&& 與 &> 分得開", () => {
+		expect(tokensOf("ls&&ls&>x")).toEqual([word("ls"), and(2), word("ls"), redirectBoth, word("x")]);
+	});
+});
+
+/** 斷言 tokenize 成功並回傳 tokens 與指令替換的原文清單。 */
+function resultOf(input: string, options?: ParseOptions): { tokens: Token[]; substitutions: string[] } {
+	const result = tokenize(input, options);
+	if (!result.ok) {
+		throw new Error(`預期成功，卻得到錯誤：${result.error.code} ${result.error.detail}`);
+	}
+	return { tokens: result.tokens, substitutions: result.substitutions };
+}
+
+describe("tokenize：指令替換，沒給 substitute 時原樣保留（第十九場）", () => {
+	it("$( ) 整段併進目前的 word，裡面的 | 與 ; 不切", () => {
+		expect(resultOf("cat $(ls | head -n 1) ; ls")).toEqual({
+			tokens: [word("cat"), word("$(ls | head -n 1)"), semicolon(22), word("ls")],
+			substitutions: ["ls | head -n 1"],
+		});
+	});
+
+	it("反引號整段併進目前的 word", () => {
+		expect(resultOf("kill `ps | grep nova`")).toEqual({
+			tokens: [word("kill"), word("`ps | grep nova`")],
+			substitutions: ["ps | grep nova"],
+		});
+	});
+
+	it("雙引號內的 $( ) 也記下來", () => {
+		expect(resultOf('echo "今天是 $(cat date.txt)"')).toEqual({
+			tokens: [word("echo"), word("今天是 $(cat date.txt)", true)],
+			substitutions: ["cat date.txt"],
+		});
+	});
+
+	it("巢狀的 $( ) 只記最外層，裡面的交給執行時再解析", () => {
+		expect(resultOf("echo $(ls $(echo /))")).toEqual({
+			tokens: [word("echo"), word("$(ls $(echo /))")],
+			substitutions: ["ls $(echo /)"],
+		});
+	});
+
+	it("裡面引號內的 ) 不算結尾", () => {
+		expect(resultOf(`echo $(echo ")" ')') x`)).toEqual({
+			tokens: [word("echo"), word(`$(echo ")" ')')`), word("x")],
+			substitutions: [`echo ")" ')'`],
+		});
+	});
+
+	it("有給 env 時 $( ) 裡面的變數也不展開，原樣留給執行時", () => {
+		expect(resultOf("echo $(cd $HOME) $HOME", { env: { HOME: "/home/tech" } }).tokens).toEqual([
+			word("echo"),
+			word("$(cd $HOME)"),
+			word("/home/tech"),
+		]);
+	});
+
+	it("沒有指令替換時 substitutions 是空陣列", () => {
+		expect(resultOf("ls").substitutions).toEqual([]);
+	});
+
+	it("$( 沒關回傳 UNCLOSED_SUBSTITUTION", () => {
+		expect(tokenize("echo $(pwd")).toEqual({ ok: false, error: { code: "UNCLOSED_SUBSTITUTION", detail: "$(" } });
+		expect(tokenize('echo "$(pwd"')).toEqual({ ok: false, error: { code: "UNCLOSED_SUBSTITUTION", detail: "$(" } });
+	});
+
+	it("反引號沒關回傳 UNCLOSED_SUBSTITUTION", () => {
+		expect(tokenize("echo `pwd")).toEqual({ ok: false, error: { code: "UNCLOSED_SUBSTITUTION", detail: "`" } });
+	});
+
+	it("$( ) 裡面的引號沒關時 ) 也被吃進引號，一樣回 $( 沒關（訊息會提醒引號要成對）", () => {
+		expect(tokenize("echo $(echo 'a)")).toEqual({ ok: false, error: { code: "UNCLOSED_SUBSTITUTION", detail: "$(" } });
+	});
+});
+
+describe("tokenize：指令替換，有給 substitute 時代入輸出（第十九場）", () => {
+	/** 固定回傳 `output` 的 substitute，順便記下被要求執行的原文。 */
+	function fixed(output: string): { substitute: (source: string) => string; calls: string[] } {
+		const calls: string[] = [];
+		return {
+			calls,
+			substitute: (source) => {
+				calls.push(source);
+				return output;
+			},
+		};
+	}
+
+	it("引號外的輸出照空白與換行切成好幾個 word", () => {
+		const { substitute, calls } = fixed("a b\nc\n");
+		expect(tokensOf("echo $(ls)", { substitute })).toEqual([word("echo"), word("a"), word("b"), word("c")]);
+		expect(calls).toEqual(["ls"]);
+	});
+
+	it("雙引號內不切，整段一個 word，去掉結尾的換行", () => {
+		const { substitute } = fixed("a b\nc\n\n");
+		expect(tokensOf('echo "[$(ls)]"', { substitute })).toEqual([word("echo"), word("[a b\nc]", true)]);
+	});
+
+	it("前後黏著的字併進第一個與最後一個 word", () => {
+		const { substitute } = fixed("a b");
+		expect(tokensOf("echo pre$(x)post", { substitute })).toEqual([word("echo"), word("prea"), word("bpost")]);
+	});
+
+	it("引號外輸出是空的時這個 word 直接丟掉，雙引號內保留空字串", () => {
+		const { substitute } = fixed("\n");
+		expect(tokensOf("echo $(x) y", { substitute })).toEqual([word("echo"), word("y")]);
+		expect(tokensOf('echo "$(x)" y', { substitute })).toEqual([word("echo"), word("", true), word("y")]);
+	});
+
+	it("代入的輸出不算引號，萬用字元照樣會展開；裡面的符號不會變成管線", () => {
+		const { substitute } = fixed("*.txt|a>b");
+		expect(tokensOf("ls $(x)", { substitute })).toEqual([word("ls"), word("*.txt|a>b")]);
+	});
+
+	it("代入的數字不算檔案描述元", () => {
+		const { substitute } = fixed("2");
+		expect(tokensOf("echo $(x)>f", { substitute })).toEqual([word("echo"), word("2"), redirect, word("f")]);
+	});
+
+	it("依出現順序執行，反引號裡的 \\` 還原成反引號", () => {
+		const { substitute, calls } = fixed("v");
+		tokensOf('echo $(a) `b \\`c\\`` "$(d)"', { substitute });
+		expect(calls).toEqual(["a", "b `c`", "d"]);
+	});
+
+	it("單引號內與跳脫過的不執行", () => {
+		const { substitute, calls } = fixed("v");
+		expect(tokensOf("echo '$(a)' \\$(b) \\`c\\`", { substitute })).toEqual([
+			word("echo"),
+			word("$(a)", true, true),
+			word("$(b)", true),
+			word("`c`", true),
+		]);
+		expect(calls).toEqual([]);
 	});
 });
 

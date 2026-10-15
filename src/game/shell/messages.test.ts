@@ -37,6 +37,7 @@ import {
 	extraOperand,
 	emptyListCommand,
 	unsupportedSyntax,
+	unclosedSubstitution,
 	cdTooManyArguments,
 	similarCommand,
 	commandIsLowercase,
@@ -183,8 +184,16 @@ describe("parseError 依代碼分派", () => {
 		["MISSING_REDIRECT_TARGET", ">", missingRedirectTarget(">")],
 		["EMPTY_COMMAND", ";", emptyListCommand(";")],
 		["EMPTY_COMMAND", "&&", emptyListCommand("&&")],
-		["UNSUPPORTED_SYNTAX", "||", unsupportedSyntax("||")],
-		["UNSUPPORTED_SYNTAX", "2>&1", unsupportedSyntax("2>&1")],
+		["EMPTY_COMMAND", "||", emptyListCommand("||")],
+		["EMPTY_COMMAND", "<", missingCommandForRedirect("<")],
+		["EMPTY_COMMAND", "2>", missingCommandForRedirect("2>")],
+		["EMPTY_COMMAND", "2>&1", missingCommandForRedirect("2>&1")],
+		["EMPTY_COMMAND", "&>", missingCommandForRedirect("&>")],
+		["EMPTY_COMMAND", "1>>", missingCommandForRedirect("1>>")],
+		["MISSING_REDIRECT_TARGET", "<", missingRedirectTarget("<")],
+		["UNCLOSED_SUBSTITUTION", "$(", unclosedSubstitution("$(")],
+		["UNSUPPORTED_SYNTAX", "&", unsupportedSyntax("&")],
+		["UNSUPPORTED_SYNTAX", ">&2", unsupportedSyntax(">&2")],
 	];
 
 	it.each(cases)("%s 會分派到對應的訊息", (code, detail, expected) => {
@@ -207,6 +216,47 @@ describe("; 與 && 的訊息（M13）", () => {
 		expect(text).toContain("成功");
 		expect(text).toContain("cd logs && ls");
 	});
+
+	it("emptyListCommand(||) 說明「左邊失敗了才做右邊」並給範例（第十九場）", () => {
+		const text = joinLines(emptyListCommand("||"));
+		expect(text).toContain("`||`");
+		expect(text).toContain("失敗");
+		expect(text).toContain("cd logs || echo");
+	});
+});
+
+describe("重導向與指令替換的訊息（第十九場）", () => {
+	it("missingRedirectTarget 依符號說明檔名的用途並給範例", () => {
+		expect(joinLines(missingRedirectTarget("<"))).toContain("sort < data.txt");
+		expect(joinLines(missingRedirectTarget("2>"))).toContain("錯誤訊息");
+		expect(joinLines(missingRedirectTarget("2>"))).toContain("2>/dev/null");
+		expect(joinLines(missingRedirectTarget("2>>"))).toContain("`2>>`");
+		expect(joinLines(missingRedirectTarget("&>"))).toContain("ls &> all.txt");
+		expect(missingRedirectTarget("1>")).toEqual(missingRedirectTarget(">").map((line) => line.replace("`>`", "`1>`")));
+	});
+
+	it("missingCommandForRedirect 依符號說明意思，> 與 >> 維持原本的說法", () => {
+		expect(joinLines(missingCommandForRedirect(">"))).toContain("echo MAYDAY > outbox.txt");
+		const input = joinLines(missingCommandForRedirect("<"));
+		expect(input).toContain("`<`");
+		expect(input).toContain("讀");
+		expect(input).toContain("sort < data.txt");
+		const error = joinLines(missingCommandForRedirect("2>"));
+		expect(error).toContain("錯誤訊息");
+		expect(error).toContain("2> err.txt");
+		expect(joinLines(missingCommandForRedirect("2>&1"))).toContain("> out.txt 2>&1");
+		expect(joinLines(missingCommandForRedirect("&>>"))).toContain("`&>>`");
+	});
+
+	it("unclosedSubstitution 教怎麼補，反引號建議改用 $( )", () => {
+		const paren = joinLines(unclosedSubstitution("$("));
+		expect(paren).toContain("`$(`");
+		expect(paren).toContain(")");
+		expect(paren).toContain("引號");
+		const backtick = joinLines(unclosedSubstitution("`"));
+		expect(backtick).toContain("反引號");
+		expect(backtick).toContain("$(pwd)");
+	});
 });
 
 describe("cd 參數太多（M13-1）", () => {
@@ -219,8 +269,8 @@ describe("cd 參數太多（M13-1）", () => {
 	});
 });
 
-describe("不支援的語法（M13-1）", () => {
-	it.each(["||", "&", "<", "<<", "2>", "2>>", "2>&1", "1>", "&>", ">&2", "|&", "$("])(
+describe("仍不支援的語法（M13-1，第十九場縮小範圍）", () => {
+	it.each(["&", "<<", "<<<", "<(", "0<", "<&", ">&2", "1>&2", ">&", "2>&-", "3>", "|&", "2>&1 |", "$(("])(
 		"%s 明講「這個遊戲的 shell 不支援」並放進符號",
 		(detail) => {
 			const text = joinLines(unsupportedSyntax(detail));
@@ -229,12 +279,6 @@ describe("不支援的語法（M13-1）", () => {
 		},
 	);
 
-	it("|| 建議分兩行，並提到支援的 &&", () => {
-		const text = joinLines(unsupportedSyntax("||"));
-		expect(text).toContain("分兩行");
-		expect(text).toContain("&&");
-	});
-
 	it("& 建議拿掉，要接著做下一個用 && 或 ;", () => {
 		const text = joinLines(unsupportedSyntax("&"));
 		expect(text).toContain("背景");
@@ -242,28 +286,37 @@ describe("不支援的語法（M13-1）", () => {
 		expect(text).toContain(";");
 	});
 
-	it("< 與 << 建議把檔名當參數或用 cat 接管線", () => {
-		for (const detail of ["<", "<<"]) {
+	it("<< 建議改用 < 讀檔，<<< 建議用 echo 接管線", () => {
+		const heredoc = joinLines(unsupportedSyntax("<<"));
+		expect(heredoc).toContain("sort < data.txt");
+		const herestring = joinLines(unsupportedSyntax("<<<"));
+		expect(herestring).toContain("echo");
+		expect(herestring).toContain("|");
+	});
+
+	it("<( ) 建議先把輸出存成檔案", () => {
+		expect(joinLines(unsupportedSyntax("<("))).toContain("> ");
+	});
+
+	it("|& 與管線中間的 2>&1 說明錯誤訊息不能接進管線，要丟掉或存檔用 2>", () => {
+		for (const detail of ["|&", "2>&1 |"]) {
 			const text = joinLines(unsupportedSyntax(detail));
-			expect(text).toContain("sort data.txt");
-			expect(text).toContain("cat data.txt | sort");
+			expect(text).toContain("管線");
+			expect(text).toContain("2>/dev/null");
+			expect(text).toContain("2> ");
 		}
 	});
 
-	it("2>、2>&1、&> 這類說明錯誤訊息會直接印出，存檔用 > 或 >>", () => {
-		for (const detail of ["2>", "2>&1", "&>", ">&2", "|&", "1>"]) {
+	it(">&2、3> 這類別的檔案描述元說明能用的 2>、2>&1 寫法", () => {
+		for (const detail of [">&2", "1>&2", "3>", "0<", "2>&-"]) {
 			const text = joinLines(unsupportedSyntax(detail));
-			expect(text).toContain("錯誤訊息");
-			expect(text).toContain("ls > list.txt");
+			expect(text).toContain("2> ");
+			expect(text).toContain("2>&1");
 		}
 	});
 
-	it("$( 與反引號建議先單獨執行裡面的指令", () => {
-		for (const detail of ["$(", "`"]) {
-			const text = joinLines(unsupportedSyntax(detail));
-			expect(text).toContain("先單獨執行");
-		}
-		expect(joinLines(unsupportedSyntax("`"))).toContain("反引號");
+	it("$(( 說明不支援數字計算", () => {
+		expect(joinLines(unsupportedSyntax("$(("))).toContain("數字計算");
 	});
 });
 

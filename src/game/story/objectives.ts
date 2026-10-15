@@ -204,13 +204,30 @@ export function any(...checks: ObjectiveCheck[]): ObjectiveCheck {
 // ---------------------------------------------------------------------------
 
 /**
+ * 重新解析時代入指令替換的函式：照執行時記下的輸出依序回傳（第十九場）。
+ * 沒有紀錄時回傳 undefined，解析器就不執行、整段 `$( )` 原樣留著。
+ */
+function replaySubstitutions(outputs: string[] | undefined): ((source: string) => string) | undefined {
+	if (outputs === undefined) {
+		return undefined;
+	}
+	let next = 0;
+	return () => {
+		const output = outputs[next] ?? "";
+		next += 1;
+		return output;
+	};
+}
+
+/**
  * 判定這次執行是否讓終端機過關。
- * 執行失敗（`isError`）一律不算，`objective.check` 不會被呼叫；用 `;`、`&&` 串起來的一行只要有一段失敗，
- * 整行就是 `isError`，也不算（跟 PlayScreen 一樣：錯誤的那一行只扣氧氣，不判定過關）。
+ * 執行失敗（`isError`）一律不算，`objective.check` 不會被呼叫；用 `;`、`&&`、`||` 串起來的一行只要有一段失敗
+ * 而且沒被 `||` 接住，整行就是 `isError`，也不算（跟 PlayScreen 一樣：錯誤的那一行只扣氧氣，不判定過關）。
  *
- * 一行串了好幾段（`execution.segments`）時逐段判定，任一段成立就過關。每一段用自己的原文、輸出、
- * 執行完當下的 cwd、env 與程序清單組 context，所以 `cat a.txt ; cd ..` 的相對路徑照 cat 當時的位置解析、
- * `outputContains` 不會被別段的輸出湊成。檔案系統只有整行跑完的狀態，`fileExists` 這類看的是最後結果。
+ * 一行串了好幾段（`execution.segments`）時逐段判定，任一段成立就過關；被 `||` 接住的失敗段（整行不算錯，
+ * 但那一段自己 `isError`）跳過，不能拿來過關。每一段用自己的原文、輸出、執行完當下的 cwd、env 與程序清單組 context，
+ * 所以 `cat a.txt ; cd ..` 的相對路徑照 cat 當時的位置解析、`outputContains` 不會被別段的輸出湊成。
+ * 檔案系統只有整行跑完的狀態，`fileExists` 這類看的是最後結果。
  */
 export function evaluateObjective(definition: TerminalDefinition, context: ObjectiveContext): boolean {
 	if (context.execution.isError) {
@@ -222,15 +239,18 @@ export function evaluateObjective(definition: TerminalDefinition, context: Objec
 		return definition.objective.check(context);
 	}
 
-	return segments.some((segment) =>
-		definition.objective.check(createObjectiveContext(context.terminalId, segment, context.fs, context.home)),
+	return segments.some(
+		(segment) =>
+			!segment.isError &&
+			definition.objective.check(createObjectiveContext(context.terminalId, segment, context.fs, context.home)),
 	);
 }
 
 /**
  * 從一次 shell 執行組出判定用的 context。
- * 輸入再解析一次填 `command`；解析失敗或空輸入時為 null。用 `;`、`&&` 串了好幾段時填的是第一段，
+ * 輸入再解析一次填 `command`；解析失敗或空輸入時為 null。用 `;`、`&&`、`||` 串了好幾段時填的是第一段，
  * 逐段判定由 `evaluateObjective` 用 `execution.segments` 各自組 context。
+ * 指令替換（`$( )`）不再執行一次，照 `execution.substitutions` 記下的輸出依序代入；沒記到的原樣留著。
  */
 export function createObjectiveContext(
 	terminalId: string,
@@ -239,7 +259,11 @@ export function createObjectiveContext(
 	home: string,
 ): ObjectiveContext {
 	// 用執行後的環境變數重新解析，`cat $NOVA_DIR/log` 這種寫法判定時才看得到真正的路徑；`~` 也跟 shell 一樣展開
-	const parsed = parseCommandLine(execution.input, { env: execution.env, home });
+	const parsed = parseCommandLine(execution.input, {
+		env: execution.env,
+		home,
+		substitute: replaySubstitutions(execution.substitutions),
+	});
 	let command: ObjectiveContext["command"] = null;
 	let pipeline: ObjectiveContext["pipeline"] = null;
 	if (parsed.ok) {

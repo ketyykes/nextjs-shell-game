@@ -225,10 +225,25 @@ export const DIR_SIZE = 4096;
 // ---------------------------------------------------------------------------
 
 /**
- * token 種類。`word` 是一般字串；`pipe` 是 `|`；`redirect` 是 `>`、`redirectAppend` 是 `>>`；
- * `semicolon` 是 `;`、`and` 是 `&&`（M13-2，把一行切成依序執行的好幾段）。
+ * token 種類。`word` 是一般字串；`pipe` 是 `|`；`redirect` 是 `>`（或 `1>`）、`redirectAppend` 是 `>>`（或 `1>>`）；
+ * `semicolon` 是 `;`、`and` 是 `&&`（M13-2，把一行切成依序執行的好幾段）、`or` 是 `||`（第十九場）。
+ * 第十九場的重導向：`redirectIn` 是 `<`，`redirectErr` 是 `2>`、`redirectErrAppend` 是 `2>>`，
+ * `redirectErrToOut` 是 `2>&1`，`redirectBoth` 是 `&>`、`redirectBothAppend` 是 `&>>`。
  */
-export type TokenKind = "word" | "pipe" | "redirect" | "redirectAppend" | "semicolon" | "and";
+export type TokenKind =
+	| "word"
+	| "pipe"
+	| "redirect"
+	| "redirectAppend"
+	| "semicolon"
+	| "and"
+	| "or"
+	| "redirectIn"
+	| "redirectErr"
+	| "redirectErrAppend"
+	| "redirectErrToOut"
+	| "redirectBoth"
+	| "redirectBothAppend";
 
 export interface Token {
 	kind: TokenKind;
@@ -243,7 +258,7 @@ export interface Token {
 	singleQuoted?: boolean;
 	/**
 	 * 符號在輸入裡的位置，以字元（`Array.from(input)` 的索引）計。
-	 * 只有 `semicolon` 與 `and` 帶，解析器用它切出每一段的原文。
+	 * 只有 `semicolon`、`and` 與 `or` 帶，解析器用它切出每一段的原文。
 	 */
 	offset?: number;
 }
@@ -252,14 +267,17 @@ export interface Token {
  * 解析錯誤代碼。
  * - FULLWIDTH_CHAR：輸入含全形空白或全形標點
  * - UNCLOSED_QUOTE：引號沒關
- * - EMPTY_COMMAND：`|` 的前面或後面沒有指令（例如 `ls |`、`| sort`）
- * - MISSING_REDIRECT_TARGET：`>` 或 `>>` 後面沒有檔名
- * - UNSUPPORTED_SYNTAX：引號外出現遊戲的 shell 不支援的寫法（M13-1），detail 是那個符號，例如
- *   `||`、`&`、`<`、`<<`、`2>`、`2>&1`、`&>`、`>&2`、`|&`、`$(`、`` ` ``
+ * - UNCLOSED_SUBSTITUTION：指令替換沒關，detail 是 `$(` 或 `` ` ``（第十九場）
+ * - EMPTY_COMMAND：`|`、`;`、`&&`、`||` 旁邊沒有指令（例如 `ls |`、`| sort`），或重導向沒有搭配指令、
+ *   同一種重導向寫了兩次（detail 是那個重導向符號）
+ * - MISSING_REDIRECT_TARGET：`>`、`>>`、`<`、`2>`、`2>>`、`&>`、`&>>` 後面沒有檔名
+ * - UNSUPPORTED_SYNTAX：引號外出現遊戲的 shell 不支援的寫法（M13-1，第十九場縮小範圍），detail 是那個符號，例如
+ *   `&`、`<<`、`<<<`、`<(`、`>&2`、`|&`、`2>&1 |`、`3>`、`$((`
  */
 export type ParseErrorCode =
 	| "FULLWIDTH_CHAR"
 	| "UNCLOSED_QUOTE"
+	| "UNCLOSED_SUBSTITUTION"
 	| "EMPTY_COMMAND"
 	| "MISSING_REDIRECT_TARGET"
 	| "UNSUPPORTED_SYNTAX";
@@ -299,11 +317,23 @@ export interface ParsedCommand {
 	args: string[];
 }
 
-/** 輸出重導向（第四章）：`>` 覆寫、`>>` 追加，`target` 是玩家輸入的原字串。 */
+/**
+ * 輸出重導向（第四章）：`>` 覆寫、`>>` 追加，`target` 是玩家輸入的原字串。
+ * 第十九場起 `&>`、`&>>` 也算（標準輸出一樣進這個檔案），`1>`、`1>>` 等同 `>`、`>>`。
+ */
 export interface Redirect {
 	kind: "overwrite" | "append";
 	target: string;
 }
+
+/**
+ * 錯誤輸出重導向（第十九場）：
+ * - `overwrite`／`append`：`2>`、`2>>` 寫進 `target`；`> 檔案 2>&1` 與 `&>` 也換算成這種，`target` 是同一個檔案。
+ * - `toStdout`：`2>&1` 寫在 `>` 前面（或根本沒有 `>`）：錯誤訊息改走標準輸出原本的去處，
+ *   也就是畫面；在 `$( )` 裡面就跟著輸出一起被收進替換結果（bash 的 fd 複製順序）。
+ * 遊戲的指令不分 stdout 與 stderr：`ok: false` 的指令印的全部算錯誤輸出，`ok: true` 的全部算標準輸出。
+ */
+export type ErrorRedirect = { kind: "overwrite" | "append"; target: string } | { kind: "toStdout" };
 
 /**
  * 一整行輸入解析後的管線：一個以上的指令用 `|` 串起來，結尾可接一個重導向。
@@ -316,17 +346,21 @@ export interface ParsedPipeline {
 
 /**
  * 把一行切成好幾段的連接符號（M13-2）：`;` 不管前一段成敗都執行下一段，
- * `&&` 前一段成功才執行下一段。兩者都比 `|` 鬆，每一段各自是一條管線。
+ * `&&` 前一段成功才執行下一段，`||` 前一段失敗（結束碼不是 0）才執行下一段（第十九場）。
+ * `&&` 與 `||` 同優先權、由左往右結合，`;` 最鬆；三者都比 `|` 鬆，每一段各自是一條管線。
  */
-export type ListConnector = ";" | "&&";
+export type ListConnector = ";" | "&&" | "||";
 
 /**
  * 解析選項：`env` 給變數展開用（第五章），沒給就不展開、`$NAME` 原樣保留；
- * `home` 給 `~` 展開用（M13-2），沒給就不展開、`~` 原樣保留。
+ * `home` 給 `~` 展開用（M13-2），沒給就不展開、`~` 原樣保留；
+ * `substitute` 給指令替換用（第十九場）：收到 `$( )` 或反引號裡的原文，回傳那段指令的標準輸出。
+ * 沒給就不執行，整段 `$(...)` 原樣併進 word（只檢查語法、切段落用）。
  */
 export interface ParseOptions {
 	env?: Record<string, string>;
 	home?: string;
+	substitute?: (source: string) => string;
 }
 
 /**
@@ -589,9 +623,10 @@ export interface ShellOptions {
  * 一次輸入的執行結果，是 UI 唯一需要看的東西。
  * `isError` 與 `CommandResult.ok` 相反，並且包含解析錯誤與指令不存在。
  *
- * 用 `;`、`&&` 串起來的一行（M13-2）：`lines` 是每一段的輸出依序接起來（`clear` 之前的丟掉），
- * 任一段失敗 `isError` 就是 true（整行算一次錯誤），`cwd`、`env`、`processes` 是整行跑完的狀態，
- * 每一段各自的結果放在 `segments`。
+ * 用 `;`、`&&`、`||` 串起來的一行（M13-2、第十九場）：`lines` 是每一段的輸出依序接起來（`clear` 之前的丟掉），
+ * 有一段失敗、而且沒被 `||` 接住（下一個實際執行的段落不是用 `||` 接的）時 `isError` 是 true（整行算一次錯誤），
+ * `cwd`、`env`、`processes` 是整行跑完的狀態，每一段各自的結果放在 `segments`（被接住的那一段自己的 `isError` 仍是 true）。
+ * 指令替換（`$( )`）裡面的失敗不算，只看外面的指令。
  */
 export interface ShellExecution {
 	input: string;
@@ -607,7 +642,7 @@ export interface ShellExecution {
 	/** 這一行有沒有跑到 `hint`（含管線裡的），卡關偵測用它把閒置計時從這裡重新算起。 */
 	hintUsed: boolean;
 	/**
-	 * 一行用 `;`、`&&` 串了兩段以上時，實際執行過的每一段（被 `&&` 跳過的不算），依執行順序。
+	 * 一行用 `;`、`&&`、`||` 串了兩段以上時，實際執行過的每一段（被 `&&`、`||` 跳過的不算），依執行順序。
 	 * 每段的 `input` 是那一段的原文，`cwd`、`env`、`processes` 是那一段跑完當下的狀態，目標判定逐段看。
 	 * 只有一段時沒有這個欄位，整行就是那一段。
 	 * `explain` 開頭的一行（第十九場）是空陣列：被說明的那一行一段都沒有執行，目標判定與劇情反應都不會把它當成跑過。
@@ -619,4 +654,10 @@ export interface ShellExecution {
 	 * `less a ; ls` 這種寫法：`lines` 是 ls 的輸出，分頁蓋在上面，離開後畫面跟 bash 一樣。
 	 */
 	pagers?: PagerRequest[];
+	/**
+	 * 這一段執行到的指令替換（`$( )`、反引號，第十九場）各自的標準輸出，依出現順序，只記最外層。
+	 * 目標判定重新解析這一段時用 `ParseOptions.substitute` 照順序代入，不再執行一次。
+	 * 沒有指令替換時沒有這個欄位；一行串了好幾段時記在 `segments` 各段裡。
+	 */
+	substitutions?: string[];
 }
