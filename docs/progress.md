@@ -21,7 +21,7 @@
 | 更新日期 | 2026-10-16（第十九場，02:10 收尾） |
 | 最新 commit | 見 `git log --oneline 38c9b1d..HEAD`：第十九場（2026-10-16 深夜 `/goal` 自主實作，四點前收工）十一個 opus agent 各在 worktree 平行實作教學深度五項、劇情與氛圍四項、光敏確認、分頁互蓋、credits，主 session 逐一合併解衝突、修 explain 與選項表的相容、重切字型子集；之前是第十八場整理 docs/ |
 | 目前階段 | **M0 到 M16 全部完成**。M16 是第十九場的十一項功能（設計文件 4.15 到 4.25），自主決策在 `notes/decisions.md` #128 起，**等 Danny 確認**。M15 是第十七場依「遊戲化實戰全書」八角框架挑的八項功能（`archive/progress-milestones-m0-m15.md`），自主決策在 `notes/decisions.md` #102 起，**等 Danny 確認**。M10 到 M14 是第十三場審計排出的優化路線（證據在 [`archive/audit-2026-10-08.md`](./archive/audit-2026-10-08.md)），第十四場由十幾個 agent 平行實作、我逐組合併驗證；這次的自主決策在 `notes/decisions.md` #62 到 #100，**等 Danny 確認**。Danny 本人還沒玩過第二章以後，也還沒看過 M10 到 M14 的新東西 |
-| 程式碼狀態 | 標題（含光敏確認、觸控提示、練習模式、存檔管理、通關紀錄、救援船 ARGO、檔案櫃、下一步橋接頁、製作名單）→ 選角 → boot log → 六章地圖（第二到五章有便條）→ 片尾 → 救援船終端機。`pnpm test --run` 208 個測試檔 4718 個測試全綠，`npx tsc --noEmit`、`pnpm lint`、`pnpm build`（六個路由都靜態）乾淨；`PORT=3500 pnpm test:e2e` 77 個全綠（第一輪 1 個是選單順序的斷言，改完重跑過）。存檔格式 v4（settings 多 `flickerPromptSeen`，不升版）；指令 49 個 |
+| 程式碼狀態 | 標題（含光敏確認、觸控提示、練習模式、存檔管理、通關紀錄、救援船 ARGO、檔案櫃、下一步橋接頁、製作名單）→ 選角 → boot log → 六章地圖（第二到五章有便條）→ 片尾 → 救援船終端機。`pnpm test --run` 208 個測試檔 4720 個測試全綠，`npx tsc --noEmit`、`pnpm lint`、`pnpm build`（六個路由都靜態）乾淨；`PORT=3500 pnpm test:e2e` 77 個全綠（第一輪 1 個是選單順序的斷言，改完重跑過）。存檔格式 v4（settings 多 `flickerPromptSeen`，不升版）；指令 49 個 |
 | 下一步 | Danny 試玩第十九場的東西（explain、Ctrl+R、nano、便條、低氧亂碼與心跳、救援船、檔案櫃、光敏確認、/credits、/real-world）並確認 `notes/decisions.md` #128 起；第 5 節剩下的候選（拼字建議的 `tr` 雜訊、`cat < 檔案` 的過關判定等）；第 3 節的試聽（多了兩個自產音效）、潤稿與六處時間線矛盾；部署 |
 | 遠端 | `origin` 是 HTTPS 網址 `https://github.com/ketyykes/nextjs-shell-game.git`，2026-10-10 Danny 自己 push 到 `70bde04`（第十六場過關密技）；之後的 commit push 前先問 Danny |
 
