@@ -95,6 +95,7 @@ export const terminalDefinitionSchema = z.strictObject({
 	env: z.record(z.string(), z.string()).optional(),
 	readonlyEnv: z.array(nonEmptyString).optional(),
 	processes: z.array(processInfoSchema).optional(),
+	now: z.iso.datetime({ error: "now 必須是 ISO 8601 的 UTC 時間，例如 2031-03-12T14:02:00Z" }).optional(),
 });
 
 const chapterMapSchema = z.strictObject({

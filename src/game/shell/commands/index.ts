@@ -12,6 +12,7 @@ import { chmodCommand } from "./chmod";
 import { clearCommand } from "./clear";
 import { cpCommand } from "./cp";
 import { cutCommand } from "./cut";
+import { dateCommand } from "./date";
 import { diffCommand } from "./diff";
 import { echoCommand } from "./echo";
 import { envCommand } from "./env";
@@ -48,7 +49,7 @@ import { whoamiCommand } from "./whoami";
 import type { CommandDefinition } from "../types";
 
 /**
- * 全部指令：六章依章節排列，接著是 M13-3 只開放使用的指令，最後是第十七場的帳號與登入彩蛋。
+ * 全部指令：六章依章節排列，接著是 M13-3 只開放使用的指令、第十七場的帳號與登入彩蛋，最後是第十九場開放的指令。
  * 順序決定打錯字時同分的建議誰優先（見 `suggestSimilarCommand`），別的行為不受影響。
  */
 export const ALL_COMMANDS: CommandDefinition[] = [
@@ -101,6 +102,8 @@ export const ALL_COMMANDS: CommandDefinition[] = [
 	sudoCommand,
 	exitCommand,
 	logoutCommand,
+	// 第十九場：只開放使用，不在劇本裡（設計文件 4.18）
+	dateCommand,
 ];
 
 export { catCommand, cdCommand, clearCommand, helpCommand, hintCommand, historyCommand, lsCommand, manCommand, pwdCommand };

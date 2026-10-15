@@ -78,6 +78,10 @@ describe("terminalScriptHash", () => {
 		expect(terminalScriptHash(edited)).toBe(terminalScriptHash(BASE));
 	});
 
+	it("date 的時鐘 now 不影響雜湊（不存檔，每次建立與還原都從劇本讀）", () => {
+		expect(terminalScriptHash({ ...BASE, now: "2031-03-12T14:02:00Z" })).toBe(terminalScriptHash(BASE));
+	});
+
 	it("沒寫的選填欄位跟明寫 undefined 一樣", () => {
 		const withoutOptional: TerminalDefinition = { ...BASE };
 		delete withoutOptional.env;

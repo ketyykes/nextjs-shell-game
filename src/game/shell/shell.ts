@@ -383,7 +383,7 @@ export class Shell {
 	 * 從存檔還原。`fs` 由呼叫端先用 `VirtualFileSystem.fromSerialized(state.fs)` 建好再傳入，
 	 * 這裡不直接依賴 fs 的實作類別，保持 shell 只認 `VirtualFs` 介面。
 	 * 舊存檔沒有 `env`、`processes` 時，建構子會補預設值（`PWD` 跟著存檔的 cwd）。
-	 * `readonlyEnv` 來自劇本、不在存檔裡，由呼叫端從終端機定義帶入。
+	 * `readonlyEnv` 與 `now`（第十九場的時鐘）來自劇本、不在存檔裡，由呼叫端從終端機定義帶入。
 	 */
 	static fromState(
 		state: ShellSessionState,
@@ -391,6 +391,7 @@ export class Shell {
 		hints: string[],
 		home?: string,
 		readonlyEnv?: string[],
+		now?: string,
 	): Shell {
 		return new Shell({
 			fs,
@@ -404,6 +405,7 @@ export class Shell {
 			env: state.env,
 			processes: state.processes,
 			readonlyEnv,
+			now,
 		});
 	}
 
@@ -423,6 +425,7 @@ export class Shell {
 			env: { ...this.currentEnv },
 			processes: copyProcesses(this.currentProcesses),
 			readonlyEnv: [...this.readonlyEnv],
+			now: this.options.now,
 		};
 	}
 

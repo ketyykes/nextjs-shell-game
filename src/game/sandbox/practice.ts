@@ -288,6 +288,12 @@ export const SANDBOX_ENV: Record<string, string> = {
 	GREETING: "歡迎來到練習模式",
 };
 
+/**
+ * 練習機的「現在」，`date` 印這個時間（第十九場）。這次 05:30 登入後一直沒登出（`last` 的 still logged in），
+ * 取在最晚的檔案（`power.log` 10:00 的例行檢查結束）之後。
+ */
+export const SANDBOX_NOW = "2027-08-14T10:30:00Z";
+
 const BOOT_TIME = "2027-08-14T05:29:58Z";
 const DRILL_TIME = "2027-08-14T05:31:00Z";
 

@@ -16,6 +16,7 @@
  *   下一道指令執行後連同 shell 狀態一起存；之前重新整理就再補一次（冪等）。
  */
 
+import { chapterClockOf } from "@/game/chapters/meta";
 import { VirtualFileSystem } from "@/game/shell/fs";
 import { Shell } from "@/game/shell/shell";
 import type { TerminalDefinition } from "@/game/story";
@@ -69,6 +70,11 @@ function createBannerEntries(definition: TerminalDefinition, idSuffix = ""): Out
 	return [{ kind: "system", id: `banner-${definition.id}${idSuffix}`, lines: definition.banner }];
 }
 
+/** 這台終端機 `date` 的「現在」：劇本有寫 `now` 就用它，否則用那一章的時鐘（第十九場）。不存檔，每次都從劇本算。 */
+function terminalNow(definition: TerminalDefinition): string {
+	return definition.now ?? chapterClockOf(definition.id);
+}
+
 /** 改版重建時從舊 session 帶過來的狀態。 */
 interface CarriedShellState {
 	history?: string[];
@@ -95,6 +101,7 @@ function createInitialShell(
 		processes: definition.processes,
 		history: carried.history,
 		hintCount: carried.hintCount,
+		now: terminalNow(definition),
 	});
 }
 
@@ -111,7 +118,14 @@ function restoreShell(
 	try {
 		const fs = VirtualFileSystem.fromSerialized(record.shell.fs);
 		applyAbinOverlay(fs, definition.id, { found: abinNotes.found, includeFound: false, reply: abinNotes.reply });
-		const shell = Shell.fromState(record.shell, fs, definition.hints, undefined, definition.readonlyEnv);
+		const shell = Shell.fromState(
+			record.shell,
+			fs,
+			definition.hints,
+			undefined,
+			definition.readonlyEnv,
+			terminalNow(definition),
+		);
 		for (const name of commandNames) {
 			shell.learn(name);
 		}

@@ -7,6 +7,7 @@ import {
 	SANDBOX_ENV,
 	SANDBOX_FS,
 	SANDBOX_LOGIN_LOG,
+	SANDBOX_NOW,
 	SANDBOX_PROCESSES,
 	SANDBOX_TIPS,
 } from "./practice";
@@ -152,6 +153,47 @@ describe("練習用檔案系統", () => {
 		expect(contents.length).toBeLessThanOrEqual(80);
 		const bytes = contents.reduce((sum, content) => sum + new TextEncoder().encode(content).length, 0);
 		expect(bytes).toBeLessThanOrEqual(40 * 1024);
+	});
+});
+
+/** 快照裡每個有寫 mtime 的檔案與目錄的時間。 */
+function collectMtimes(snapshot: FsSnapshot): string[] {
+	const mtimes: string[] = [];
+	function visit(entry: FsSnapshotEntry) {
+		if (typeof entry === "string") {
+			return;
+		}
+		if (entry.$type === "file" || entry.$type === "dir") {
+			if (typeof entry.mtime === "string") {
+				mtimes.push(entry.mtime);
+			}
+			if (entry.$type === "dir") {
+				Object.values(entry.children as FsSnapshot).forEach(visit);
+			}
+			return;
+		}
+		Object.values(entry as FsSnapshot).forEach(visit);
+	}
+	Object.values(snapshot).forEach(visit);
+	return mtimes;
+}
+
+describe("練習機的時鐘（第十九場的 date）", () => {
+	it("在 2027-08-14，不早於任何檔案、程序與這次登入的時間", () => {
+		expect(SANDBOX_NOW.startsWith("2027-08-14T")).toBe(true);
+		const times = [
+			...collectMtimes(SANDBOX_FS),
+			...SANDBOX_PROCESSES.map((process) => process.started),
+			...SANDBOX_LOGIN_LOG.records.map((record) => record.login),
+		];
+		for (const time of times) {
+			expect(Date.parse(time), time).toBeLessThanOrEqual(Date.parse(SANDBOX_NOW));
+		}
+	});
+
+	it("練習模式的 date 印練習機的時間，不碰主線的 2031", () => {
+		const shell = createSandboxShell();
+		expect(run(shell, "date")).toEqual(["Sat Aug 14 10:30:00 UTC 2027"]);
 	});
 });
 

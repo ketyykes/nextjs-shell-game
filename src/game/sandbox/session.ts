@@ -24,6 +24,7 @@ import {
 	SANDBOX_ENV,
 	SANDBOX_FS,
 	SANDBOX_LOGIN_LOG,
+	SANDBOX_NOW,
 	SANDBOX_PROCESSES,
 	SANDBOX_TIPS,
 } from "./practice";
@@ -69,6 +70,7 @@ export function createSandboxShell(): Shell {
 			learnedCommands: SANDBOX_COMMANDS.map((command) => command.name),
 			env: SANDBOX_ENV,
 			processes: SANDBOX_PROCESSES,
+			now: SANDBOX_NOW,
 		},
 		SANDBOX_COMMANDS,
 	);

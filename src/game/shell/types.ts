@@ -473,6 +473,11 @@ export interface CommandContext {
 	 * 來自劇本（例如第五章艦橋登錄台的站務變數，玩家 unset 掉就再也過不了關）；沒給等同空陣列。
 	 */
 	readonlyEnv?: readonly string[];
+	/**
+	 * 這台終端機的「現在」（ISO 8601，UTC），`date` 用（第十九場）。遊戲沒有流逝的時鐘，同一台終端機裡固定不動；
+	 * 由 shell 從 `ShellOptions.now` 帶入，沒給時 `date` 用喚醒時間。
+	 */
+	now?: string;
 }
 
 /**
@@ -576,6 +581,8 @@ export interface ShellOptions {
 	processes?: ProcessInfo[];
 	/** 唯讀變數的名稱，見 `CommandContext.readonlyEnv`。來自劇本，不存進存檔，還原時再從劇本帶入。 */
 	readonlyEnv?: string[];
+	/** 這台終端機的「現在」（ISO 8601，UTC），見 `CommandContext.now`。來自劇本或章節時鐘，不存進存檔。 */
+	now?: string;
 }
 
 /**

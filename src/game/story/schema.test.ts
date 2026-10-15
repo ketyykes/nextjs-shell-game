@@ -156,6 +156,17 @@ describe("validateChapter", () => {
 		expect(message).toContain("STATION_ID");
 	});
 
+	it("now 是 ISO 8601 的 UTC 時間時通過（第十九場的 date 時鐘）", () => {
+		const terminal = validTerminal({ now: "2031-03-12T14:02:00Z" });
+		expect(() => validateChapter(validChapter([terminal]))).not.toThrow();
+	});
+
+	it.each(["2031-03-12 14:02", "下午兩點", "2031-03-12T14:02:00+08:00"])("now 寫成 %s 時失敗", (now) => {
+		const message = errorMessageOf(validChapter([validTerminal({ now })]));
+		expect(message).toContain("terminals[0].now");
+		expect(message).toContain("ISO 8601");
+	});
+
 	it("終端機 id 重複，路徑指到第二台", () => {
 		const message = errorMessageOf(validChapter([validTerminal(), validTerminal({ title: "另一台" })]));
 		expect(message).toContain("terminals[1].id");

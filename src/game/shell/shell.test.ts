@@ -1233,3 +1233,32 @@ describe("Shell 唯讀變數（readonlyEnv）", () => {
 		expect(shell.env.STATION_MODE).toBeUndefined();
 	});
 });
+
+describe("Shell 的時鐘 now（第十九場）", () => {
+	it("建立時給的 now 交給指令的 context，打幾次都一樣", () => {
+		const probe = createProbe();
+		const shell = createShellWith([probe.command], { now: "2031-03-12T14:02:00Z" });
+
+		shell.execute("probe");
+		shell.execute("probe");
+
+		expect(probe.calls.map((call) => call.context.now)).toEqual(["2031-03-12T14:02:00Z", "2031-03-12T14:02:00Z"]);
+	});
+
+	it("從存檔還原時再帶入 now（不存進存檔，來自劇本或章節時鐘）", () => {
+		const probe = createProbe();
+		const shell = createShellWith([probe.command], { now: "2031-03-12T09:12:00Z" });
+		const state = shell.toState();
+		const restored = Shell.fromState(
+			state,
+			VirtualFileSystem.fromSerialized(state.fs),
+			[],
+			undefined,
+			undefined,
+			"2031-03-12T09:12:00Z",
+		);
+
+		expect(state).not.toHaveProperty("now");
+		expect(restored.execute("date").lines).toEqual(["Wed Mar 12 09:12:00 UTC 2031"]);
+	});
+});

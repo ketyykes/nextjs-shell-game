@@ -540,3 +540,15 @@ export function sandboxCannotExit(command: string): string[] {
 		"回標題之後，練習的內容不會保留。",
 	];
 }
+
+// ---------------------------------------------------------------------------
+// 第十九場：tr、tee、xargs、sed、date、alias、unalias
+// ---------------------------------------------------------------------------
+
+/** `date` 給了不是 `+格式` 的參數：真的 date 會拿它去改系統時間，這裡只能看、不能改。 */
+export function dateCannotSet(value: string): string[] {
+	return [
+		`date 在這裡只能看時間、不能改時間，\`${value}\` 看不懂。`,
+		"要自訂顯示格式在前面加 +，例如 date +%H:%M 或 date \"+%Y-%m-%d %H:%M\"。",
+	];
+}
