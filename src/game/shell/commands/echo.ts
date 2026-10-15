@@ -4,6 +4,7 @@
  * 第四章搭配重導向 `>`、`>>` 把文字寫進檔案。
  * 輸出以行為單位，所以 `-n`（不換行）吃掉之後行為一樣；
  * 其他 `-x` 跟真的 echo 一樣當一般文字印出，不報錯。永遠成功。
+ * 參數裡的換行（第十九場，`echo "$(ls)"` 代入的結果）照真的 echo 印成好幾行。
  */
 
 import type { CommandDefinition, CommandResult } from "../types";
@@ -24,6 +25,6 @@ export const echoCommand: CommandDefinition = {
 	run(args): CommandResult {
 		const words = stripLeadingNoNewlineFlags(args);
 
-		return { ok: true, lines: [words.join(" ")] };
+		return { ok: true, lines: words.join(" ").split("\n") };
 	},
 };

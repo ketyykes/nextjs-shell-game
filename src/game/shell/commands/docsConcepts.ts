@@ -4,6 +4,7 @@
  * 劇本的 `teaches` 會列出 `..`、`Tab`、`*`、`>`、`|`、`$變數` 這種概念，回顧卡與側邊面板需要說明文字，
  * 但它們不是可執行的指令，所以不併進 `COMMAND_DOCS`（help 與 man 的指令清單不含它們），
  * 由 `getTeachDoc` 在查不到指令時改查這裡；`help` 也會跳過這裡有的名稱。
+ * 第十九場的 `||`、`$( )`、`<`、`2>` 不在任何章節的 `teaches` 裡，只放說明。
  */
 
 import type { CommandDoc } from "../types";
@@ -138,6 +139,72 @@ export const CONCEPT_DOCS: Record<string, CommandDoc> = {
 		examples: [
 			{ command: "cat /deck5/keys/$CAPTAIN_KEY.txt", explanation: "用 CAPTAIN_KEY 變數的值組出檔名再讀取" },
 			{ command: "cd $POD_DIR", explanation: "走進 POD_DIR 變數指向的目錄" },
+		],
+	},
+	// 第十九場開放的語法：不編進任何章節的 teaches，help 不列，getTeachDoc 查得到
+	"||": {
+		name: "||",
+		summary: "左邊的指令失敗了，才執行右邊的指令",
+		usage: "指令A || 指令B",
+		description: [
+			"|| 的意思是「左邊失敗了才做右邊」，跟 && 剛好相反：&& 是左邊成功才做右邊，; 則是不管成敗都做下一個。",
+			"失敗指的是結束碼不是 0，grep 沒找到、diff 有差異這種不算錯誤的失敗也算。",
+			"被 || 接住的失敗不算錯誤、不扣氧氣：你已經準備好失敗時要怎麼辦了。右邊也失敗的話，還是算一次錯誤。",
+			"&& 和 || 可以串起來，由左往右看：cd logs && ls || echo 進不去，cd 失敗時跳過 ls、印出「進不去」。",
+		],
+		examples: [
+			{ command: "cat note.txt || echo 沒有這個檔案", explanation: "讀得到就印內容，讀不到就印一句提醒" },
+			{ command: "grep ERROR log.txt || echo 沒有錯誤", explanation: "grep 沒找到時改印「沒有錯誤」" },
+		],
+	},
+	"$( )": {
+		name: "$( )",
+		summary: "先執行括號裡的指令，把它的輸出塞進外面的指令",
+		usage: "指令 $(另一個指令)",
+		description: [
+			"$( ) 叫做指令替換：先執行括號裡的指令，再把它印出來的東西放回原來的位置，當成外面指令的參數。",
+			"反引號 `指令` 是同一件事的舊寫法；要包好幾層時，$( ) 比較好讀。",
+			"沒加引號時，輸出會照空白和換行切成好幾個參數；包在雙引號裡就整段當成一個參數，換行也保留。單引號裡的 $( ) 不會執行。",
+			"括號裡是另一個獨立的 shell：裡面的 cd、export、kill 不會影響外面，hint 也不算用過。",
+			"裡面的指令失敗時，錯誤訊息照樣印出來，外面的指令照樣執行，成不成功看外面的指令。",
+		],
+		examples: [
+			{ command: "cat $(ls | tail -n 1)", explanation: "讀 ls 列出的最後一個檔案" },
+			{ command: 'echo "現在在 $(pwd)"', explanation: "把目前所在的目錄放進一句話裡" },
+			{ command: 'wc -l $(find . -name "*.log")', explanation: "找出底下所有的 .log 檔，一次數完每一份的行數" },
+		],
+	},
+	"<": {
+		name: "<",
+		summary: "讓指令從檔案讀輸入",
+		usage: "指令 < 檔案",
+		description: [
+			"< 叫做輸入重導向，讓左邊的指令從右邊的檔案讀輸入，效果跟把檔案內容接進管線一樣：sort < data.txt 等於 cat data.txt | sort。",
+			"大部分指令直接給檔名就能讀（sort data.txt）；差別是用 < 的時候指令不知道檔名，所以 wc -l < log.txt 只印行數，不印檔名。",
+			"< 可以寫在指令的任何位置，例如 < data.txt sort；也可以跟 > 一起用，一邊讀一邊寫。",
+			"檔案不存在、是目錄或沒有讀取權限時，指令不會執行，算一次錯誤。",
+		],
+		examples: [
+			{ command: "sort < data.txt", explanation: "排序 data.txt 的每一行" },
+			{ command: "wc -l < log.txt", explanation: "只印 log.txt 的行數，不印檔名" },
+			{ command: "sort < data.txt > sorted.txt", explanation: "讀 data.txt，排好之後存成 sorted.txt" },
+		],
+	},
+	"2>": {
+		name: "2>",
+		summary: "把錯誤訊息存進檔案或丟掉",
+		usage: "指令 2> 檔案",
+		description: [
+			"指令的輸出分成兩條：一般的輸出和錯誤訊息。> 只導走一般的輸出，錯誤訊息照樣印在畫面上；2> 把錯誤訊息存進檔案，2>> 接在檔案結尾。",
+			"2>/dev/null 把錯誤訊息丟掉：/dev/null 是一個什麼都吞掉的特殊檔案，寫進去的東西都會消失，讀它只會讀到空的。",
+			"> 檔案 2>&1 讓錯誤訊息跟輸出進同一個檔案，&> 檔案 是它的簡寫。2>&1 要寫在 > 的後面，寫在前面的話錯誤訊息還是印在畫面上。",
+			"錯誤訊息被導走了，指令還是失敗，仍然算一次錯誤；想讓失敗不算錯，在後面接 || 處理它。",
+			"這個遊戲的簡化：指令一失敗，它印出的整段都算錯誤訊息。所以一部分成功、一部分失敗的指令（例如 find 碰到讀不到的目錄）加上 2>/dev/null，連成功的那部分也會一起被丟掉。",
+		],
+		examples: [
+			{ command: "cat note.txt 2>/dev/null", explanation: "讀不到時不顯示錯誤訊息" },
+			{ command: "ls archive 2> err.txt", explanation: "把錯誤訊息存進 err.txt，畫面上只剩正常的輸出" },
+			{ command: "cat a.txt b.txt > all.txt 2>&1", explanation: "內容和錯誤訊息都存進 all.txt" },
 		],
 	},
 };

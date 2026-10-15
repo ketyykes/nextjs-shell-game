@@ -265,6 +265,21 @@ describe("evaluateObjective", () => {
 			const whole = execution("cat nope.txt ; cat wake_up.txt", { isError: true, segments });
 			expect(evaluateObjective(terminal, createObjectiveContext("ch1-t1", whole, fs, HOME))).toBe(false);
 		});
+
+		it("被 || 接住的失敗段（整行不算錯，但那一段自己失敗）不能拿來過關，其他段照常判定（第十九場）", () => {
+			const terminal = terminalWith(catFile("/home/tech/wake_up.txt"));
+			// cat wake_up.txt > /nodir/x 失敗了（目標開不了，根本沒讀檔），被 || 接住
+			const failedThenCaught = [
+				execution("cat wake_up.txt > /nodir/x", { isError: true }),
+				execution("echo 寫不進去", { lines: ["寫不進去"] }),
+			];
+			const caught = execution("cat wake_up.txt > /nodir/x || echo 寫不進去", { segments: failedThenCaught });
+			expect(evaluateObjective(terminal, createObjectiveContext("ch1-t1", caught, fs, HOME))).toBe(false);
+
+			const recovered = [execution("cat nope.txt", { isError: true }), execution("cat wake_up.txt")];
+			const line = execution("cat nope.txt || cat wake_up.txt", { segments: recovered });
+			expect(evaluateObjective(terminal, createObjectiveContext("ch1-t1", line, fs, HOME))).toBe(true);
+		});
 	});
 });
 
@@ -301,6 +316,19 @@ describe("createObjectiveContext", () => {
 			name: "cat",
 			args: ["/home/tech/wake_up.txt", "~abin"],
 		});
+	});
+
+	it("指令替換照執行時記下的輸出依序代入，不再執行一次（第十九場）", () => {
+		const context = contextOf("cat $(find / -name day_900.txt) | head -n $(echo 1)", {
+			substitutions: ["/home/abin/day_900.txt\n", "1"],
+		});
+		expect(context.command).toEqual({ name: "cat", args: ["/home/abin/day_900.txt"] });
+		expect(context.pipeline?.commands[1]).toEqual({ name: "head", args: ["-n", "1"] });
+		expect(catFile("/home/abin/day_900.txt")(context)).toBe(true);
+	});
+
+	it("沒記到輸出的指令替換原樣留著（不執行）", () => {
+		expect(contextOf("cat $(ls)").command).toEqual({ name: "cat", args: ["$(ls)"] });
 	});
 });
 

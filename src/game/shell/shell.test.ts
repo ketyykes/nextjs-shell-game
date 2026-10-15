@@ -19,6 +19,7 @@ import {
 	programNotInstalled,
 	similarCommand,
 	sudoDenied,
+	unclosedSubstitution,
 	unsupportedSyntax,
 } from "./messages";
 import { Shell } from "./shell";
@@ -847,15 +848,14 @@ describe("Shell ~ 展開（M13-2）", () => {
 	});
 });
 
-describe("Shell 不支援的語法（M13-1）", () => {
+describe("Shell 不支援的語法（M13-1，第十九場縮小範圍）", () => {
 	it.each([
-		["echo hi || echo no", "||"],
 		["sleep 5 &", "&"],
-		["cat < wake_up.txt", "<"],
-		["ls 2>&1", "2>&1"],
-		["cat nope.txt 2> err.txt", "2>"],
-		["echo $(pwd)", "$("],
-		["echo `pwd`", "`"],
+		["cat << EOF", "<<"],
+		["ls |& cat", "|&"],
+		["cat nope.txt 2>&1 | grep 沒有", "2>&1 |"],
+		["echo oops >&2", ">&2"],
+		["echo $((1+2))", "$(("],
 	])("%s 回報不支援 %s，算一次錯誤", (input, detail) => {
 		const shell = createShell();
 		const result = shell.execute(input);
@@ -866,7 +866,7 @@ describe("Shell 不支援的語法（M13-1）", () => {
 	it("一行裡有不支援的寫法時一個指令都不執行，也不會先建立重導向的檔案", () => {
 		const probe = createProbe();
 		const shell = createShellWith([probe.command]);
-		shell.execute("probe > out.txt ; probe || probe");
+		shell.execute("probe > out.txt ; probe || probe &");
 		expect(probe.calls).toHaveLength(0);
 		expect(shell.fs.exists(shell.cwd, "out.txt")).toBe(false);
 	});
@@ -1231,5 +1231,373 @@ describe("Shell 唯讀變數（readonlyEnv）", () => {
 
 		expect(shell.execute("unset STATION_MODE").isError).toBe(false);
 		expect(shell.env.STATION_MODE).toBeUndefined();
+	});
+});
+
+describe("Shell ||（第十九場）", () => {
+	it("左邊失敗才執行右邊；被 || 接住的失敗不算這一行的錯誤", () => {
+		const shell = createShell();
+		const result = shell.execute("cat 不存在 || echo 沒有");
+		expect(result.isError).toBe(false);
+		expect(result.lines).toEqual([...pathNotFound("不存在"), "沒有"]);
+		expect(result.segments?.map((segment) => segment.input)).toEqual(["cat 不存在", "echo 沒有"]);
+		expect(result.segments?.map((segment) => segment.isError)).toEqual([true, false]);
+	});
+
+	it("左邊成功時右邊不執行，segments 不列被跳過的段", () => {
+		const shell = createShell();
+		const result = shell.execute("cat wake_up.txt || echo 沒有");
+		expect(result).toMatchObject({ isError: false, lines: ["喚醒排程：三年後", "原始設定：永不", "修改者："] });
+		expect(result.segments?.map((segment) => segment.input)).toEqual(["cat wake_up.txt"]);
+	});
+
+	it("不算錯誤的失敗（grep 沒符合）也會讓 || 右邊執行", () => {
+		const shell = createShell();
+		expect(shell.execute("grep NOPE wake_up.txt || echo 沒找到")).toMatchObject({ isError: false, lines: ["沒找到"] });
+	});
+
+	it("; 後面的失敗沒有被接住，整行照樣算一次錯誤", () => {
+		const shell = createShell();
+		expect(shell.execute("cat nope.txt ; ls").isError).toBe(true);
+		expect(shell.execute("cat nope.txt || echo a ; cat nope2.txt").isError).toBe(true);
+	});
+
+	it("|| 右邊也失敗時，右邊那一段沒被接住，算錯誤", () => {
+		const shell = createShell();
+		const result = shell.execute("cat a.txt || cat b.txt");
+		expect(result.isError).toBe(true);
+		expect(result.lines).toEqual([...pathNotFound("a.txt"), ...pathNotFound("b.txt")]);
+		expect(shell.execute("cat a.txt || cat b.txt || echo 都沒有").isError).toBe(false);
+	});
+
+	it("&& 與 || 同優先權、由左往右：失敗跳過 && 之後由 || 接住", () => {
+		const probe = createProbe();
+		const shell = createShellWith([probe.command, failCommand]);
+		const result = shell.execute("fail && probe || echo 接住了");
+		expect(probe.calls).toHaveLength(0);
+		expect(result).toMatchObject({ isError: false, lines: ["boom", "接住了"] });
+	});
+
+	it("成功之後 || 跳過，接著的 && 照常執行", () => {
+		const probe = createProbe();
+		const shell = createShellWith([probe.command, failCommand]);
+		const result = shell.execute("probe || fail && probe");
+		expect(probe.calls).toHaveLength(2);
+		expect(result).toMatchObject({ isError: false, lines: ["probed", "probed"] });
+	});
+
+	it("|| 右邊失敗之後 && 跳過，; 之後重新開始", () => {
+		const probe = createProbe();
+		const shell = createShellWith([probe.command, failCommand]);
+		const result = shell.execute("fail || fail && probe ; probe");
+		expect(probe.calls).toHaveLength(1);
+		expect(result.isError).toBe(true);
+	});
+
+	it("結尾的 || 是語法錯誤", () => {
+		const shell = createShell();
+		expect(shell.execute("ls ||")).toMatchObject({ isError: true, lines: emptyListCommand("||") });
+	});
+});
+
+describe("Shell 輸入重導向 <（第十九場）", () => {
+	it("< 讀檔案內容當 stdin，跟 cat 檔案 | 指令一樣", () => {
+		const shell = createShell();
+		expect(shell.execute("sort < wake_up.txt").lines).toEqual(shell.execute("cat wake_up.txt | sort").lines);
+		expect(shell.execute("wc -l < wake_up.txt").lines).toEqual(["3"]);
+		expect(shell.execute("grep 喚醒 < wake_up.txt").lines).toEqual(["喚醒排程：三年後"]);
+	});
+
+	it("< 可以寫在指令前面", () => {
+		const shell = createShell();
+		expect(shell.execute("< wake_up.txt head -n 1")).toMatchObject({ isError: false, lines: ["喚醒排程：三年後"] });
+	});
+
+	it("檔名照當下的工作目錄解析，變數與 ~ 照樣展開", () => {
+		const shell = createShell({ cwd: "/deck1" });
+		expect(shell.execute("cat < ~/wake_up.txt").lines).toHaveLength(3);
+		expect(shell.execute("cat < $HOME/wake_up.txt").lines).toHaveLength(3);
+	});
+
+	it("管線中間的 < 蓋掉前一個指令的輸出（bash 行為）", () => {
+		const shell = createShell();
+		expect(shell.execute("ls | head -n 1 < wake_up.txt").lines).toEqual(["喚醒排程：三年後"]);
+	});
+
+	it("< 跟 > 一起用：讀一個檔、寫另一個檔", () => {
+		const shell = createShell();
+		const result = shell.execute("sort < wake_up.txt > sorted.txt");
+		expect(result).toMatchObject({ isError: false, lines: [] });
+		expect(shell.execute("cat sorted.txt").lines).toEqual(shell.execute("sort wake_up.txt").lines);
+	});
+
+	it("讀不到時算錯誤，指令不執行：不存在、是目錄、沒權限", () => {
+		const probe = createProbe();
+		const shell = createShellWith([probe.command]);
+		expect(shell.execute("probe < nope.txt")).toMatchObject({ isError: true, lines: pathNotFound("nope.txt") });
+		expect(shell.execute("probe < pod_01")).toMatchObject({ isError: true, lines: fsError("EISDIR", "pod_01") });
+		shell.execute("echo secret > locked.txt ; chmod 000 locked.txt");
+		expect(shell.execute("probe < locked.txt")).toMatchObject({ isError: true, lines: fsError("EACCES", "locked.txt") });
+		expect(probe.calls).toHaveLength(0);
+	});
+
+	it("< /dev/null 讀到空的輸入", () => {
+		const shell = createShell();
+		expect(shell.execute("wc -l < /dev/null")).toMatchObject({ isError: false, lines: ["0"] });
+		expect(shell.execute("cat < /dev/null")).toMatchObject({ isError: false, lines: [] });
+	});
+
+	it("<< 仍然不支援", () => {
+		const shell = createShell();
+		expect(shell.execute("sort << EOF").lines).toEqual(unsupportedSyntax("<<"));
+	});
+});
+
+describe("Shell 錯誤輸出重導向（第十九場）", () => {
+	it("2> 把失敗的訊息寫進檔案，畫面不印，仍然算錯誤", () => {
+		const shell = createShell();
+		const result = shell.execute("cat nope.txt 2> err.txt");
+		expect(result).toMatchObject({ isError: true, lines: [] });
+		expect(shell.execute("cat err.txt").lines).toEqual(pathNotFound("nope.txt"));
+	});
+
+	it("成功的指令輸出照常印在畫面上，2> 的檔案照 bash 先建立成空檔", () => {
+		const shell = createShell();
+		const result = shell.execute("cat wake_up.txt 2> err.txt");
+		expect(result.lines).toHaveLength(3);
+		expect(shell.fs.readFile("/home/tech", "err.txt")).toBe("");
+	});
+
+	it("2>> 接在檔案結尾", () => {
+		const shell = createShell();
+		shell.execute("cat a.txt 2>> err.txt");
+		shell.execute("cat b.txt 2>> err.txt");
+		expect(shell.execute("cat err.txt").lines).toEqual([...pathNotFound("a.txt"), ...pathNotFound("b.txt")]);
+	});
+
+	it("2>/dev/null 丟掉錯誤訊息，不會在檔案系統建出 /dev/null", () => {
+		const shell = createShell();
+		expect(shell.execute("cat nope.txt 2>/dev/null")).toMatchObject({ isError: true, lines: [] });
+		expect(shell.fs.exists("/", "/dev/null")).toBe(false);
+		expect(shell.execute("cat wake_up.txt 2>/dev/null").lines).toHaveLength(3);
+	});
+
+	it("> /dev/null 丟掉輸出，相對路徑寫到 /dev/null 也一樣", () => {
+		const shell = createShell();
+		expect(shell.execute("cat wake_up.txt > /dev/null")).toMatchObject({ isError: false, lines: [] });
+		expect(shell.execute("cat wake_up.txt > ../../dev/null")).toMatchObject({ isError: false, lines: [] });
+		expect(shell.fs.exists("/", "/dev")).toBe(false);
+	});
+
+	it("2>/dev/null 搭配 || 時錯誤訊息不印、也不算錯誤", () => {
+		const shell = createShell();
+		expect(shell.execute("cat nope.txt 2>/dev/null || echo 沒有這個檔案")).toMatchObject({
+			isError: false,
+			lines: ["沒有這個檔案"],
+		});
+	});
+
+	it("單獨的 2>&1 等於沒事：錯誤本來就印在畫面上", () => {
+		const shell = createShell();
+		expect(shell.execute("cat nope.txt 2>&1")).toMatchObject({ isError: true, lines: pathNotFound("nope.txt") });
+	});
+
+	it("> 檔案 2>&1 與 &> 檔案：錯誤訊息也進那個檔案", () => {
+		const shell = createShell();
+		expect(shell.execute("cat nope.txt > out.txt 2>&1")).toMatchObject({ isError: true, lines: [] });
+		expect(shell.execute("cat out.txt").lines).toEqual(pathNotFound("nope.txt"));
+		expect(shell.execute("cat nope.txt &> all.txt")).toMatchObject({ isError: true, lines: [] });
+		expect(shell.execute("cat all.txt").lines).toEqual(pathNotFound("nope.txt"));
+		shell.execute("cat wake_up.txt &> all.txt");
+		expect(shell.execute("cat all.txt").lines).toHaveLength(3);
+	});
+
+	it("&>> 與 >> 檔案 2>&1 接在檔案結尾", () => {
+		const shell = createShell();
+		shell.execute("echo 開頭 > log.txt");
+		shell.execute("cat nope.txt &>> log.txt");
+		shell.execute("cat nope2.txt >> log.txt 2>&1");
+		expect(shell.execute("cat log.txt").lines).toEqual(["開頭", ...pathNotFound("nope.txt"), ...pathNotFound("nope2.txt")]);
+	});
+
+	it("2>&1 寫在 > 前面時錯誤訊息還是印在畫面上（bash 的順序）", () => {
+		const shell = createShell();
+		expect(shell.execute("cat nope.txt 2>&1 > out.txt")).toMatchObject({ isError: true, lines: pathNotFound("nope.txt") });
+		expect(shell.fs.readFile("/home/tech", "out.txt")).toBe("");
+	});
+
+	it("1> 就是 >", () => {
+		const shell = createShell();
+		shell.execute("pwd 1> where.txt");
+		expect(shell.execute("cat where.txt").lines).toEqual(["/home/tech"]);
+	});
+
+	it("管線中間指令的 2>：那個指令失敗時管線停下，訊息照它的設定處理，整行算錯誤", () => {
+		const shell = createShell();
+		expect(shell.execute("cat nope.txt 2>/dev/null | wc -l")).toMatchObject({ isError: true, lines: [] });
+		expect(shell.execute("cat wake_up.txt 2>/dev/null | wc -l").lines).toEqual(["3"]);
+	});
+
+	it("2> 的目標開不了時指令不執行，只回報目標的錯誤", () => {
+		const probe = createProbe();
+		const shell = createShellWith([probe.command]);
+		const result = shell.execute("probe 2> nodir/err.txt");
+		expect(result).toMatchObject({ isError: true, lines: pathNotFound("nodir/err.txt") });
+		expect(probe.calls).toHaveLength(0);
+	});
+});
+
+/** 第六章 `kill` 用的兩個程序，PID 同樣寬，`cut -d ' ' -f 1` 切得出來。 */
+const NOVA_CORE: ProcessInfo = {
+	pid: 1207,
+	user: "nova",
+	cpu: 40,
+	mem: 30,
+	started: "2028-06-01T00:00:00Z",
+	command: "/opt/nova/nova --core",
+};
+
+const CREW_SHELL: ProcessInfo = {
+	pid: 1300,
+	user: "tech",
+	cpu: 0.1,
+	mem: 0.5,
+	started: "2031-03-12T08:15:00Z",
+	command: "-sh",
+};
+
+describe("Shell 指令替換 $( ) 與反引號（第十九場）", () => {
+	it("cat $(ls | tail -n 1) 讀到 ls 列出的最後一個檔案", () => {
+		const shell = createShell();
+		const result = shell.execute("cat $(ls | tail -n 1)");
+		expect(result).toMatchObject({ isError: false, lines: ["喚醒排程：三年後", "原始設定：永不", "修改者："] });
+	});
+
+	it('echo "今天是 $(cat date.txt)" 在雙引號裡代入', () => {
+		const shell = createShell();
+		shell.execute("echo 2031-03-12 > date.txt");
+		expect(shell.execute('echo "今天是 $(cat date.txt)"').lines).toEqual(["今天是 2031-03-12"]);
+	});
+
+	it("kill `ps | grep nova | cut -d ' ' -f 1` 殺掉 nova", () => {
+		const shell = createShell({ processes: [NOVA_CORE, CREW_SHELL] });
+		const result = shell.execute("kill `ps | grep nova | cut -d ' ' -f 1`");
+		expect(result.isError).toBe(false);
+		expect(shell.processes.map((process) => process.pid)).toEqual([1300]);
+	});
+
+	it("引號外照空白與換行切成好幾個參數，雙引號內保留換行（echo 印成好幾行）", () => {
+		const shell = createShell();
+		expect(shell.execute("echo $(ls)").lines).toEqual([LISTING.join(" ")]);
+		expect(shell.execute('echo "$(ls)"').lines).toEqual(LISTING);
+		expect(shell.execute('echo "$(ls)" | wc -l').lines).toEqual([String(LISTING.length)]);
+	});
+
+	it("引號外的結果會做萬用字元展開，雙引號內不會", () => {
+		const shell = createShell();
+		expect(shell.execute("echo $(echo 'pod_0[12]*') $(echo 'w*')").lines).toEqual(["pod_0[12]* wake_up.txt"]);
+		expect(shell.execute(`echo "$(echo 'w*')"`).lines).toEqual(["w*"]);
+	});
+
+	it("巢狀的 $( ) 由內往外執行", () => {
+		const shell = createShell();
+		expect(shell.execute("echo $(echo $(pwd))").lines).toEqual(["/home/tech"]);
+		expect(shell.execute("cat $(echo $(echo wake_up).txt) | head -n 1").lines).toEqual(["喚醒排程：三年後"]);
+	});
+
+	it("單引號內與反斜線跳脫的是字面值", () => {
+		const shell = createShell();
+		expect(shell.execute("echo '$(pwd)' \\$(pwd) \\`pwd\\`").lines).toEqual(["$(pwd) $(pwd) `pwd`"]);
+	});
+
+	it("裡面失敗時照 bash 繼續執行外面：錯誤訊息印出來，結束碼與算不算錯看外面的指令", () => {
+		const shell = createShell();
+		const result = shell.execute("echo [$(cat nope.txt)]");
+		expect(result).toMatchObject({ isError: false, lines: [...pathNotFound("nope.txt"), "[]"] });
+		expect(shell.execute("echo $(cat nope.txt) && echo 繼續").lines).toContain("繼續");
+	});
+
+	it("外面失敗時照樣算錯誤", () => {
+		const shell = createShell();
+		expect(shell.execute("cat $(echo nope.txt)")).toMatchObject({ isError: true, lines: pathNotFound("nope.txt") });
+	});
+
+	it("外面的 2>/dev/null 管不到裡面：裡面的錯誤訊息照樣印出來（bash 先展開才做重導向）", () => {
+		const shell = createShell();
+		expect(shell.execute("echo $(cat nope.txt) 2>/dev/null").lines).toEqual([...pathNotFound("nope.txt"), ""]);
+	});
+
+	it("裡面的 2>&1 讓錯誤訊息一起被收進結果，2>/dev/null 讓它消失", () => {
+		const shell = createShell();
+		expect(shell.execute('echo "[$(cat nope.txt 2>&1)]"').lines).toEqual([`[${pathNotFound("nope.txt").join("\n")}]`]);
+		expect(shell.execute('echo "[$(cat nope.txt 2>/dev/null)]"').lines).toEqual(["[]"]);
+	});
+
+	it("裡面的 cd、export、kill 不影響外面（子 shell）", () => {
+		const shell = createShell({ processes: [NOVA_CORE, CREW_SHELL] });
+		expect(shell.execute("echo $(cd /deck1; pwd) $(export SECRET=1; echo $SECRET)").lines).toEqual(["/deck1 1"]);
+		expect(shell.cwd).toBe("/home/tech");
+		expect(shell.env.SECRET).toBeUndefined();
+		expect(shell.execute("echo $(kill 1207)").lines[0]).toContain("1207");
+		expect(shell.processes).toHaveLength(2);
+	});
+
+	it("裡面寫的檔案留在檔案系統裡（同一個檔案系統）", () => {
+		const shell = createShell();
+		shell.execute("echo $(echo hi > made.txt)");
+		expect(shell.execute("cat made.txt").lines).toEqual(["hi"]);
+	});
+
+	it("裡面的 hint 不算用過，clear 不清畫面", () => {
+		const shell = createShell();
+		const result = shell.execute("echo [$(hint)] $(clear)");
+		expect(result.lines).toEqual(["[提示 1/3：先搞清楚你在哪個目錄。]"]);
+		expect(result.hintUsed).toBe(false);
+		expect(result.clearScreen).toBe(false);
+		expect(shell.hintCount).toBe(0);
+	});
+
+	it("裡面的 less 不開分頁器，內容直接當輸出", () => {
+		const shell = createShell();
+		const result = shell.execute("echo $(less wake_up.txt)");
+		expect(result.pagers).toBeUndefined();
+		expect(result.lines).toEqual(["喚醒排程：三年後 原始設定：永不 修改者："]);
+	});
+
+	it("裡面看到的歷史跟外面一樣，不含目前這一行；歷史只記整行一次", () => {
+		const shell = createShell();
+		shell.execute("pwd");
+		expect(shell.execute("echo $(history | wc -l)").lines).toEqual(["1"]);
+		expect(shell.historyEntries).toEqual(["pwd", "echo $(history | wc -l)"]);
+	});
+
+	it("裡面的語法錯誤整行都不執行", () => {
+		const probe = createProbe();
+		const shell = createShellWith([probe.command]);
+		expect(shell.execute("probe ; echo $(ls |)")).toMatchObject({ isError: true, lines: emptyCommand("|") });
+		expect(probe.calls).toHaveLength(0);
+	});
+
+	it("$( 沒關回報 unclosedSubstitution", () => {
+		const shell = createShell();
+		expect(shell.execute("echo $(pwd")).toMatchObject({ isError: true, lines: unclosedSubstitution("$(") });
+	});
+
+	it("只剩指令替換、外面沒有指令時，印出裡面的錯誤，不算錯誤", () => {
+		const shell = createShell();
+		expect(shell.execute("$(cat nope.txt)")).toMatchObject({ isError: false, lines: pathNotFound("nope.txt") });
+	});
+
+	it("執行過的指令替換輸出依序記在 substitutions，目標判定重新解析時照順序代入", () => {
+		const shell = createShell();
+		expect(shell.execute("cat $(echo wake_up.txt) | head -n $(echo 1)").substitutions).toEqual(["wake_up.txt", "1"]);
+		expect(shell.execute("pwd").substitutions).toBeUndefined();
+		const list = shell.execute("pwd ; echo $(echo a)");
+		expect(list.segments?.[1].substitutions).toEqual(["a"]);
+	});
+
+	it("用 ; 串起來的段落各自執行到那一段時才替換，看得到前面的副作用", () => {
+		const shell = createShell();
+		expect(shell.execute("cd pod_06 ; echo $(pwd)").lines).toEqual(["/home/tech/pod_06"]);
 	});
 });

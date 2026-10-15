@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import type { ParsedCommand, ParseResult, Redirect } from "../types";
 import { parseCommandLine, parseCommandLineDetailed, parseCommandList } from "./parse";
-import type { DetailedListItem, DetailedPipeline, ParsedWord } from "./parse";
+import type { DetailedCommand, DetailedListItem, DetailedPipeline, ParsedWord } from "./parse";
 
 /** 單一指令、沒有管線與重導向時的期望值。 */
 function single(name: string, args: string[]): ParseResult {
@@ -391,5 +391,225 @@ describe("parseCommandLine：一行有好幾段時", () => {
 
 	it("任一段有錯就回錯誤", () => {
 		expect(parseCommandLine("ls ; |")).toEqual({ ok: false, error: { code: "EMPTY_COMMAND", detail: "|" } });
+	});
+});
+
+describe("parseCommandList：||（第十九場）", () => {
+	it("|| 的 connector 是 ||，原文照切", () => {
+		const items = itemsOf("cat 不存在 || echo 沒有");
+		expect(items.map((item) => item.connector)).toEqual([null, "||"]);
+		expect(items.map((item) => item.source)).toEqual(["cat 不存在", "echo 沒有"]);
+	});
+
+	it("跟 ; 與 && 混用時照順序記下每一段的 connector", () => {
+		const items = itemsOf("a && b || c ; d");
+		expect(items.map((item) => item.connector)).toEqual([null, "&&", "||", ";"]);
+		expect(items.map((item) => item.source)).toEqual(["a", "b", "c", "d"]);
+	});
+
+	it("開頭或結尾的 || 回傳 EMPTY_COMMAND，detail 是 ||", () => {
+		expect(parseCommandList("|| ls")).toEqual({ ok: false, error: { code: "EMPTY_COMMAND", detail: "||" } });
+		expect(parseCommandList("ls ||")).toEqual({ ok: false, error: { code: "EMPTY_COMMAND", detail: "||" } });
+	});
+
+	it("&& 後面緊接 || 時，detail 是左邊沒有指令的那個 ||", () => {
+		expect(parseCommandList("ls && || pwd")).toEqual({ ok: false, error: { code: "EMPTY_COMMAND", detail: "||" } });
+	});
+});
+
+/** 指令名與參數都沒被引號包住的單一指令（詳細版），可以帶第十九場的重導向欄位。 */
+function command(words: string[], extra: Partial<DetailedCommand> = {}): DetailedCommand {
+	const [name, ...args] = words;
+	return { name: plain(name), args: args.map(plain), ...extra };
+}
+
+/** 斷言 parseCommandLineDetailed 成功並回傳管線。 */
+function detailedOf(input: string): DetailedPipeline {
+	const result = parseCommandLineDetailed(input);
+	if (!result.ok || result.pipeline === null) {
+		throw new Error(`預期成功，卻得到：${JSON.stringify(result)}`);
+	}
+	return result.pipeline;
+}
+
+describe("parseCommandLineDetailed：輸入重導向 <（第十九場）", () => {
+	it("< 的檔名記在那個指令的 input", () => {
+		expect(detailedOf("sort < data.txt")).toEqual({ commands: [command(["sort"], { input: "data.txt" })], redirect: null });
+	});
+
+	it("< 可以寫在指令前面或參數中間", () => {
+		expect(detailedOf("< data.txt sort -r")).toEqual({
+			commands: [command(["sort", "-r"], { input: "data.txt" })],
+			redirect: null,
+		});
+		expect(detailedOf("grep < log.txt ERROR")).toEqual({
+			commands: [command(["grep", "ERROR"], { input: "log.txt" })],
+			redirect: null,
+		});
+	});
+
+	it("< 跟 > 可以一起用，順序不拘", () => {
+		const expected: DetailedPipeline = {
+			commands: [command(["sort"], { input: "a.txt" })],
+			redirect: { kind: "overwrite", target: "b.txt" },
+		};
+		expect(detailedOf("sort < a.txt > b.txt")).toEqual(expected);
+		expect(detailedOf("sort > b.txt < a.txt")).toEqual(expected);
+	});
+
+	it("管線裡每個指令可以各自有 <", () => {
+		expect(detailedOf("sort < a.txt | uniq")).toEqual({
+			commands: [command(["sort"], { input: "a.txt" }), command(["uniq"])],
+			redirect: null,
+		});
+		expect(detailedOf("ls | sort < a.txt")).toEqual({
+			commands: [command(["ls"]), command(["sort"], { input: "a.txt" })],
+			redirect: null,
+		});
+	});
+
+	it("< 後面沒有檔名回傳 MISSING_REDIRECT_TARGET，detail 是 <", () => {
+		expect(parseCommandLine("sort <")).toEqual({ ok: false, error: { code: "MISSING_REDIRECT_TARGET", detail: "<" } });
+		expect(parseCommandLine("sort < | uniq")).toEqual({
+			ok: false,
+			error: { code: "MISSING_REDIRECT_TARGET", detail: "<" },
+		});
+	});
+
+	it("只有 < 沒有指令、或同一個指令寫兩次 <，回傳 EMPTY_COMMAND，detail 是 <", () => {
+		expect(parseCommandLine("< data.txt")).toEqual({ ok: false, error: { code: "EMPTY_COMMAND", detail: "<" } });
+		expect(parseCommandLine("sort < a < b")).toEqual({ ok: false, error: { code: "EMPTY_COMMAND", detail: "<" } });
+	});
+
+	it("> 也可以寫在指令前面（bash 行為）", () => {
+		expect(detailedOf("> out.txt ls")).toEqual({
+			commands: [command(["ls"])],
+			redirect: { kind: "overwrite", target: "out.txt" },
+		});
+	});
+
+	it("契約版的 parseCommandLine 照舊只留指令名與參數", () => {
+		expect(parseCommandLine("sort < data.txt")).toEqual(single("sort", []));
+	});
+});
+
+describe("parseCommandLineDetailed：錯誤輸出重導向（第十九場）", () => {
+	it("2> 與 2>> 記在那個指令的 stderr", () => {
+		expect(detailedOf("cat x 2> err.txt")).toEqual({
+			commands: [command(["cat", "x"], { stderr: { kind: "overwrite", target: "err.txt" } })],
+			redirect: null,
+		});
+		expect(detailedOf("cat x 2>> err.txt")).toEqual({
+			commands: [command(["cat", "x"], { stderr: { kind: "append", target: "err.txt" } })],
+			redirect: null,
+		});
+	});
+
+	it("> 之後的 2>&1 換算成同一個檔案，>> 之後的換算成追加", () => {
+		expect(detailedOf("cat x > out.txt 2>&1")).toEqual({
+			commands: [command(["cat", "x"], { stderr: { kind: "overwrite", target: "out.txt" } })],
+			redirect: { kind: "overwrite", target: "out.txt" },
+		});
+		expect(detailedOf("cat x >> out.txt 2>&1")).toEqual({
+			commands: [command(["cat", "x"], { stderr: { kind: "append", target: "out.txt" } })],
+			redirect: { kind: "append", target: "out.txt" },
+		});
+	});
+
+	it("2>&1 寫在 > 前面或沒有 > 時，錯誤訊息走標準輸出原本的去處", () => {
+		expect(detailedOf("cat x 2>&1 > out.txt")).toEqual({
+			commands: [command(["cat", "x"], { stderr: { kind: "toStdout" } })],
+			redirect: { kind: "overwrite", target: "out.txt" },
+		});
+		expect(detailedOf("cat x 2>&1")).toEqual({
+			commands: [command(["cat", "x"], { stderr: { kind: "toStdout" } })],
+			redirect: null,
+		});
+	});
+
+	it("&> 與 &>> 同時設定標準輸出與錯誤輸出", () => {
+		expect(detailedOf("cat x &> all.txt")).toEqual({
+			commands: [command(["cat", "x"], { stderr: { kind: "overwrite", target: "all.txt" } })],
+			redirect: { kind: "overwrite", target: "all.txt" },
+		});
+		expect(detailedOf("cat x &>> all.txt")).toEqual({
+			commands: [command(["cat", "x"], { stderr: { kind: "append", target: "all.txt" } })],
+			redirect: { kind: "append", target: "all.txt" },
+		});
+	});
+
+	it("1> 與 1>> 就是 > 與 >>", () => {
+		expect(parseCommandLine("ls 1> out.txt")).toEqual(
+			pipeline([{ name: "ls", args: [] }], { kind: "overwrite", target: "out.txt" }),
+		);
+		expect(parseCommandLine("ls 1>> out.txt")).toEqual(pipeline([{ name: "ls", args: [] }], { kind: "append", target: "out.txt" }));
+	});
+
+	it("管線中間的指令也可以有 2>", () => {
+		expect(detailedOf("cat nope 2>/dev/null | wc -l")).toEqual({
+			commands: [command(["cat", "nope"], { stderr: { kind: "overwrite", target: "/dev/null" } }), command(["wc", "-l"])],
+			redirect: null,
+		});
+	});
+
+	it("管線中間的 2>&1（把錯誤接進管線）不支援，等同 |&", () => {
+		expect(parseCommandLine("cat x 2>&1 | grep y")).toEqual({
+			ok: false,
+			error: { code: "UNSUPPORTED_SYNTAX", detail: "2>&1 |" },
+		});
+	});
+
+	it("&> 寫在管線中間跟 > 一樣不行", () => {
+		expect(parseCommandLine("ls &> a | sort")).toEqual({ ok: false, error: { code: "EMPTY_COMMAND", detail: "|" } });
+	});
+
+	it("後面沒有檔名回傳 MISSING_REDIRECT_TARGET", () => {
+		for (const operator of ["2>", "2>>", "&>", "&>>"]) {
+			expect(parseCommandLine(`ls ${operator}`)).toEqual({
+				ok: false,
+				error: { code: "MISSING_REDIRECT_TARGET", detail: operator },
+			});
+		}
+	});
+
+	it("沒有指令、或同一種重導向寫兩次，回傳 EMPTY_COMMAND，detail 是那個符號", () => {
+		expect(parseCommandLine("2> err.txt")).toEqual({ ok: false, error: { code: "EMPTY_COMMAND", detail: "2>" } });
+		expect(parseCommandLine("2>&1")).toEqual({ ok: false, error: { code: "EMPTY_COMMAND", detail: "2>&1" } });
+		expect(parseCommandLine("ls 2> a 2> b")).toEqual({ ok: false, error: { code: "EMPTY_COMMAND", detail: "2>" } });
+		expect(parseCommandLine("ls 2> a &> b")).toEqual({ ok: false, error: { code: "EMPTY_COMMAND", detail: "&>" } });
+		expect(parseCommandLine("ls &> a > b")).toEqual({ ok: false, error: { code: "EMPTY_COMMAND", detail: ">" } });
+	});
+});
+
+describe("parseCommandList：指令替換（第十九場）", () => {
+	it("$( ) 裡面的 ; 與 | 不切段落", () => {
+		const items = itemsOf("echo $(pwd; ls | head -n 1) ; ls");
+		expect(items.map((item) => item.source)).toEqual(["echo $(pwd; ls | head -n 1)", "ls"]);
+	});
+
+	it("$( ) 裡面有語法錯誤時整行回錯誤（先檢查完才執行）", () => {
+		expect(parseCommandList("echo $(ls |)")).toEqual({ ok: false, error: { code: "EMPTY_COMMAND", detail: "|" } });
+		expect(parseCommandList("echo `ls ;; pwd`")).toEqual({ ok: false, error: { code: "EMPTY_COMMAND", detail: ";" } });
+		expect(parseCommandList("echo $(echo $((1)))")).toEqual({
+			ok: false,
+			error: { code: "UNSUPPORTED_SYNTAX", detail: "$((" },
+		});
+	});
+
+	it("巢狀的 $( ) 一層一層檢查", () => {
+		expect(parseCommandList("echo $(ls $(cat 'a))")).toEqual({
+			ok: false,
+			error: { code: "UNCLOSED_SUBSTITUTION", detail: "$(" },
+		});
+		expect(parseCommandList("echo $(ls $(ls |))")).toEqual({ ok: false, error: { code: "EMPTY_COMMAND", detail: "|" } });
+	});
+
+	it("空的 $( ) 合法", () => {
+		expect(itemsOf("echo $()").map((item) => item.source)).toEqual(["echo $()"]);
+	});
+
+	it("有給 substitute 時不再檢查裡面（已經執行過了）", () => {
+		const result = parseCommandList("echo $(ls |)", { substitute: () => "x" });
+		expect(result.ok).toBe(true);
 	});
 });

@@ -61,3 +61,43 @@ describe("CONCEPT_DOCS", () => {
 		expect(docText("~")).toContain("/home/tech");
 	});
 });
+
+describe("第十九場的語法概念：||、$( )、<、2>", () => {
+	const SYNTAX_CONCEPTS = ["||", "$( )", "<", "2>"];
+
+	it.each(SYNTAX_CONCEPTS)("%s 查得到說明，範例都用到這個語法", (name) => {
+		expect(getTeachDoc(name)).toBe(CONCEPT_DOCS[name]);
+		const symbol = name === "$( )" ? "$(" : name;
+		expect(CONCEPT_DOCS[name].examples.every((example) => example.command.includes(symbol)), name).toBe(true);
+	});
+
+	it("|| 說明左邊失敗才做右邊，被接住的失敗不算錯誤，並跟 && 對照", () => {
+		const text = docText("||");
+		expect(text).toContain("失敗");
+		expect(text).toContain("&&");
+		expect(text).toContain("不算錯誤");
+	});
+
+	it("$( ) 說明把輸出塞進指令、反引號是舊寫法、雙引號內不切開，裡面是子 shell", () => {
+		const text = docText("$( )");
+		expect(text).toContain("輸出");
+		expect(text).toContain("反引號");
+		expect(text).toContain("雙引號");
+		expect(text).toContain("cd");
+	});
+
+	it("< 說明從檔案讀輸入，跟直接給檔名的差別", () => {
+		const text = docText("<");
+		expect(text).toContain("讀");
+		expect(text).toContain("sort data.txt");
+	});
+
+	it("2> 說明錯誤訊息、/dev/null、2>&1，並寫出遊戲裡失敗的指令整段都算錯誤訊息的限制", () => {
+		const text = docText("2>");
+		expect(text).toContain("錯誤訊息");
+		expect(text).toContain("/dev/null");
+		expect(text).toContain("2>&1");
+		expect(text).toContain("仍然算");
+		expect(text).toContain("整段");
+	});
+});
