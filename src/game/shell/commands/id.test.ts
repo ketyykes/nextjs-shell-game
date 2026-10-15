@@ -79,4 +79,11 @@ describe("createIdCommand 換一份帳號表", () => {
 		expect(command.run([], createContext()).lines).toEqual(["uid=1001(tech) gid=1001(tech) groups=1001(tech),100(users)"]);
 		expect(command.run(["abin"], createContext())).toEqual({ ok: false, lines: noSuchUser("abin") });
 	});
+
+	it("查不到帳號的訊息也可以換（救援船不是「這座站」）", () => {
+		const command = createIdCommand(accounts, (name) => [`查不到 ${name}`]);
+
+		expect(command.run(["nova"], createContext())).toEqual({ ok: false, lines: ["查不到 nova"] });
+		expect(command.run(["root"], createContext()).ok).toBe(true);
+	});
 });

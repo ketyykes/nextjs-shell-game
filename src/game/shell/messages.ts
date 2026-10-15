@@ -540,3 +540,30 @@ export function sandboxCannotExit(command: string): string[] {
 		"回標題之後，練習的內容不會保留。",
 	];
 }
+
+// ---------------------------------------------------------------------------
+// 救援船 ARGO 的醫療終端機（設計文件 4.23）：不在站上，訊息不說「這座站」
+// ---------------------------------------------------------------------------
+
+/** 救援船的 `id` 查不到帳號。 */
+export function argoNoSuchUser(name: string): string[] {
+	return [`ARGO 上沒有叫 \`${name}\` 的帳號。不加名稱直接打 id，會顯示你自己的帳號。`];
+}
+
+/** 救援船上 tech 殺不掉的程序：不是自己開的就沒有權限。 */
+export function argoProcessProtected(pid: number, command: string): string[] {
+	return [`沒有權限終止程序 ${pid}（${command}）。tech 帳號只能終止自己開的程序。`];
+}
+
+/** 救援船的 `sudo` 被拒絕。 */
+export function argoSudoDenied(user: string): string[] {
+	return [`${user} 沒有 sudo 權限。這件事會被回報。`, "這台醫療終端機用不到 sudo，tech 能看的紀錄都已經開放了。"];
+}
+
+/** 救援船的 `exit`、`logout`：按 Esc 會先問要不要斷線回標題，回去之後全部重來。 */
+export function argoCannotExit(command: string): string[] {
+	return [
+		`這台終端機不能用 ${command} 關掉，要離開請按 Esc，或點「[Esc] 關閉」，會先問你要不要斷線回標題。`,
+		"斷線之後，在這台終端機做的變更不會保留。",
+	];
+}

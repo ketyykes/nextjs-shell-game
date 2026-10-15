@@ -44,6 +44,8 @@ export interface TitleScreenProps {
 	finished?: boolean;
 	/** 通關過才給：顯示「通關紀錄」（finished 時排第一，否則排在「繼續」後面）。 */
 	clearRecord?: ClearRecord;
+	/** 通關過才給：顯示「救援船 ARGO」（排在「通關紀錄」後面），片尾之後的尾聲（設計文件 4.23）。 */
+	onArgo?: () => void;
 	/** 有給才顯示「存檔管理」（排在設定後面），匯出與匯入存檔（M14-2），沒有存檔也能進去匯入。 */
 	onManageSave?: () => void;
 	/** 有給才顯示「製作名單」（排在練習模式後面、最後一項），有沒有存檔都出現（設計文件 4.20）。 */
@@ -55,6 +57,7 @@ export interface TitleScreenProps {
 type TitleAction =
 	| "continue"
 	| "clearRecord"
+	| "argo"
 	| "realWorld"
 	| "selectChapter"
 	| "newGame"
@@ -85,6 +88,7 @@ interface MenuConditions {
 	canPractice: boolean;
 	finished: boolean;
 	hasClearRecord: boolean;
+	canBoardArgo: boolean;
 	canManageSave: boolean;
 	canShowCredits: boolean;
 	canShowRealWorld: boolean;
@@ -98,6 +102,9 @@ function buildItems(conditions: MenuConditions): TitleItem[] {
 	}
 	if (conditions.hasSave && conditions.hasClearRecord) {
 		items.push({ action: "clearRecord", label: "通關紀錄" });
+	}
+	if (conditions.canBoardArgo) {
+		items.push({ action: "argo", label: "救援船 ARGO" });
 	}
 	// 跟「通關紀錄」同一個條件：通關過才出現
 	if (conditions.hasSave && conditions.hasClearRecord && conditions.canShowRealWorld) {
@@ -139,6 +146,7 @@ export function TitleScreen({
 	onPractice,
 	finished = false,
 	clearRecord,
+	onArgo,
 	onManageSave,
 	onCredits,
 	onRealWorld,
@@ -150,6 +158,7 @@ export function TitleScreen({
 		canPractice: onPractice !== undefined,
 		finished,
 		hasClearRecord: clearRecord !== undefined,
+		canBoardArgo: onArgo !== undefined,
 		canManageSave: onManageSave !== undefined,
 		canShowCredits: onCredits !== undefined,
 		canShowRealWorld: onRealWorld !== undefined,
@@ -183,6 +192,10 @@ export function TitleScreen({
 		}
 		if (item.action === "manageSave") {
 			onManageSave?.();
+			return;
+		}
+		if (item.action === "argo") {
+			onArgo?.();
 			return;
 		}
 		if (item.action === "clearRecord") {
