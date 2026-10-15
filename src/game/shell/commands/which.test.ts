@@ -53,6 +53,12 @@ describe("which 找指令的路徑", () => {
 		expect(whichCommand.run(["hint"], createContext()).lines).toEqual(["/usr/local/bin/hint"]);
 	});
 
+	it("遊戲的 explain（第十九場）跟 hint 一樣裝在 /usr/local/bin", () => {
+		const context = createContext({ availableCommands: [...COMMANDS, "explain"] });
+		expect(whichCommand.run(["explain"], context).lines).toEqual(["/usr/local/bin/explain"]);
+		expect(whichCommand.run(["/usr/local/bin/explain"], context).lines).toEqual(["/usr/local/bin/explain"]);
+	});
+
 	it("環境變數沒有 PATH 時用預設的 PATH", () => {
 		expect(DEFAULT_PATH).toBe("/usr/local/bin:/usr/bin:/bin");
 	});

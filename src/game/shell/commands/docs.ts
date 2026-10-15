@@ -153,8 +153,33 @@ const CHAPTER_ONE_DOCS: Record<string, CommandDoc> = {
 	},
 };
 
+/**
+ * 遊戲本身的求助指令裡，第一章之後才加的（第十九場的 explain）。跟 help、hint、man 一樣不在任何章節的 teaches 裡，
+ * `help` 只在結尾提一句，`man` 查得到；說明與範例只用通用的檔名，沙盒的 `man` 也看得到這份。
+ */
+const HELPER_TOOL_DOCS: Record<string, CommandDoc> = {
+	explain: {
+		name: "explain",
+		summary: "把一整行指令拆開，一項一項說明",
+		usage: "explain <一整行指令>",
+		description: [
+			"看不懂、或不確定一行指令會做什麼時，在前面加上 explain，它會把那一行拆開，一行說明一項：指令、選項、參數，還有 |、>、&& 這些符號。",
+			"explain 只說明、不執行，所以 explain rm -r config 不會真的刪掉任何東西，也不算打錯指令。",
+			"參數是檔案或目錄時會告訴你它現在存不存在；$變數 不會被換掉，而是告訴你它目前的值；* 會列出目前對得上哪些檔名。",
+			"explain 要打在一行的最前面，後面整行（包括 |、> 與 ; 後面的部分）都是要說明的內容，不用加引號。",
+			"合併的選項會拆開說明，例如 -la 是 -l 加 -a；這個指令沒有的選項會直接告訴你。",
+		],
+		examples: [
+			{ command: "explain ls -la /home", explanation: "說明 -l、-a 兩個選項，還有 /home 是一個目錄" },
+			{ command: "explain grep -n ERROR system.log | wc -l", explanation: "說明 grep 的 -n、要找的樣式與檔案，再說明 | 與 wc -l" },
+			{ command: "explain head -n 3 a.log > top.txt", explanation: "-n 3 是只看前 3 行，> 把結果寫進 top.txt" },
+		],
+	},
+};
+
 export const COMMAND_DOCS: Record<string, CommandDoc> = {
 	...CHAPTER_ONE_DOCS,
+	...HELPER_TOOL_DOCS,
 	...FILTER_COMMAND_DOCS,
 	...FILE_COMMAND_DOCS,
 	...SYSTEM_COMMAND_DOCS,
@@ -163,7 +188,7 @@ export const COMMAND_DOCS: Record<string, CommandDoc> = {
 };
 
 /**
- * 指令列表的顯示順序，`help` 與側邊面板都照這個順序排：先第一章的，再依章節順序接上，
+ * 指令列表的顯示順序，`help` 與側邊面板都照這個順序排：先第一章的，接著是求助指令 explain，再依章節順序接上，
  * 接著是沒編進劇本的指令，最後是帳號與登入的彩蛋。
  */
 export const COMMAND_DOC_ORDER: string[] = [
@@ -176,6 +201,7 @@ export const COMMAND_DOC_ORDER: string[] = [
 	"man",
 	"history",
 	"clear",
+	"explain",
 	...FILTER_COMMAND_ORDER,
 	...FILE_COMMAND_ORDER,
 	...SYSTEM_COMMAND_ORDER,

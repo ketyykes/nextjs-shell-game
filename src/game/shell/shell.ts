@@ -13,6 +13,7 @@
 
 import { ALL_COMMANDS } from "./commands";
 import { joinContentLines } from "./commands/cat";
+import { explainTargetOf } from "./commands/explain";
 import { commandAtInstallPath } from "./commands/which";
 import { complete as completeInput } from "./completion";
 import { CommandHistory } from "./history";
@@ -213,6 +214,12 @@ export class Shell {
 		const previousHistory = this.history.entries();
 		this.history.push(input);
 
+		// explain 要拿到整行原文（|、>、; 都是要說明的內容），不能先被解析與執行，見 commands/explain.ts
+		const explained = this.executeExplain(input, previousHistory);
+		if (explained !== null) {
+			return explained;
+		}
+
 		// 這一步不給 env：只檢查整行語法並切段，變數等執行到那一段才用當下的值展開
 		const list = parseCommandList(input);
 		if (!list.ok) {
@@ -239,6 +246,26 @@ export class Shell {
 		}
 
 		return this.combineSegments(input, segments);
+	}
+
+	/**
+	 * 一行的開頭是 explain（第十九場）時，把後面的原文整段交給它說明，那一行本身什麼都不執行。
+	 * `segments` 給空陣列，表示被說明的那一行一段都沒有執行：目標判定與劇情反應都看 `segments`，不會把它當成跑過。
+	 * 不是 explain 開頭、或這台終端機沒有 explain 時回傳 null，照一般流程執行。
+	 */
+	private executeExplain(input: string, previousHistory: string[]): ShellExecution | null {
+		const target = explainTargetOf(input);
+		const command = this.commands.get("explain");
+		if (target === null || command === undefined) {
+			return null;
+		}
+
+		const args: string[] = [];
+		if (target.trim() !== "") {
+			args.push(target);
+		}
+		const result = this.runCommand(command, args, this.buildContext(previousHistory, null));
+		return { ...this.finish(input, result.ok, result.lines, false), segments: [] };
 	}
 
 	/**

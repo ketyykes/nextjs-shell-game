@@ -14,7 +14,8 @@ import { CONCEPT_DOCS } from "./docsConcepts";
 import { manCommand } from "./man";
 
 const HELP_TITLE = "目前會的指令：";
-const HELP_FOOTER = "輸入 man <指令> 看詳細說明，卡關輸入 hint。";
+/** 結尾提一下遊戲的求助指令：man、explain（第十九場）、hint 都不一定在已學清單裡，所以列表之外另外說。 */
+const HELP_FOOTER = "輸入 man <指令> 看詳細說明，explain <一整行指令> 拆開說明每一項，卡關輸入 hint。";
 const HELP_NOTHING_LEARNED = "目前還沒學會任何指令，卡關的話輸入 hint 會給你提示。";
 
 /** 是不是 `CONCEPT_DOCS` 裡的概念（`Tab`、`*`、`..` 等），不是可執行的指令。 */

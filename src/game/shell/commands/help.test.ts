@@ -11,7 +11,7 @@ describe("help 指令", () => {
 		expect(helpCommand.name).toBe("help");
 	});
 
-	it("只列出已學的指令，格式為標題、對齊的列表與結尾提示", () => {
+	it("只列出已學的指令，格式為標題、對齊的列表與結尾提示（結尾也提到求助指令 explain，第十九場）", () => {
 		const context = createContext({ learnedCommands: ["pwd", "ls"] });
 		const result = helpCommand.run([], context);
 
@@ -20,7 +20,7 @@ describe("help 指令", () => {
 			"目前會的指令：",
 			`pwd  ${COMMAND_DOCS.pwd.summary}`,
 			`ls   ${COMMAND_DOCS.ls.summary}`,
-			"輸入 man <指令> 看詳細說明，卡關輸入 hint。",
+			"輸入 man <指令> 看詳細說明，explain <一整行指令> 拆開說明每一項，卡關輸入 hint。",
 		]);
 	});
 

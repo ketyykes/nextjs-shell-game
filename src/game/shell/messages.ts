@@ -540,3 +540,197 @@ export function sandboxCannotExit(command: string): string[] {
 		"回標題之後，練習的內容不會保留。",
 	];
 }
+
+// ---------------------------------------------------------------------------
+// 第十九場：explain（把一行指令拆開逐項說明）
+// 下面除了 explainUsage 都回傳單一字串，explain.ts 負責排版與縮排；
+// 指令、選項與語法符號的一句話說明來自 docs.ts、docsOptions.ts、docsConcepts.ts，不在這裡。
+// ---------------------------------------------------------------------------
+
+/** `explain` 不帶參數時印的用法。 */
+export function explainUsage(): string[] {
+	return [
+		"用法：explain <一整行指令>",
+		"把那一行拆開，一項一項說明指令、選項、參數，還有 |、>、&& 這些符號；只說明，不會真的執行。",
+		"例如 explain ls -la /home | wc -l > count.txt",
+	];
+}
+
+/** 找不到的指令；打錯字或大小寫時附上最接近的指令。 */
+export function explainUnknownCommand(suggestion: string | null): string {
+	if (suggestion !== null) {
+		return `找不到這個指令，你是不是想打 ${suggestion}？`;
+	}
+	return "找不到這個指令，輸入 help 看看目前會的指令。";
+}
+
+/** 這個指令沒有的選項。 */
+export function explainUnknownOption(): string {
+	return "（這個指令沒有這個選項）";
+}
+
+/** 接值的選項：一句話說明加上這次給的值，例如「只看開頭幾行，不給時是 10 行（行數：3）」。 */
+export function explainOptionValue(summary: string, valueName: string, value: string): string {
+	return `${summary}（${valueName}：${value}）`;
+}
+
+/** 接值的選項後面沒有值，例如 `head -n` 打到行尾。 */
+export function explainMissingOptionValue(summary: string, valueName: string): string {
+	return `${summary}（後面少了${valueName}）`;
+}
+
+/** 值只能是固定幾種，給的不在裡面，例如 `find -type x`。 */
+export function explainInvalidOptionValue(summary: string, value: string, allowed: string[]): string {
+	return `${summary}（${value} 不能用，只能是 ${allowed.join(" 或 ")}）`;
+}
+
+/** 純數字的選項是哪個選項的簡寫，例如 `tail -5` 等於 `tail -n 5`。 */
+export function explainNumericShorthand(summary: string, option: string, digits: string): string {
+	return `${summary}（等於 ${option} ${digits}）`;
+}
+
+/** `--`：選項到這裡為止。 */
+export function explainEndOfOptions(): string {
+	return "選項到這裡為止，後面的都當成參數，就算是 - 開頭";
+}
+
+/** 不看參數的指令（`ps aux` 的 aux）。 */
+export function explainIgnoredArgument(command: string): string {
+	return `（${command} 不看參數，加了結果也一樣）`;
+}
+
+/** 不接參數的指令（`whoami x` 的 x）。 */
+export function explainUnexpectedArgument(command: string): string {
+	return `（${command} 不接參數）`;
+}
+
+/** 參數是已經存在的檔案。 */
+export function explainFile(path: string): string {
+	return `檔案 ${path}`;
+}
+
+/** 參數是已經存在的目錄。 */
+export function explainDirectory(path: string): string {
+	return `目錄 ${path}`;
+}
+
+/** 參數不是已經存在的檔案或目錄（mkdir、touch 要建的新名字也是這樣）。 */
+export function explainMissingPath(path: string): string {
+	return `參數 ${path}（目前不存在）`;
+}
+
+/** 含變數或萬用字元、要執行時展開了才知道指向哪裡的參數。 */
+export function explainArgument(text: string): string {
+	return `參數 ${text}`;
+}
+
+/** echo 要印的文字。 */
+export function explainText(text: string): string {
+	return `文字 ${text}`;
+}
+
+/** grep 要找的樣式。 */
+export function explainPattern(text: string): string {
+	return `樣式 ${text}`;
+}
+
+/** chmod 的權限寫法。 */
+export function explainMode(text: string): string {
+	return `權限 ${text}`;
+}
+
+/** id、last 的帳號。 */
+export function explainUser(text: string): string {
+	return `帳號 ${text}`;
+}
+
+/** man、help、which 的指令名稱，查得到時附上一句話說明。 */
+export function explainCommandName(name: string, summary: string | null): string {
+	if (summary === null) {
+		return `指令 ${name}（找不到這個指令）`;
+	}
+	return `指令 ${name}：${summary}`;
+}
+
+/** unset、export 的變數名稱，附上目前的值。 */
+export function explainVariableName(name: string, value: string | undefined): string {
+	if (value === undefined) {
+		return `變數 ${name}（目前沒有這個變數）`;
+	}
+	return `變數 ${name}（目前的值是 ${value}）`;
+}
+
+/** export 的 `名稱=值`。 */
+export function explainAssignment(name: string, value: string): string {
+	if (value === "") {
+		return `設定變數 ${name}，值是空的`;
+	}
+	return `設定變數 ${name}，值是 ${value}`;
+}
+
+/** kill 的程序編號，查得到時附上是哪個程序。 */
+export function explainPid(pid: string, command: string | null): string {
+	if (command === null) {
+		return `程序編號 ${pid}（目前沒有這個程序）`;
+	}
+	return `程序編號 ${pid}（${command}）`;
+}
+
+/** 參數裡的 `$名稱`：`$變數` 的一句話說明加上目前的值。 */
+export function explainVariableValue(summary: string, value: string | undefined): string {
+	if (value === undefined) {
+		return `${summary}；目前沒有這個變數，會換成空字串`;
+	}
+	return `${summary}；目前的值是 ${value}`;
+}
+
+/** 參數開頭的 `~`：`~` 的一句話說明加上家目錄的實際路徑。 */
+export function explainHomeDirectory(summary: string, home: string): string {
+	return `${summary}，也就是 ${home}`;
+}
+
+/** 萬用字元目前對得上哪些檔名（最多列五個）。 */
+export function explainGlobMatches(matches: string[]): string {
+	if (matches.length === 0) {
+		return "目前沒有對得上的檔名，會原樣交給指令";
+	}
+	const shown = matches.slice(0, 5).join("、");
+	if (matches.length > 5) {
+		return `目前對得上 ${matches.length} 個：${shown}……`;
+	}
+	return `目前對得上 ${matches.length} 個：${shown}`;
+}
+
+/** 被引號包住或跳脫過的 `*`、`?`。 */
+export function explainQuotedGlob(): string {
+	return "（有引號或 \\ 擋住，* 和 ? 不會被 shell 展開，原樣交給指令）";
+}
+
+/** 被單引號包住或跳脫過的 `$名稱`。 */
+export function explainLiteralDollar(): string {
+	return "（$ 被單引號或 \\ 擋住，不會換成變數的值）";
+}
+
+/** 重導向的目標檔案現在的狀態：檔案、目錄、不存在，或含變數不知道。 */
+export type ExplainRedirectTargetState = "file" | "directory" | "missing" | "unknown";
+
+/** 重導向的目標：`>` 會蓋掉、`>>` 接在結尾、不存在會建立、目錄寫不進去。 */
+export function explainRedirectTarget(
+	target: string,
+	state: ExplainRedirectTargetState,
+	kind: "overwrite" | "append",
+): string {
+	if (state === "directory") {
+		return `目錄 ${target}（不能把輸出寫進目錄）`;
+	}
+	if (state === "missing") {
+		return `檔案 ${target}（目前不存在，會建立）`;
+	}
+	if (state === "unknown") {
+		return `檔案 ${target}`;
+	}
+	if (kind === "append") {
+		return `檔案 ${target}（新的內容接在結尾）`;
+	}
+	return `檔案 ${target}（原本的內容會被蓋掉）`;
+}

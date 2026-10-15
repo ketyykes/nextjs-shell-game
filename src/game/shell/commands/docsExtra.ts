@@ -86,7 +86,7 @@ export const EXTRA_COMMAND_DOCS: Record<string, CommandDoc> = {
 		description: [
 			"你打的指令大多是一支放在某個目錄裡的程式，shell 會照環境變數 PATH 列的目錄，用冒號隔開，一個一個去找。",
 			"which 印出它找到的那一支，例如 which ls 印出 /usr/bin/ls；-a 印出 PATH 裡每一個找得到的位置。",
-			"這台站的一般指令都在 /usr/bin（/bin 跟它是同一個目錄），站上加裝的 hint 在 /usr/local/bin。",
+			"這台站的一般指令都在 /usr/bin（/bin 跟它是同一個目錄），站上加裝的 hint 與 explain 在 /usr/local/bin。",
 			"cd、export、unset、help、history、exit 這些是 shell 的內建指令，沒有獨立的程式檔，which 找不到它們，但照樣能用。",
 			"沒有設定 PATH 時照預設的 /usr/local/bin:/usr/bin:/bin 找。找不到時會說明原因，不算打錯指令。",
 		],

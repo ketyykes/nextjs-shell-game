@@ -5,7 +5,12 @@
  * 不是照真的 GNU 工具：遊戲的 `ls` 只有 `-a`、`-l`，這裡就只列這兩個。
  * `docsOptions.test.ts` 會拿表裡的每個選項真的執行一次該指令，也會確認表外的單字母選項都被擋下，
  * 改了指令的選項卻忘了改這裡，測試會紅。
+ *
+ * 檔尾另有 explain 說明語法符號（`|`、`>`、`;`、`&&`、`*`、`?`……）用的一句話：
+ * 概念字典 `docsConcepts.ts` 有的直接用它的 summary，沒有的（`;`、`&&`、`?`）補在這裡。
  */
+
+import { CONCEPT_DOCS } from "./docsConcepts";
 
 /** 一個選項。 */
 export interface OptionDoc {
@@ -245,6 +250,8 @@ export const COMMAND_ARGS: Record<string, CommandArgsDoc> = {
 	sudo: { options: [], style: "none", nestedCommand: true },
 	exit: IGNORES_ARGS,
 	logout: IGNORES_ARGS,
+	// 第十九場
+	explain: { options: [], style: "none", nestedCommand: true },
 };
 
 /**
@@ -273,4 +280,26 @@ export function optionCompletionDescription(option: OptionDoc): string {
 		return option.summary;
 	}
 	return `${option.summary}（後面接${option.value}）`;
+}
+
+/** explain 會說明的語法符號。`$` 代表參數裡的 `$名稱`。 */
+export type SyntaxSymbol = "|" | ">" | ">>" | ";" | "&&" | "*" | "?" | "~" | "$" | "..";
+
+/** 概念字典沒有的語法符號（它們不在任何章節的 teaches 裡，不需要完整的概念條目）。 */
+const EXTRA_SYNTAX_SUMMARIES: Record<string, string> = {
+	";": "不管前一段成功還是失敗，都接著執行下一段",
+	"&&": "前一段成功了才執行下一段",
+	"?": "萬用字元，代表任意一個字",
+};
+
+/** 語法符號的一句話說明：概念字典有的用它的 summary（`$` 查 `$變數`），沒有的用 `EXTRA_SYNTAX_SUMMARIES`。 */
+export function syntaxSummary(symbol: SyntaxSymbol): string {
+	let conceptKey: string = symbol;
+	if (symbol === "$") {
+		conceptKey = "$變數";
+	}
+	if (Object.hasOwn(CONCEPT_DOCS, conceptKey)) {
+		return CONCEPT_DOCS[conceptKey].summary;
+	}
+	return EXTRA_SYNTAX_SUMMARIES[symbol] ?? "";
 }

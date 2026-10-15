@@ -4,7 +4,8 @@ import { ALL_COMMANDS } from ".";
 import { unknownOption } from "../messages";
 import type { CommandResult, ProcessInfo } from "../types";
 import { COMMAND_DOCS } from "./docs";
-import { COMMAND_ARGS, optionSpellings as spellings } from "./docsOptions";
+import { CONCEPT_DOCS } from "./docsConcepts";
+import { COMMAND_ARGS, optionSpellings as spellings, syntaxSummary } from "./docsOptions";
 import type { CommandArgsDoc, OptionDoc } from "./docsOptions";
 import { createContext } from "./testFixtures";
 
@@ -187,5 +188,21 @@ describe("COMMAND_ARGS 跟實作一致", () => {
 	it("chmod 沒有選項：-r 是權限寫法，不是選項", () => {
 		expect(COMMAND_ARGS.chmod.style).toBe("none");
 		expect(run("chmod", ["-r", "wake_up.txt"]).ok).toBe(true);
+	});
+});
+
+describe("syntaxSummary", () => {
+	it("概念字典有的符號直接用它的一句話，$ 查的是 $變數", () => {
+		for (const symbol of ["|", ">", ">>", "*", "~", ".."] as const) {
+			expect(syntaxSummary(symbol)).toBe(CONCEPT_DOCS[symbol].summary);
+		}
+		expect(syntaxSummary("$")).toBe(CONCEPT_DOCS.$變數.summary);
+	});
+
+	it("概念字典沒有的 ;、&&、? 也各有一句", () => {
+		for (const symbol of [";", "&&", "?"] as const) {
+			expect(Object.hasOwn(CONCEPT_DOCS, symbol)).toBe(false);
+			expect(syntaxSummary(symbol).trim()).not.toBe("");
+		}
 	});
 });

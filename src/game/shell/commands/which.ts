@@ -3,7 +3,7 @@
  *
  * 這台站的指令沒有真的放在虛擬檔案系統裡，位置照下面的規則決定（照 Debian 的配置）：
  * - shell 內建、沒有獨立程式檔的 `cd`、`export`、`unset`、`help`、`history`、`exit`、`logout`：找不到，並說明它是內建指令
- * - 遊戲自己的 `hint`：`/usr/local/bin/hint`（站上加裝的工具）
+ * - 遊戲自己的 `hint`、`explain`：`/usr/local/bin/<名稱>`（站上加裝的工具）
  * - 其他已註冊的指令：`/usr/bin/<名稱>`；`/bin` 跟 `/usr/bin` 是同一個目錄（Debian 的 merged /usr），
  *   PATH 裡寫 `/bin` 時印 `/bin/<名稱>`
  *
@@ -29,7 +29,7 @@ export const DEFAULT_PATH = "/usr/local/bin:/usr/bin:/bin";
 const SHELL_BUILTINS = new Set(["cd", "export", "unset", "help", "history", "exit", "logout"]);
 
 /** 遊戲自己的工具，裝在 `/usr/local/bin`。 */
-const LOCAL_TOOLS = new Set(["hint"]);
+const LOCAL_TOOLS = new Set(["hint", "explain"]);
 
 /** 去掉目錄結尾多餘的 `/`（根目錄 `/` 本身不動）。 */
 function normalizeDir(dir: string): string {

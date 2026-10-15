@@ -16,6 +16,7 @@ import { diffCommand } from "./diff";
 import { echoCommand } from "./echo";
 import { envCommand } from "./env";
 import { exitCommand, logoutCommand } from "./exit";
+import { explainCommand } from "./explain";
 import { exportCommand } from "./export";
 import { findCommand } from "./find";
 import { grepCommand } from "./grep";
@@ -48,7 +49,7 @@ import { whoamiCommand } from "./whoami";
 import type { CommandDefinition } from "../types";
 
 /**
- * 全部指令：六章依章節排列，接著是 M13-3 只開放使用的指令，最後是第十七場的帳號與登入彩蛋。
+ * 全部指令：六章依章節排列，接著是 M13-3 只開放使用的指令、第十七場的帳號與登入彩蛋，最後是第十九場的 explain。
  * 順序決定打錯字時同分的建議誰優先（見 `suggestSimilarCommand`），別的行為不受影響。
  */
 export const ALL_COMMANDS: CommandDefinition[] = [
@@ -101,6 +102,8 @@ export const ALL_COMMANDS: CommandDefinition[] = [
 	sudoCommand,
 	exitCommand,
 	logoutCommand,
+	// 第十九場：遊戲的求助指令，跟 help、hint、man 一類，不在任何章節的 teaches 裡
+	explainCommand,
 ];
 
 export { catCommand, cdCommand, clearCommand, helpCommand, hintCommand, historyCommand, lsCommand, manCommand, pwdCommand };
