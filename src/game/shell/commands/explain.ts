@@ -421,7 +421,7 @@ function describeOption(option: OptionDoc, value: OptionValue | null): string {
 	return explainOptionValue(option.summary, option.value ?? "", value.text);
 }
 
-/** 路徑參數：含變數或沒引號的萬用字元時不說存不存在（要展開才知道），其他照檔案系統說檔案、目錄或不存在。 */
+/** 路徑參數：含變數或沒引號的萬用字元時不說存不存在（要展開才知道），其餘照檔案系統說檔案、目錄或不存在。 */
 function describePath(word: ExplainWord, context: CommandContext): string {
 	if (word.fsPath === null || word.glob === "expand") {
 		return explainArgument(word.text);
