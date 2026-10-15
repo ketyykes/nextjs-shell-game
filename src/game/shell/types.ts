@@ -576,6 +576,8 @@ export interface ShellOptions {
 	processes?: ProcessInfo[];
 	/** 唯讀變數的名稱，見 `CommandContext.readonlyEnv`。來自劇本，不存進存檔，還原時再從劇本帶入。 */
 	readonlyEnv?: string[];
+	/** 提示符的「帳號@主機」，沒給用 `PROMPT_USER_HOST`（`crew@kepler9`）。救援船終端機換成 `tech@argo`，不存檔。 */
+	promptUserHost?: string;
 }
 
 /**

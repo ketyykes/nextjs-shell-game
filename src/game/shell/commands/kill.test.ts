@@ -8,7 +8,7 @@ import {
 	processProtected,
 	unknownOption,
 } from "../messages";
-import { killCommand } from "./kill";
+import { createKillCommand, killCommand } from "./kill";
 import { createSystemContext, createTestProcesses } from "./systemFixtures";
 
 const NOVA_COMMAND = "/opt/nova/nova --core";
@@ -175,5 +175,19 @@ describe("kill 選項切分的邊界", () => {
 
 		expect(result.ok).toBe(false);
 		expect(result.lines).toEqual(processIgnoredSignal(3141, NOVA_COMMAND));
+	});
+});
+
+describe("createKillCommand 換受保護程序的訊息", () => {
+	it("殺不掉受保護的程序時用給的訊息，其餘行為跟預設的 kill 一樣", () => {
+		const command = createKillCommand((pid, command) => [`不能停 ${pid} ${command}`]);
+
+		expect(command.name).toBe("kill");
+		expect(command.run(["-9", "1"], createSystemContext())).toEqual({ ok: false, lines: ["不能停 1 /sbin/init"] });
+		expect(command.run(["207"], createSystemContext()).ok).toBe(true);
+	});
+
+	it("預設的 kill 仍是站上的訊息", () => {
+		expect(killCommand.run(["-9", "1"], createSystemContext()).lines).toEqual(processProtected(1, "/sbin/init"));
 	});
 });

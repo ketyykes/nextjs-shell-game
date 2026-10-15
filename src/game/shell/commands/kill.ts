@@ -8,6 +8,9 @@
  * 支援的訊號：`-9`、`-KILL`、`-15`、`-TERM`，可以放在任何位置，對所有 PID 都有效。
  * 多個 PID 逐一處理，失敗不中斷，整體 `ok` 為 false；成功的仍然移除。
  * 指令不直接改 `context.processes`，有程序被移除時回傳整份新的 `nextProcesses`。
+ *
+ * 受保護程序的訊息用 `createKillCommand` 注入：遊戲用 `processProtected`（站上的系統核心程序），
+ * 救援船終端機（設計文件 4.23）換成不提「整座站」的那一句。
  */
 
 import type { CommandDefinition, CommandResult, ProcessInfo } from "../types";
@@ -70,64 +73,71 @@ function killedLine(process: ProcessInfo): string {
 	return `已終止程序 ${process.pid}（${process.command}）`;
 }
 
-export const killCommand: CommandDefinition = {
-	name: "kill",
-	run(args, context): CommandResult {
-		const parsed = parseKillArgs(args);
+/** 建立 `kill` 指令；`protectedMessage` 是殺不掉受保護程序時的訊息，預設 `processProtected`。 */
+export function createKillCommand(
+	protectedMessage: (pid: number, command: string) => string[] = processProtected,
+): CommandDefinition {
+	return {
+		name: "kill",
+		run(args, context): CommandResult {
+			const parsed = parseKillArgs(args);
 
-		if (!parsed.ok) {
-			return { ok: false, lines: parsed.lines };
-		}
-
-		if (parsed.pids.length === 0) {
-			return { ok: false, lines: missingOperand("kill", "一個程序編號，例如 kill 42；編號用 ps 查") };
-		}
-
-		let remaining = [...context.processes];
-		const lines: string[] = [];
-		let ok = true;
-		let changed = false;
-
-		for (const value of parsed.pids) {
-			const pid = Number(value);
-
-			if (!DIGITS.test(value) || pid <= 0) {
-				ok = false;
-				lines.push(...invalidPid(value));
-				continue;
+			if (!parsed.ok) {
+				return { ok: false, lines: parsed.lines };
 			}
 
-			const target = remaining.find((process) => process.pid === pid);
-
-			if (target === undefined) {
-				ok = false;
-				lines.push(...noSuchProcess(pid));
-				continue;
+			if (parsed.pids.length === 0) {
+				return { ok: false, lines: missingOperand("kill", "一個程序編號，例如 kill 42；編號用 ps 查") };
 			}
 
-			if (target.protected === true) {
-				ok = false;
-				lines.push(...processProtected(pid, target.command));
-				continue;
+			let remaining = [...context.processes];
+			const lines: string[] = [];
+			let ok = true;
+			let changed = false;
+
+			for (const value of parsed.pids) {
+				const pid = Number(value);
+
+				if (!DIGITS.test(value) || pid <= 0) {
+					ok = false;
+					lines.push(...invalidPid(value));
+					continue;
+				}
+
+				const target = remaining.find((process) => process.pid === pid);
+
+				if (target === undefined) {
+					ok = false;
+					lines.push(...noSuchProcess(pid));
+					continue;
+				}
+
+				if (target.protected === true) {
+					ok = false;
+					lines.push(...protectedMessage(pid, target.command));
+					continue;
+				}
+
+				if (target.ignoresTerm === true && !parsed.force) {
+					ok = false;
+					lines.push(...processIgnoredSignal(pid, target.command));
+					continue;
+				}
+
+				remaining = remaining.filter((process) => process.pid !== pid);
+				changed = true;
+				lines.push(killedLine(target));
 			}
 
-			if (target.ignoresTerm === true && !parsed.force) {
-				ok = false;
-				lines.push(...processIgnoredSignal(pid, target.command));
-				continue;
+			const result: CommandResult = { ok, lines };
+
+			if (changed) {
+				result.nextProcesses = remaining;
 			}
 
-			remaining = remaining.filter((process) => process.pid !== pid);
-			changed = true;
-			lines.push(killedLine(target));
-		}
+			return result;
+		},
+	};
+}
 
-		const result: CommandResult = { ok, lines };
-
-		if (changed) {
-			result.nextProcesses = remaining;
-		}
-
-		return result;
-	},
-};
+export const killCommand: CommandDefinition = createKillCommand();
