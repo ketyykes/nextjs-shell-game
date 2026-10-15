@@ -252,6 +252,54 @@ export const COMMAND_ARGS: Record<string, CommandArgsDoc> = {
 	logout: IGNORES_ARGS,
 	// 第十九場
 	explain: { options: [], style: "none", nestedCommand: true },
+	tr: {
+		options: [
+			{ short: "-d", summary: "刪掉第一組裡的字元" },
+			{ short: "-s", summary: "把連續重複的字元壓成一個" },
+		],
+		style: "letters",
+		operands: ["text"],
+	},
+	tee: {
+		options: [{ short: "-a", summary: "接在檔案結尾，不蓋掉原本的內容" }],
+		style: "letters",
+	},
+	xargs: {
+		options: [
+			{ short: "-n", value: "個數", summary: "每次最多接幾個項目給指令" },
+			{ short: "-I", value: "代換字串", summary: "每個項目各執行一次，把指令裡的代換字串換成那個項目" },
+			{ short: "-r", summary: "沒有任何項目時不執行（這裡本來就是這樣）" },
+		],
+		style: "letters",
+		operands: ["command"],
+		nestedCommand: true,
+	},
+	sed: {
+		options: [
+			{ short: "-n", summary: "不自動印每一行，只印 p 指令指定的" },
+			{ short: "-E", summary: "用延伸正規表示式，多了 +、?、| 與 ( )" },
+			{ short: "-r", summary: "同 -E" },
+			{ short: "-i", summary: "直接改檔案，不印到畫面" },
+			{ short: "-e", value: "腳本", summary: "再加一段腳本，依序套用" },
+		],
+		style: "letters",
+		operands: ["pattern", "path"],
+	},
+	date: {
+		options: [{ short: "-u", summary: "用世界標準時間顯示（這裡本來就是）" }],
+		style: "letters",
+		operands: ["text"],
+	},
+	alias: {
+		options: [{ short: "-p", summary: "列出全部別名（不加參數也一樣）" }],
+		style: "letters",
+		operands: ["assignment"],
+	},
+	unalias: {
+		options: [{ short: "-a", summary: "拿掉全部別名" }],
+		style: "letters",
+		operands: ["command"],
+	},
 };
 
 /**

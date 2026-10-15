@@ -13,6 +13,8 @@ const LATER_COMMANDS = [
 const EXTRA_COMMANDS = ["less", "tree", "cut", "diff", "which"];
 /** 第十七場的帳號與登入彩蛋，排在最後。 */
 const ACCOUNT_COMMANDS = ["whoami", "id", "last", "sudo", "exit", "logout"];
+/** 第十九場開放使用、沒編進劇本的指令，排在最後（設計文件 4.18）。 */
+const EXTRA2_COMMANDS = ["tr", "tee", "xargs", "sed", "date", "alias", "unalias"];
 
 describe("COMMAND_DOCS", () => {
 	it.each(CHAPTER_ONE_COMMANDS)("第一章指令 %s 有說明", (name) => {
@@ -104,13 +106,14 @@ describe("COMMAND_DOCS", () => {
 });
 
 describe("COMMAND_DOC_ORDER", () => {
-	it("順序符合設計：先第一章，接著是求助指令 explain（第十九場），再依章節接上，接著是沒編進劇本的指令，最後是帳號與登入的彩蛋", () => {
+	it("順序符合設計：先第一章，接著是求助指令 explain（第十九場），再依章節接上，接著是沒編進劇本的指令、帳號與登入的彩蛋，最後是第十九場開放的指令", () => {
 		expect(COMMAND_DOC_ORDER).toEqual([
 			...CHAPTER_ONE_COMMANDS,
 			"explain",
 			...LATER_COMMANDS,
 			...EXTRA_COMMANDS,
 			...ACCOUNT_COMMANDS,
+			...EXTRA2_COMMANDS,
 		]);
 	});
 

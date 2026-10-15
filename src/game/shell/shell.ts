@@ -12,6 +12,7 @@
  * 這個檔案不可以 import React 或 Phaser。
  */
 
+import { expandAliases } from "./aliases";
 import { ALL_COMMANDS } from "./commands";
 import { joinContentLines, splitContentLines } from "./commands/cat";
 import { explainTargetOf } from "./commands/explain";
@@ -27,6 +28,7 @@ import {
 	parseError,
 	programNotInstalled,
 	similarCommand,
+	subcommandRefused,
 } from "./messages";
 import {
 	findUnavailableProgram,
@@ -134,6 +136,12 @@ function exitStatusOf(result: CommandResult): number {
 /** 萬用字元：沒被引號包住而且含這兩個字元的參數才展開。 */
 const GLOB_CHAR_PATTERN = /[*?]/;
 
+/**
+ * 不能交給 xargs 這類指令執行的指令（第十九場）：hint 會動到提示計數、clear 要清畫面、less 要進分頁，
+ * 都只有直接打才有意義；xargs 再叫 xargs 也擋掉。被擋時結束碼 126（GNU：command cannot be run）。
+ */
+const SUBCOMMAND_REFUSED = new Set(["hint", "clear", "less", "xargs"]);
+
 /** 複製程序清單，每個程序也淺拷貝一份，避免外部改到 shell 內部的狀態。 */
 function copyProcesses(processes: ProcessInfo[]): ProcessInfo[] {
 	return processes.map((process) => ({ ...process }));
@@ -154,6 +162,8 @@ export class Shell {
 	private readonly readonlyEnv: string[];
 	/** 這是 `$( )` 開的子 shell：輸出會被收集、不是畫面，所以 `less` 不開分頁器（第十九場）。 */
 	private capturingOutput = false;
+	/** 別名（第十九場 `alias`）：只活在這個物件裡，不進 `toState`，跟沒寫進設定檔的別名一樣重開就沒了。 */
+	private aliases: Record<string, string> = {};
 
 	constructor(options: ShellOptions, commands: CommandDefinition[] = ALL_COMMANDS) {
 		this.options = options;
@@ -413,7 +423,8 @@ export class Shell {
 		let clearScreen = false;
 		// 管線的結束碼是最後一個指令的（bash 沒開 pipefail 時的行為），中間的 grep 沒符合不影響
 		let exitStatus = 0;
-		const commands = pipeline.commands;
+		// 別名在解析之後、查指令之前展開（第十九場），變數與 ~ 用當下的值
+		const commands = expandAliases(pipeline.commands, this.aliases, { env: this.currentEnv, home: this.home });
 
 		for (const [index, parsedCommand] of commands.entries()) {
 			if (parsedCommand.input !== undefined) {
@@ -527,13 +538,13 @@ export class Shell {
 		return combined;
 	}
 
-	/** Tab 補全，游標視為在輸入結尾。 */
+	/** Tab 補全，游標視為在輸入結尾。指令名的候選包含別名。 */
 	complete(input: string): CompletionResult {
 		return completeInput(input, {
 			cwd: this.currentCwd,
 			home: this.home,
 			fs: this.options.fs,
-			commandNames: this.commandNames,
+			commandNames: [...this.commandNames, ...Object.keys(this.aliases)],
 			env: this.currentEnv,
 		});
 	}
@@ -566,7 +577,7 @@ export class Shell {
 	 * 從存檔還原。`fs` 由呼叫端先用 `VirtualFileSystem.fromSerialized(state.fs)` 建好再傳入，
 	 * 這裡不直接依賴 fs 的實作類別，保持 shell 只認 `VirtualFs` 介面。
 	 * 舊存檔沒有 `env`、`processes` 時，建構子會補預設值（`PWD` 跟著存檔的 cwd）。
-	 * `readonlyEnv` 來自劇本、不在存檔裡，由呼叫端從終端機定義帶入。
+	 * `readonlyEnv` 與 `now`（第十九場的時鐘）來自劇本、不在存檔裡，由呼叫端從終端機定義帶入。
 	 */
 	static fromState(
 		state: ShellSessionState,
@@ -574,6 +585,7 @@ export class Shell {
 		hints: string[],
 		home?: string,
 		readonlyEnv?: string[],
+		now?: string,
 	): Shell {
 		return new Shell({
 			fs,
@@ -587,6 +599,7 @@ export class Shell {
 			env: state.env,
 			processes: state.processes,
 			readonlyEnv,
+			now,
 		});
 	}
 
@@ -606,7 +619,30 @@ export class Shell {
 			env: { ...this.currentEnv },
 			processes: copyProcesses(this.currentProcesses),
 			readonlyEnv: [...this.readonlyEnv],
+			now: this.options.now,
+			aliases: { ...this.aliases },
+			runCommand: (name, args, stdin) => this.runSubcommand(name, args, stdin, history),
 		};
+	}
+
+	/**
+	 * 給指令用的子指令執行（第十九場，`xargs`）：照名稱直接找指令執行，不走管線、別名、萬用字元與目標判定。
+	 * 照 bash 子程序的語意，換目錄、環境變數、別名、hint 計數都不影響外面；程序清單是整台機器的，`kill` 會生效。
+	 * 找不到指令時用跟指令列一樣的說明（拼字建議等），結束碼 127；`SUBCOMMAND_REFUSED` 裡的結束碼 126。
+	 */
+	private runSubcommand(name: string, args: string[], stdin: string[] | null, history: string[]): CommandResult {
+		if (SUBCOMMAND_REFUSED.has(name)) {
+			return { ok: false, lines: subcommandRefused(name), exitStatus: 126 };
+		}
+		const command = this.commands.get(name);
+		if (command === undefined) {
+			return { ok: false, lines: this.describeUnknownCommand(name), exitStatus: 127 };
+		}
+		const result = this.runCommand(command, args, this.buildContext(history, stdin));
+		if (result.nextProcesses !== undefined) {
+			this.currentProcesses = copyProcesses(result.nextProcesses);
+		}
+		return result;
 	}
 
 	/** 執行單一指令。 */
@@ -787,7 +823,7 @@ export class Shell {
 		return commandNotFound(name);
 	}
 
-	/** 套用單一指令結果的副作用：換目錄（同時更新 `PWD`）、hint 計數、環境變數、程序清單。 */
+	/** 套用單一指令結果的副作用：換目錄（同時更新 `PWD`）、hint 計數、環境變數、程序清單、別名。 */
 	private applySideEffects(result: CommandResult): void {
 		if (result.nextEnv !== undefined) {
 			this.currentEnv = { ...result.nextEnv };
@@ -802,6 +838,9 @@ export class Shell {
 		}
 		if (result.nextProcesses !== undefined) {
 			this.currentProcesses = copyProcesses(result.nextProcesses);
+		}
+		if (result.nextAliases !== undefined) {
+			this.aliases = { ...result.nextAliases };
 		}
 	}
 

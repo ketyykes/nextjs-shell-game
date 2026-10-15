@@ -104,6 +104,12 @@ export interface TerminalDefinition {
 	readonlyEnv?: string[];
 	/** 初始程序清單（第六章 `ps`）。 */
 	processes?: ProcessInfo[];
+	/**
+	 * 這台終端機的「現在」（ISO 8601，UTC，例如 `2031-03-12T14:02:00Z`），`date` 印的時間（第十九場）。
+	 * 沒寫就用那一章的時鐘（`chapters/meta.ts` 的 `ChapterMeta.clock`）。不存進存檔、不算進劇本雜湊，
+	 * 建立與還原 session 時都從劇本讀。
+	 */
+	now?: string;
 }
 
 /** 章節地圖設定：六個甲板共用平面圖，差別只在檔名與開場燈光。 */

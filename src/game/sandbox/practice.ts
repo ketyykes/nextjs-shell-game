@@ -288,6 +288,12 @@ export const SANDBOX_ENV: Record<string, string> = {
 	GREETING: "歡迎來到練習模式",
 };
 
+/**
+ * 練習機的「現在」，`date` 印這個時間（第十九場）。這次 05:30 登入後一直沒登出（`last` 的 still logged in），
+ * 取在最晚的檔案（`power.log` 10:00 的例行檢查結束）之後。
+ */
+export const SANDBOX_NOW = "2027-08-14T10:30:00Z";
+
 const BOOT_TIME = "2027-08-14T05:29:58Z";
 const DRILL_TIME = "2027-08-14T05:31:00Z";
 
@@ -353,4 +359,6 @@ export const SANDBOX_TIPS: string[] = [
 	"echo 文字 > 檔名 會寫進檔案（覆蓋），>> 則接在後面；寫完用 cat 確認。",
 	"env 列出環境變數，echo $GREETING 印出其中一個，cd $LOG_DIR 直接跳到日誌目錄；export NAME=值 自己設一個，unset NAME 再把它拿掉。",
 	"ps 看程序清單，top 看誰最吃 CPU，用 kill 加 PID 結束它；不聽話的試試 kill -9。",
+	"sed 's/INFO/資訊/' logs/sensors.log 換字，cat logs/access.log | tr a-z A-Z 換大小寫；ls logs | tee list.txt 一邊看一邊存。",
+	"find trash -name '*.tmp' | xargs rm 一次刪掉暫存檔；alias ll='ls -l' 幫常用的指令取短名字；date 看練習機現在幾點。",
 ];

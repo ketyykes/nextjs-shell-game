@@ -370,3 +370,34 @@ describe("createTerminalSession：第五章路徑變數也是唯讀（第三段�
 		expect(shell.env[name]).toBe(definition.env?.[name]);
 	});
 });
+
+describe("createTerminalSession：date 的時鐘（第十九場）", () => {
+	it("新建的 shell 用那一章的時鐘：第一章是喚醒時間", () => {
+		const { shell } = createTerminalSession(DEFINITION, ["pwd"], undefined, UNSOLVED);
+
+		expect(shell.execute("date").lines).toEqual(["Wed Mar 12 08:15:00 UTC 2031"]);
+	});
+
+	it("終端機 id 決定是哪一章：第四章是 14:02", () => {
+		const { shell } = createTerminalSession({ ...DEFINITION, id: "ch4-t1" }, ["pwd"], undefined, UNSOLVED);
+
+		expect(shell.execute("date +%H:%M").lines).toEqual(["14:02"]);
+	});
+
+	it("劇本有寫 now 時優先用它", () => {
+		const definition: TerminalDefinition = { ...DEFINITION, now: "2031-03-12T08:20:00Z" };
+		const { shell } = createTerminalSession(definition, ["pwd"], undefined, UNSOLVED);
+
+		expect(shell.execute("date +%T").lines).toEqual(["08:20:00"]);
+	});
+
+	it("從存檔還原與劇本改版重建的 shell 也帶入時鐘", () => {
+		const restored = createTerminalSession(DEFINITION, ["pwd"], createPlayedRecord(), UNSOLVED);
+		const rebuilt = createTerminalSession(REVISED, ["pwd"], createPlayedRecord(), UNSOLVED);
+
+		expect(restored.freshRecord).toBeNull();
+		expect(restored.shell.execute("date +%T").lines).toEqual(["08:15:00"]);
+		expect(rebuilt.freshRecord).not.toBeNull();
+		expect(rebuilt.shell.execute("date +%T").lines).toEqual(["08:15:00"]);
+	});
+});

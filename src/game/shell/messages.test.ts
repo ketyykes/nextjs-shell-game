@@ -45,6 +45,37 @@ import {
 	noSuchUser,
 	sudoDenied,
 	cannotExit,
+	aliasEmptyValue,
+	aliasInvalidName,
+	aliasNotFound,
+	aliasUnsupportedValue,
+	dateCannotSet,
+	sedEmptyPattern,
+	sedExtraCharacters,
+	sedInPlaceSuffix,
+	sedInvalidLineZero,
+	sedInvalidPattern,
+	sedInvalidReference,
+	sedMissingCommand,
+	sedNoInputFiles,
+	sedUnexpectedComma,
+	sedUnknownSFlag,
+	sedUnsupportedCommand,
+	sedUnterminatedAddress,
+	sedUnterminatedS,
+	sedZeroOccurrence,
+	subcommandRefused,
+	teeNeedsPipe,
+	trEmptySet2,
+	trExtraOperand,
+	trInvalidClass,
+	trInvalidRange,
+	trNeedsPipe,
+	trNeedsTwoSets,
+	whichAlias,
+	xargsCannotRun,
+	xargsInvalidCount,
+	xargsNeedsPipe,
 } from "./messages";
 import type { FsErrorCode, ParseErrorCode, RegexErrorCode } from "./types";
 
@@ -505,5 +536,71 @@ describe("pathNotFound 依路徑形態分流", () => {
 
 	it("~ 開頭的路徑同樣不說「這個目錄下」", () => {
 		expect(pathNotFound("~/repir/NOTES.txt").join("\n")).not.toContain("這個目錄下");
+	});
+});
+
+describe("第十九場：tr、tee、xargs、sed、date、alias", () => {
+	const all: string[][] = [
+		dateCannotSet("0312"),
+		trNeedsPipe(),
+		trExtraOperand("crew.csv", "tr a-z A-Z"),
+		trNeedsTwoSets("a-z"),
+		trEmptySet2(),
+		trInvalidRange("z-a"),
+		trInvalidClass("digits"),
+		teeNeedsPipe(),
+		xargsNeedsPipe(),
+		xargsInvalidCount("0"),
+		xargsCannotRun(),
+		subcommandRefused("hint"),
+		sedUnsupportedCommand("a"),
+		sedUnterminatedS("s/a/b"),
+		sedUnknownSFlag("x"),
+		sedZeroOccurrence(),
+		sedInvalidPattern("[a", "UNMATCHED_BRACKET"),
+		sedEmptyPattern(),
+		sedInvalidReference("\\2", 1),
+		sedMissingCommand("3"),
+		sedExtraCharacters("p x"),
+		sedInvalidLineZero(),
+		sedUnexpectedComma(),
+		sedUnterminatedAddress("/abc"),
+		sedInPlaceSuffix("-i.bak"),
+		sedNoInputFiles(),
+		aliasInvalidName("a b"),
+		aliasInvalidName(""),
+		aliasEmptyValue("ll"),
+		aliasUnsupportedValue("go"),
+		aliasNotFound("ll"),
+		whichAlias("ll", "alias ll='ls -l'"),
+	];
+
+	it("每個訊息都回傳非空陣列，每一行都不是空字串，也不指涉性別", () => {
+		for (const lines of all) {
+			expect(lines.length).toBeGreaterThan(0);
+			for (const line of lines) {
+				expect(line.trim()).not.toBe("");
+				expect(line).not.toMatch(/[他她]/);
+			}
+		}
+	});
+
+	it("tr 把檔名接在後面時教 cat 檔案 | tr 的寫法", () => {
+		expect(joinLines(trExtraOperand("crew.csv", "tr a-z A-Z"))).toContain("cat crew.csv | tr a-z A-Z");
+	});
+
+	it("sed 的樣式錯誤沿用 grep 的原因說明，但不提 sed 沒有的 -F", () => {
+		const text = joinLines(sedInvalidPattern("[a", "UNMATCHED_BRACKET"));
+		expect(text).toContain("`[a`");
+		expect(text).toContain("[ 沒有對應的 ]");
+		expect(text).not.toContain("-F");
+	});
+
+	it("alias 名稱是空的（等號兩邊多了空白）時教正確寫法", () => {
+		expect(joinLines(aliasInvalidName(""))).toContain("alias ll='ls -l'");
+	});
+
+	it("which 查到別名時印出定義", () => {
+		expect(joinLines(whichAlias("ll", "alias ll='ls -l'"))).toContain("alias ll='ls -l'");
 	});
 });

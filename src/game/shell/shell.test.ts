@@ -18,9 +18,11 @@ import {
 	pathNotFound,
 	programNotInstalled,
 	similarCommand,
+	subcommandRefused,
 	sudoDenied,
 	unclosedSubstitution,
 	unsupportedSyntax,
+	whichAlias,
 } from "./messages";
 import { Shell } from "./shell";
 import type { ShellSessionState } from "./shell";
@@ -1419,6 +1421,127 @@ describe("Shell 錯誤輸出重導向（第十九場）", () => {
 		shell.execute("cat wake_up.txt &> all.txt");
 		expect(shell.execute("cat all.txt").lines).toHaveLength(3);
 	});
+});
+
+describe("Shell 的時鐘 now（第十九場）", () => {
+	it("建立時給的 now 交給指令的 context，打幾次都一樣", () => {
+		const probe = createProbe();
+		const shell = createShellWith([probe.command], { now: "2031-03-12T14:02:00Z" });
+
+		shell.execute("probe");
+		shell.execute("probe");
+
+		expect(probe.calls.map((call) => call.context.now)).toEqual(["2031-03-12T14:02:00Z", "2031-03-12T14:02:00Z"]);
+	});
+
+	it("從存檔還原時再帶入 now（不存進存檔，來自劇本或章節時鐘）", () => {
+		const probe = createProbe();
+		const shell = createShellWith([probe.command], { now: "2031-03-12T09:12:00Z" });
+		const state = shell.toState();
+		const restored = Shell.fromState(
+			state,
+			VirtualFileSystem.fromSerialized(state.fs),
+			[],
+			undefined,
+			undefined,
+			"2031-03-12T09:12:00Z",
+		);
+
+		expect(state).not.toHaveProperty("now");
+		expect(restored.execute("date").lines).toEqual(["Wed Mar 12 09:12:00 UTC 2031"]);
+	});
+});
+
+describe("第十九場開放的指令", () => {
+	it("Tab 補得到，沒學過也能用，help 不列", () => {
+		const shell = createShell();
+
+		expect(shell.complete("te").completed).toBe("tee ");
+		expect(shell.complete("xa").completed).toBe("xargs ");
+		expect(shell.complete("se").completed).toBe("sed ");
+		expect(shell.complete("dat").completed).toBe("date ");
+		expect(shell.complete("ali").completed).toBe("alias ");
+		expect(shell.complete("unal").completed).toBe("unalias ");
+		expect(shell.complete("tr").candidates).toEqual(expect.arrayContaining(["tr", "tree"]));
+		expect(shell.execute("help").lines.join("\n")).not.toMatch(/^(tr|tee|xargs|sed|date|alias|unalias) /m);
+		expect(shell.execute("man xargs").lines.join("\n")).toContain("xargs");
+	});
+
+	it("tr 接在管線右邊", () => {
+		const shell = createShell();
+
+		expect(shell.execute("ls | tr a-z A-Z | tail -n 1").lines).toEqual(["WAKE_UP.TXT"]);
+	});
+
+	it("tee 存檔的同時把內容交給下一個指令", () => {
+		const shell = createShell();
+
+		expect(shell.execute("ls | tee list.txt | wc -l")).toMatchObject({ isError: false, lines: ["7"] });
+		expect(shell.execute("cat list.txt").lines).toEqual(LISTING);
+	});
+
+	it("sed 讀檔或管線，單引號包住的 $ 不會被當成變數", () => {
+		const shell = createShell();
+
+		expect(shell.execute("sed -n '$p' wake_up.txt").lines).toEqual(["修改者："]);
+		expect(shell.execute("cat wake_up.txt | sed 's/三年後/明天/' | head -n 1").lines).toEqual(["喚醒排程：明天"]);
+	});
+
+	it("alias 與 unalias 是內建指令，which 找不到程式檔", () => {
+		const shell = createShell();
+
+		expect(shell.execute("which alias unalias").lines.join("\n")).toContain("內建");
+	});
+
+	it("sed -i 改寫虛擬檔案系統裡的檔案", () => {
+		const shell = createShell();
+
+		expect(shell.execute("sed -i '2d' wake_up.txt")).toMatchObject({ isError: false, lines: [] });
+		expect(shell.execute("cat wake_up.txt").lines).toEqual(["喚醒排程：三年後", "修改者："]);
+	});
+});
+
+describe("Shell 別名 alias（第十九場）", () => {
+	it("設定之後打別名等於打它的內容，後面的參數接上去", () => {
+		const shell = createShell();
+
+		expect(shell.execute("alias ll='ls -l'")).toMatchObject({ isError: false, lines: [] });
+		expect(shell.execute("ll pod_06").lines).toEqual(shell.execute("ls -l pod_06").lines);
+		expect(shell.execute("alias").lines).toEqual(["alias ll='ls -l'"]);
+	});
+
+	it("只展開指令名：參數裡的、引號包住的、反斜線跳脫的都不展開", () => {
+		const shell = createShell();
+		shell.execute("alias ll='ls -l'");
+
+		expect(shell.execute("echo ll").lines).toEqual(["ll"]);
+		expect(shell.execute("'ll'").isError).toBe(true);
+		expect(shell.execute("\\ll").isError).toBe(true);
+	});
+
+	it("同名的別名不遞迴：alias ls='ls -a' 之後 ls 看得到隱藏檔", () => {
+		const shell = createShell();
+		shell.execute("alias ls='ls -a'");
+
+		expect(shell.execute("ls").lines).toContain(".nova_cache");
+	});
+
+	it("別名可以是管線，放在管線裡也會展開", () => {
+		const shell = createShell();
+		shell.execute("alias count='wc -l'");
+		shell.execute("alias listing='ls | cat'");
+
+		expect(shell.execute("ls | count").lines).toEqual(["7"]);
+		expect(shell.execute("listing | count").lines).toEqual(["7"]);
+	});
+
+	it("變數在使用時才展開", () => {
+		const shell = createShell();
+		shell.execute("alias where='echo $PWD'");
+		shell.execute("cd pod_06");
+
+		expect(shell.execute("where").lines).toEqual(["/home/tech/pod_06"]);
+	});
 
 	it("&>> 與 >> 檔案 2>&1 接在檔案結尾", () => {
 		const shell = createShell();
@@ -1452,6 +1575,46 @@ describe("Shell 錯誤輸出重導向（第十九場）", () => {
 		const result = shell.execute("probe 2> nodir/err.txt");
 		expect(result).toMatchObject({ isError: true, lines: pathNotFound("nodir/err.txt") });
 		expect(probe.calls).toHaveLength(0);
+	});
+
+	it("同一行先定義再用，馬上生效", () => {
+		const shell = createShell();
+
+		expect(shell.execute("alias hi='echo hello'; hi").lines).toEqual(["hello"]);
+	});
+
+	it("unalias 之後就沒了", () => {
+		const shell = createShell();
+		shell.execute("alias ll='ls -l'");
+		shell.execute("unalias ll");
+
+		expect(shell.execute("ll").isError).toBe(true);
+		expect(shell.execute("alias").lines).toEqual([]);
+	});
+
+	it("別名不進存檔：從存檔還原的 shell 沒有別名", () => {
+		const shell = createShell();
+		shell.execute("alias ll='ls -l'");
+		const state = shell.toState();
+		const restored = Shell.fromState(state, VirtualFileSystem.fromSerialized(state.fs), []);
+
+		expect(state).not.toHaveProperty("aliases");
+		expect(restored.execute("alias").lines).toEqual([]);
+		expect(restored.execute("ll").isError).toBe(true);
+	});
+
+	it("Tab 補得到別名", () => {
+		const shell = createShell();
+		shell.execute("alias pods='ls pod_06'");
+
+		expect(shell.complete("pod").completed).toBe("pods ");
+	});
+
+	it("which 查別名：說明它是別名，不算錯誤", () => {
+		const shell = createShell();
+		shell.execute("alias ll='ls -l'");
+
+		expect(shell.execute("which ll")).toMatchObject({ isError: false, lines: whichAlias("ll", "alias ll='ls -l'") });
 	});
 });
 
@@ -1607,5 +1770,72 @@ describe("Shell 指令替換 $( ) 與反引號（第十九場）", () => {
 	it("用 ; 串起來的段落各自執行到那一段時才替換，看得到前面的副作用", () => {
 		const shell = createShell();
 		expect(shell.execute("cd pod_06 ; echo $(pwd)").lines).toEqual(["/home/tech/pod_06"]);
+	});
+});
+
+describe("Shell 子指令執行 xargs（第十九場）", () => {
+	it("把管線輸入接成參數執行，預設是 echo", () => {
+		const shell = createShell();
+
+		expect(shell.execute("ls | xargs")).toMatchObject({ isError: false, lines: [LISTING.join(" ")] });
+		expect(shell.execute("echo wake_up.txt | xargs cat").lines).toEqual(["喚醒排程：三年後", "原始設定：永不", "修改者："]);
+	});
+
+	it("檔案操作直接改到檔案系統", () => {
+		const shell = createShell();
+
+		shell.execute("echo a.tmp b.tmp | xargs -n 1 touch");
+		expect(shell.execute("ls").lines).toEqual(expect.arrayContaining(["a.tmp", "b.tmp"]));
+		shell.execute("ls | grep tmp | xargs rm");
+		expect(shell.execute("ls").lines).toEqual(LISTING);
+	});
+
+	it("kill 改的程序清單會生效，整行的結果看得到", () => {
+		const shell = createShell({ processes: [NOVA_PROCESS, SHELL_PROCESS] });
+
+		const execution = shell.execute("echo 42 | xargs kill");
+
+		expect(execution.isError).toBe(false);
+		expect(execution.processes).toEqual([NOVA_PROCESS]);
+		expect(shell.processes).toEqual([NOVA_PROCESS]);
+	});
+
+	it("cd、export、alias 照 bash 子程序的語意不影響外面", () => {
+		const shell = createShell();
+
+		expect(shell.execute("echo pod_06 | xargs cd")).toMatchObject({ isError: false, cwd: "/home/tech" });
+		shell.execute("echo X=1 | xargs export");
+		shell.execute("echo ll=ls | xargs alias");
+
+		expect(shell.env.X).toBeUndefined();
+		expect(shell.execute("alias").lines).toEqual([]);
+	});
+
+	it("hint、clear、less、xargs 不能交給 xargs 執行，算錯誤", () => {
+		const shell = createShell();
+
+		for (const name of ["hint", "clear", "less", "xargs"]) {
+			const execution = shell.execute(`echo wake_up.txt | xargs ${name}`);
+			expect(execution).toMatchObject({ isError: true, lines: subcommandRefused(name), clearScreen: false });
+			expect(execution.pagers).toBeUndefined();
+		}
+		expect(shell.hintCount).toBe(0);
+	});
+
+	it("找不到的指令照樣給拼字建議，xargs 也看不到別名", () => {
+		const shell = createShell();
+		shell.execute("alias ll='ls -l'");
+
+		expect(shell.execute("echo x | xargs gerp")).toMatchObject({ isError: true, lines: similarCommand("gerp", "grep") });
+		expect(shell.execute("echo x | xargs ll").isError).toBe(true);
+	});
+
+	it("其中一次失敗：其餘照跑，整行算錯誤", () => {
+		const shell = createShell();
+
+		const execution = shell.execute("echo nope.txt wake_up.txt | xargs -n 1 cat");
+
+		expect(execution.isError).toBe(true);
+		expect(execution.lines).toEqual([...fsError("ENOENT", "nope.txt"), "喚醒排程：三年後", "原始設定：永不", "修改者："]);
 	});
 });

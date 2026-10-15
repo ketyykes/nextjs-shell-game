@@ -6,12 +6,14 @@
  * 設計文件 4.8：所有已實作的指令都能打，`help` 只列學過的。
  */
 
+import { aliasCommand } from "./alias";
 import { catCommand } from "./cat";
 import { cdCommand } from "./cd";
 import { chmodCommand } from "./chmod";
 import { clearCommand } from "./clear";
 import { cpCommand } from "./cp";
 import { cutCommand } from "./cut";
+import { dateCommand } from "./date";
 import { diffCommand } from "./diff";
 import { echoCommand } from "./echo";
 import { envCommand } from "./env";
@@ -35,21 +37,26 @@ import { mvCommand } from "./mv";
 import { psCommand } from "./ps";
 import { pwdCommand } from "./pwd";
 import { rmCommand } from "./rm";
+import { sedCommand } from "./sed";
 import { sortCommand } from "./sort";
 import { sudoCommand } from "./sudo";
 import { tailCommand } from "./tail";
+import { teeCommand } from "./tee";
 import { topCommand } from "./top";
 import { touchCommand } from "./touch";
+import { trCommand } from "./tr";
 import { treeCommand } from "./tree";
+import { unaliasCommand } from "./unalias";
 import { uniqCommand } from "./uniq";
 import { unsetCommand } from "./unset";
 import { wcCommand } from "./wc";
 import { whichCommand } from "./which";
 import { whoamiCommand } from "./whoami";
+import { xargsCommand } from "./xargs";
 import type { CommandDefinition } from "../types";
 
 /**
- * 全部指令：六章依章節排列，接著是 M13-3 只開放使用的指令、第十七場的帳號與登入彩蛋，最後是第十九場的 explain。
+ * 全部指令：六章依章節排列，接著是 M13-3 只開放使用的指令、第十七場的帳號與登入彩蛋，最後是第十九場的 explain 與開放的指令。
  * 順序決定打錯字時同分的建議誰優先（見 `suggestSimilarCommand`），別的行為不受影響。
  */
 export const ALL_COMMANDS: CommandDefinition[] = [
@@ -104,6 +111,14 @@ export const ALL_COMMANDS: CommandDefinition[] = [
 	logoutCommand,
 	// 第十九場：遊戲的求助指令，跟 help、hint、man 一類，不在任何章節的 teaches 裡
 	explainCommand,
+	// 第十九場：只開放使用，不在劇本裡（設計文件 4.18）。sed 排在 tee 前面，打錯字的 see 同分時建議 sed
+	sedCommand,
+	trCommand,
+	teeCommand,
+	xargsCommand,
+	dateCommand,
+	aliasCommand,
+	unaliasCommand,
 ];
 
 export { catCommand, cdCommand, clearCommand, helpCommand, hintCommand, historyCommand, lsCommand, manCommand, pwdCommand };

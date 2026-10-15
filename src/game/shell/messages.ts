@@ -855,3 +855,192 @@ export function explainRedirectTarget(
 	}
 	return `檔案 ${target}（原本的內容會被蓋掉）`;
 }
+
+// ---------------------------------------------------------------------------
+// 第十九場：tr、tee、xargs、sed、date、alias、unalias
+// ---------------------------------------------------------------------------
+
+/** `date` 給了不是 `+格式` 的參數：真的 date 會拿它去改系統時間，這裡只能看、不能改。 */
+export function dateCannotSet(value: string): string[] {
+	return [
+		`date 在這裡只能看時間、不能改時間，\`${value}\` 看不懂。`,
+		"要自訂顯示格式在前面加 +，例如 date +%H:%M 或 date \"+%Y-%m-%d %H:%M\"。",
+	];
+}
+
+/** `tr` 不在管線裡：tr 跟真的一樣不接檔名，只讀管線輸入。 */
+export function trNeedsPipe(): string[] {
+	return ["tr 只讀 | 左邊指令的輸出，不接檔名。", "例如 cat crew.csv | tr , ' ' 或 echo hello | tr a-z A-Z。"];
+}
+
+/**
+ * `tr` 多給了參數，通常是把檔名接在後面（GNU：extra operand）。
+ * `example` 是去掉多餘參數後的 tr 指令，例如 `tr a-z A-Z`，用來組「cat 檔案 | tr …」的寫法。
+ */
+export function trExtraOperand(operand: string, example: string): string[] {
+	return [`\`${operand}\` 多出來了：tr 不接檔名，只讀 | 左邊指令的輸出。`, `要處理檔案請寫成 cat ${operand} | ${example}。`];
+}
+
+/** `tr` 換字（或 `-ds`）只給了一組字元（GNU：Two strings must be given when translating）。 */
+export function trNeedsTwoSets(set: string): string[] {
+	return [
+		`\`${set}\` 後面還少一組字元：tr 換字要給兩組，例如 tr a-z A-Z 把小寫換成大寫；-ds 也要兩組，先刪第一組、再壓縮第二組。`,
+		"只想刪掉字元用 tr -d，只想把連續重複的字壓成一個用 tr -s。",
+	];
+}
+
+/** `tr` 換字的第二組是空的（GNU：when not truncating set1, string2 must be non-empty）。 */
+export function trEmptySet2(): string[] {
+	return ["tr 的第二組字元是空的，不知道要換成什麼；要刪掉字元請用 tr -d，例如 tr -d 0-9。"];
+}
+
+/** `tr` 的範圍寫反了，例如 `z-a`（GNU：range-endpoints are in reverse collating sequence order）。 */
+export function trInvalidRange(range: string): string[] {
+	return [`\`${range}\` 範圍寫反了，要小的在前，例如 a-z、A-Z、0-9。`];
+}
+
+/** `tee` 不在管線裡：它要把 | 左邊指令的輸出同時印出來並存進檔案。 */
+export function teeNeedsPipe(): string[] {
+	return ["tee 要放在 | 的右邊：把左邊指令的輸出印在畫面上，同時存進檔案。", "例如 ls | tee list.txt，-a 是接在檔案結尾。"];
+}
+
+/** `sed` 這裡支援的三種指令，錯誤訊息的範例共用。 */
+const SED_SUPPORTED = "只支援 s（取代）、p（印出）、d（刪除），例如 sed 's/舊/新/' 檔名、sed -n '3p' 檔名、sed '/^#/d' 檔名";
+
+/** `sed` 腳本裡用了這裡不支援的指令（`a`、`i`、`c`、`y`、`h`、`w`、`!`、`q` 等），或看不懂的字。 */
+export function sedUnsupportedCommand(command: string): string[] {
+	return [`\`${command}\` 不是這裡的 sed 支援的指令：${SED_SUPPORTED}。`];
+}
+
+/** `s` 指令沒寫完，例如 `s/a/b`（GNU：unterminated `s' command）。 */
+export function sedUnterminatedS(script: string): string[] {
+	return [`\`${script}\` 沒寫完：s 指令要寫成 s/舊/新/，三條斜線都要有，例如 sed 's/ERROR/錯誤/' log.txt。`];
+}
+
+/** `s/舊/新/` 後面接了不認得的旗標（GNU：unknown option to `s'）。 */
+export function sedUnknownSFlag(flag: string): string[] {
+	return [`s/舊/新/ 後面的 \`${flag}\` 看不懂：可以接 g（整行都換）、i（不分大小寫）、p（換了就印出），或數字（只換第幾個）。`];
+}
+
+/** `s` 的數字是 0（GNU：number option to `s' command may not be zero）。 */
+export function sedZeroOccurrence(): string[] {
+	return ["s 指令後面的數字從 1 開始，代表換第幾個符合的地方，例如 s/a/b/2 換第二個。"];
+}
+
+/** `sed` 的樣式不是合法的正規表示式。原因跟 grep 共用，第二行換成 sed 的寫法（sed 沒有 -F）。 */
+export function sedInvalidPattern(pattern: string, code: RegexErrorCode): string[] {
+	return [
+		`\`${pattern}\` 不是合法的樣式：${REGEX_ERROR_REASONS[code]}。`,
+		"sed 的樣式寫法跟 grep 一樣：. * [ ] ^ $ \\ 是特殊符號，要找它們本身就在前面加 \\，例如 s/\\./,/；加 -E 才能直接用 + ? | ( )。",
+	];
+}
+
+/** `sed` 的樣式是空的（GNU 會沿用上一個樣式，這裡不支援）。 */
+export function sedEmptyPattern(): string[] {
+	return ["樣式是空的：這裡的 sed 不支援用 // 沿用上一個樣式，請把要找的字寫進去，例如 s/ERROR/錯誤/。"];
+}
+
+/** 取代的部分用了樣式裡沒有的群組，例如 `s/a/\1/`（GNU：invalid reference on `s' command's RHS）。 */
+export function sedInvalidReference(reference: string, groupCount: number): string[] {
+	return [
+		`取代的部分用了 \`${reference}\`，但前面的樣式只有 ${groupCount} 組括號。`,
+		"\\1 到 \\9 要對應樣式裡的 \\( \\)（加 -E 時是 ( )），例如 sed 's/\\(A[0-9]\\) OPEN/\\1 開啟/'；整個符合的字串用 &。",
+	];
+}
+
+/** 位址後面少了指令，例如 `sed 3`（GNU：missing command）。 */
+export function sedMissingCommand(script: string): string[] {
+	return [`\`${script}\` 後面少了指令：行號或 /樣式/ 後面要接 p、d 或 s，例如 sed -n '3p' 檔名、sed '/^#/d' 檔名。`];
+}
+
+/** 一個指令後面多了東西，例如 `p x`（GNU：extra characters after command）。 */
+export function sedExtraCharacters(script: string): string[] {
+	return [`\`${script}\` 看不懂：一個指令寫完要用 ; 隔開下一個，例如 sed -n '1p;3p' 檔名。`];
+}
+
+/** 位址用了第 0 行（GNU：invalid usage of line address 0）。 */
+export function sedInvalidLineZero(): string[] {
+	return ["sed 的行號從 1 開始數，沒有第 0 行，例如 sed -n '1p' 檔名 印第一行。"];
+}
+
+/** 範圍的逗號後面沒有接好結尾（GNU：unexpected `,'）。 */
+export function sedUnexpectedComma(): string[] {
+	return ["範圍的 , 後面要接結尾：行號、$（最後一行）或 /樣式/，例如 sed -n '2,5p' 檔名、sed '3,$d' 檔名。"];
+}
+
+/** 位址的樣式沒有結尾的 `/`，例如 `/abc`（GNU：unterminated address regex）。 */
+export function sedUnterminatedAddress(script: string): string[] {
+	return [`\`${script}\` 的樣式少了結尾的 /，要寫成 /樣式/，例如 sed -n '/ERROR/p' 檔名。`];
+}
+
+/** `sed -i` 後面黏著備份副檔名（`-i.bak`），這裡不支援；`-in` 這種想合併選項的寫法也會被當成副檔名。 */
+export function sedInPlaceSuffix(option: string): string[] {
+	return [`這裡的 sed 不支援 \`${option}\` 這種備份副檔名的寫法，直接寫 -i；要跟 -n 一起用就分開寫成 -n -i。`];
+}
+
+/** `sed -i` 沒給檔名（GNU：no input files）。 */
+export function sedNoInputFiles(): string[] {
+	return ["sed -i 是直接改檔案，後面要接檔名，例如 sed -i 's/舊/新/' notes.txt；管線的輸出沒有檔案可以改。"];
+}
+
+/**
+ * `alias` 的名稱不合法（bash：invalid alias name）。名稱是空的多半是等號兩邊多打了空白（`alias ll = 'ls -l'`），
+ * 那時 `=` 自己變成一個參數。
+ */
+export function aliasInvalidName(name: string): string[] {
+	if (name === "") {
+		return ["等號前面要有別名的名稱，而且等號兩邊不能有空白，要寫成 alias ll='ls -l'。"];
+	}
+	return [`\`${name}\` 不能當別名的名稱：不能有空白、/、$、=、引號或 | & ; ( ) < > 這些符號。`];
+}
+
+/** `alias 名稱=` 的內容是空的。bash 允許，這裡請玩家改用 unalias 拿掉別名。 */
+export function aliasEmptyValue(name: string): string[] {
+	return [`別名 \`${name}\` 的內容是空的。要拿掉別名用 unalias ${name}；要設定就寫成 alias ${name}='指令 參數'。`];
+}
+
+/** `alias` 的內容不是單純的指令或管線（有 `;`、`&&`、`>` 這類寫法）。 */
+export function aliasUnsupportedValue(name: string): string[] {
+	return [
+		`別名 \`${name}\` 只能是一個指令（可以帶參數），或用 | 串起來的管線，例如 alias errs='grep ERROR | wc -l'。`,
+		"; && > 這些寫法請直接打在指令列上。",
+	];
+}
+
+/** `alias 名稱`、`unalias 名稱` 查不到這個別名（bash：not found）。不算錯誤。 */
+export function aliasNotFound(name: string): string[] {
+	return [`目前沒有叫 \`${name}\` 的別名，alias 不加參數會列出全部。`];
+}
+
+/** `which` 查的是別名：which 只找程式檔（跟 bash 的 which 一樣看不到別名）。`definition` 是 `alias ll='ls -l'` 這種寫法。 */
+export function whichAlias(name: string, definition: string): string[] {
+	return [`\`${name}\` 是這個工作階段設定的別名（${definition}），不是程式檔，所以 which 找不到。`, "別名用 alias 查，alias 不加參數會列出全部。"];
+}
+
+/** `xargs` 不在管線裡：它要把 | 左邊的輸出切成項目，接在指令後面執行。 */
+export function xargsNeedsPipe(): string[] {
+	return [
+		"xargs 要放在 | 的右邊：把左邊的輸出切成一個一個項目，接在後面那個指令的參數裡執行。",
+		"例如 find . -name '*.tmp' | xargs rm，或 ls | xargs -n 1 echo。",
+	];
+}
+
+/** `xargs -n` 的值不是正整數（GNU：invalid number / value should be >= 1）。 */
+export function xargsInvalidCount(value: string): string[] {
+	return [`\`${value}\` 不是有效的個數，xargs 的 -n 後面要接 1 以上的整數，例如 xargs -n 1 touch。`];
+}
+
+/** 這個環境沒有提供子指令執行能力（只會在單元測試或沒接上 shell 時發生）。 */
+export function xargsCannotRun(): string[] {
+	return ["這裡沒辦法讓 xargs 執行別的指令，請把指令直接打出來。"];
+}
+
+/** 被 xargs 這類指令要求執行、但不能這樣執行的指令（`hint`、`clear`、`less`、`xargs`），結束碼 126。 */
+export function subcommandRefused(name: string): string[] {
+	return [`\`${name}\` 不能交給 xargs 這類指令去執行，要用的話請直接打 ${name}。`];
+}
+
+/** `tr` 不認得的字元類別，例如 `[:digits:]`。 */
+export function trInvalidClass(name: string): string[] {
+	return [`\`[:${name}:]\` 不是 tr 認得的字元類別，可以用 [:upper:]、[:lower:]、[:digit:]、[:space:]、[:alpha:]、[:alnum:]。`];
+}

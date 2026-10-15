@@ -32,6 +32,9 @@ const SAMPLE_VALUES: Record<string, string> = {
 	"cut -c": "1",
 	"find -name": "*.txt",
 	"find -iname": "*.TXT",
+	"xargs -n": "1",
+	"xargs -I": "{}",
+	"sed -e": "p",
 };
 
 /** 用測試的檔案系統執行一個指令，管線輸入給一行，讓讀輸入的指令不會因為沒輸入而先失敗。 */

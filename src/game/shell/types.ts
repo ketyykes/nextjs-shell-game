@@ -507,6 +507,20 @@ export interface CommandContext {
 	 * 來自劇本（例如第五章艦橋登錄台的站務變數，玩家 unset 掉就再也過不了關）；沒給等同空陣列。
 	 */
 	readonlyEnv?: readonly string[];
+	/**
+	 * 這台終端機的「現在」（ISO 8601，UTC），`date` 用（第十九場）。遊戲沒有會往前走的時鐘，同一台終端機裡固定不動；
+	 * 由 shell 從 `ShellOptions.now` 帶入，沒給時 `date` 用喚醒時間。
+	 */
+	now?: string;
+	/** 這個 shell 目前的別名（第十九場，`alias`、`unalias`、`which` 用），名稱對應展開前的原文。沒給等同沒有別名。 */
+	aliases?: Readonly<Record<string, string>>;
+	/**
+	 * 給指令用的子指令執行能力（第十九場，`xargs` 用），由 shell 注入：照名稱直接找指令執行，
+	 * 不走管線、別名、萬用字元與目標判定。被執行的指令改的程序清單（`kill`）會生效；
+	 * 換目錄、環境變數、別名照 bash 子程序的語意不影響外面。找不到指令回結束碼 127，
+	 * `hint`、`clear`、`less`、`xargs` 不能這樣執行（結束碼 126）。沒給時 xargs 回報沒辦法執行別的指令。
+	 */
+	runCommand?: (name: string, args: string[], stdin: string[] | null) => CommandResult;
 }
 
 /**
@@ -528,6 +542,8 @@ export interface CommandResult {
 	nextEnv?: Record<string, string>;
 	/** `kill` 用：整份取代程序清單。 */
 	nextProcesses?: ProcessInfo[];
+	/** `alias`、`unalias` 用：整份取代別名（第十九場）。別名只活在這個 shell 物件裡，不存檔。 */
+	nextAliases?: Record<string, string>;
 	/** `less` 用：要求進分頁模式，見 `PagerOutput`。 */
 	pager?: PagerOutput;
 	/**
@@ -617,6 +633,8 @@ export interface ShellOptions {
 	readonlyEnv?: string[];
 	/** 提示符的「帳號@主機」，沒給用 `PROMPT_USER_HOST`（`crew@kepler9`）。救援船終端機換成 `tech@argo`，不存檔。 */
 	promptUserHost?: string;
+	/** 這台終端機的「現在」（ISO 8601，UTC），見 `CommandContext.now`。來自劇本或章節時鐘，不存進存檔。 */
+	now?: string;
 }
 
 /**

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { VirtualFileSystem } from "../fs";
-import { missingOperand, unknownOption, whichBuiltin, whichNotFound } from "../messages";
+import { missingOperand, unknownOption, whichAlias, whichBuiltin, whichNotFound } from "../messages";
 import type { CommandContext } from "../types";
 import { HOME_DIR } from "../types";
 import { DEFAULT_PATH, whichCommand } from "./which";
@@ -9,7 +9,7 @@ import { createContext as createBaseContext } from "./testFixtures";
 
 const COMMANDS = [
 	"ls", "cat", "cd", "export", "unset", "help", "history", "hint", "which", "grep",
-	"whoami", "id", "last", "sudo", "exit", "logout",
+	"whoami", "id", "last", "sudo", "exit", "logout", "alias", "unalias", "sed",
 ];
 
 function createContext(overrides: Partial<CommandContext> = {}): CommandContext {
@@ -92,9 +92,29 @@ describe("which 找不到", () => {
 	});
 
 	it("shell 內建指令沒有程式檔，說明它照樣能用", () => {
-		for (const name of ["cd", "export", "unset", "help", "history", "exit", "logout"]) {
+		for (const name of ["cd", "export", "unset", "help", "history", "exit", "logout", "alias", "unalias"]) {
 			expect(whichCommand.run([name], createContext())).toEqual({ ok: true, lines: whichBuiltin(name), exitStatus: 1 });
 		}
+	});
+
+	it("第十九場的一般指令在 /usr/bin", () => {
+		expect(whichCommand.run(["sed"], createContext()).lines).toEqual(["/usr/bin/sed"]);
+	});
+
+	it("別名不是程式檔：which 找不到，說明它是別名（bash 的 which 也看不到別名）", () => {
+		const context = createContext({ aliases: { ll: "ls -l" } });
+
+		expect(whichCommand.run(["ll"], context)).toEqual({
+			ok: true,
+			lines: whichAlias("ll", "alias ll='ls -l'"),
+			exitStatus: 1,
+		});
+	});
+
+	it("別名跟指令同名時照樣印程式檔的位置", () => {
+		const context = createContext({ aliases: { ls: "ls -a" } });
+
+		expect(whichCommand.run(["ls"], context)).toEqual({ ok: true, lines: ["/usr/bin/ls"] });
 	});
 
 	it("找得到與找不到混在一起時照順序印", () => {
