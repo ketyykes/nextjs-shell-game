@@ -552,3 +552,44 @@ export function dateCannotSet(value: string): string[] {
 		"要自訂顯示格式在前面加 +，例如 date +%H:%M 或 date \"+%Y-%m-%d %H:%M\"。",
 	];
 }
+
+/** `tr` 不在管線裡：tr 跟真的一樣不接檔名，只讀管線輸入。 */
+export function trNeedsPipe(): string[] {
+	return ["tr 只讀 | 左邊指令的輸出，不接檔名。", "例如 cat crew.csv | tr , ' ' 或 echo hello | tr a-z A-Z。"];
+}
+
+/**
+ * `tr` 多給了參數，通常是把檔名接在後面（GNU：extra operand）。
+ * `example` 是去掉多餘參數後的 tr 指令，例如 `tr a-z A-Z`，用來組「cat 檔案 | tr …」的寫法。
+ */
+export function trExtraOperand(operand: string, example: string): string[] {
+	return [`\`${operand}\` 多出來了：tr 不接檔名，只讀 | 左邊指令的輸出。`, `要處理檔案請寫成 cat ${operand} | ${example}。`];
+}
+
+/** `tr` 換字只給了一組字元（GNU：Two strings must be given when translating）。 */
+export function trNeedsTwoSets(set: string): string[] {
+	return [
+		`tr 換字要給兩組字元，\`${set}\` 要換成什麼？例如 tr a-z A-Z 把小寫換成大寫。`,
+		"只想刪掉字元用 tr -d，只想把連續重複的字壓成一個用 tr -s。",
+	];
+}
+
+/** `tr` 換字的第二組是空的（GNU：when not truncating set1, string2 must be non-empty）。 */
+export function trEmptySet2(): string[] {
+	return ["tr 的第二組字元是空的，不知道要換成什麼；要刪掉字元請用 tr -d，例如 tr -d 0-9。"];
+}
+
+/** `tr` 的範圍寫反了，例如 `z-a`（GNU：range-endpoints are in reverse collating sequence order）。 */
+export function trInvalidRange(range: string): string[] {
+	return [`\`${range}\` 範圍寫反了，要小的在前，例如 a-z、A-Z、0-9。`];
+}
+
+/** `tee` 不在管線裡：它要把 | 左邊指令的輸出同時印出來並存進檔案。 */
+export function teeNeedsPipe(): string[] {
+	return ["tee 要放在 | 的右邊：把左邊指令的輸出印在畫面上，同時存進檔案。", "例如 ls | tee list.txt，-a 是接在檔案結尾。"];
+}
+
+/** `tr` 不認得的字元類別，例如 `[:digits:]`。 */
+export function trInvalidClass(name: string): string[] {
+	return [`\`[:${name}:]\` 不是 tr 認得的字元類別，可以用 [:upper:]、[:lower:]、[:digit:]、[:space:]、[:alpha:]、[:alnum:]。`];
+}

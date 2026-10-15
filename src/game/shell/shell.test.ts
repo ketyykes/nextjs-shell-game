@@ -1262,3 +1262,26 @@ describe("Shell 的時鐘 now（第十九場）", () => {
 		expect(restored.execute("date").lines).toEqual(["Wed Mar 12 09:12:00 UTC 2031"]);
 	});
 });
+
+describe("第十九場開放的指令", () => {
+	it("Tab 補得到，沒學過也能用，help 不列", () => {
+		const shell = createShell();
+
+		expect(shell.complete("te").completed).toBe("tee ");
+		expect(shell.complete("dat").completed).toBe("date ");
+		expect(shell.execute("help").lines.join("\n")).not.toMatch(/^(tr|tee|date) /m);
+	});
+
+	it("tr 接在管線右邊", () => {
+		const shell = createShell();
+
+		expect(shell.execute("ls | tr a-z A-Z | tail -n 1").lines).toEqual(["WAKE_UP.TXT"]);
+	});
+
+	it("tee 存檔的同時把內容交給下一個指令", () => {
+		const shell = createShell();
+
+		expect(shell.execute("ls | tee list.txt | wc -l")).toMatchObject({ isError: false, lines: ["7"] });
+		expect(shell.execute("cat list.txt").lines).toEqual(LISTING);
+	});
+});

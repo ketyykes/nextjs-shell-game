@@ -38,8 +38,10 @@ import { rmCommand } from "./rm";
 import { sortCommand } from "./sort";
 import { sudoCommand } from "./sudo";
 import { tailCommand } from "./tail";
+import { teeCommand } from "./tee";
 import { topCommand } from "./top";
 import { touchCommand } from "./touch";
+import { trCommand } from "./tr";
 import { treeCommand } from "./tree";
 import { uniqCommand } from "./uniq";
 import { unsetCommand } from "./unset";
@@ -103,6 +105,8 @@ export const ALL_COMMANDS: CommandDefinition[] = [
 	exitCommand,
 	logoutCommand,
 	// 第十九場：只開放使用，不在劇本裡（設計文件 4.18）
+	trCommand,
+	teeCommand,
 	dateCommand,
 ];
 

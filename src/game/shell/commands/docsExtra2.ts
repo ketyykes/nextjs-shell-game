@@ -6,6 +6,40 @@
 import type { CommandDoc } from "../types";
 
 export const EXTRA2_COMMAND_DOCS: Record<string, CommandDoc> = {
+	tr: {
+		name: "tr",
+		summary: "把字元換掉、刪掉或壓縮重複",
+		usage: "tr [-d] [-s] 第一組 [第二組]",
+		description: [
+			"tr 把 | 左邊指令輸出裡的字一個一個換掉：第一組的第 1 個字換成第二組的第 1 個字，第 2 個換成第 2 個，依此類推；第二組比較短時用它的最後一個字補齊。",
+			"a-z 代表 a 到 z 每個字母；[:upper:] 大寫、[:lower:] 小寫、[:digit:] 數字、[:space:] 空白與換行、[:alpha:] 英文字母、[:alnum:] 英文字母加數字（中文不算字母）。\\n 是換行、\\t 是 Tab。",
+			"-d 刪掉第一組裡的字；-s 把連續重複的同一個字壓成一個，例如好幾個空白壓成一個。中文一個字算一個。",
+			"tr 只讀 | 左邊的輸出、不接檔名，要處理檔案寫成 cat 檔名 | tr a-z A-Z。",
+			"字元組裡有空白、反斜線或中括號時用引號包起來，例如 tr ' ' '\\n' 把空白換成換行，變成一個字一行。",
+		],
+		examples: [
+			{ command: "tr a-z A-Z", explanation: "接在 | 右邊把小寫換成大寫，例如 cat README.txt | tr a-z A-Z" },
+			{ command: "tr -d '[:digit:]'", explanation: "刪掉所有數字" },
+			{ command: "tr -s ' '", explanation: "好幾個連續的空白壓成一個，之後用 cut -d ' ' 切欄位才對得齊" },
+			{ command: "tr ' ' '\\n'", explanation: "空白換成換行，一個字一行，再接 sort | uniq -c 就能數每個字出現幾次" },
+		],
+	},
+	tee: {
+		name: "tee",
+		summary: "把輸出印在畫面上，同時存進檔案",
+		usage: "tee [-a] [檔案...]",
+		description: [
+			"> 會把輸出存進檔案，但畫面上就看不到了。tee 像水管的 T 形接頭：接在 | 右邊，輸出照樣印在畫面上，同時存一份進檔案。",
+			"檔名可以給好幾個，一次存進每一個；檔案不存在就建立，已經存在預設會被蓋掉，-a 改成接在檔案結尾。",
+			"存不進去的檔案（例如目錄不存在）會報錯、算一次失敗，但內容照樣印在畫面上，其他檔案也照樣存。",
+			"tee 後面還可以再接 |，例如 grep ERROR sensors.log | tee errors.txt | wc -l：存下錯誤的那幾行，同時數有幾行。",
+		],
+		examples: [
+			{ command: "tee list.txt", explanation: "接在 | 右邊，例如 ls | tee list.txt：畫面上看得到，也存了一份" },
+			{ command: "tee -a notes.txt", explanation: "接在檔案結尾，不蓋掉原本的內容" },
+			{ command: "tee a.txt b.txt", explanation: "一次存進兩個檔案" },
+		],
+	},
 	date: {
 		name: "date",
 		summary: "顯示現在的日期與時間",
@@ -27,4 +61,4 @@ export const EXTRA2_COMMAND_DOCS: Record<string, CommandDoc> = {
 };
 
 /** 這組指令在側邊面板的顯示順序，排在帳號與登入的彩蛋之後。 */
-export const EXTRA2_COMMAND_ORDER: string[] = ["date"];
+export const EXTRA2_COMMAND_ORDER: string[] = ["tr", "tee", "date"];
