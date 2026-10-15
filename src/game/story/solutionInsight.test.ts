@@ -223,8 +223,9 @@ describe("findSolutionInsights：排除", () => {
 		expect(concepts(insightsFor("ch1-t1", ["ls | grep wake ; cat wake_up.txt"], { storyFlags }))).toEqual(["|"]);
 	});
 
-	it("hint、help 是遊戲本身的系統指令，不算探索", () => {
+	it("hint、help、explain 是遊戲本身的系統指令，不算探索", () => {
 		expect(concepts(insightsFor("ch1-t1", ["help ; hint ; cat wake_up.txt"]))).toEqual([";"]);
+		expect(concepts(insightsFor("ch1-t1", ["cat wake_up.txt ; explain ls -a"]))).toEqual([";"]);
 	});
 
 	it("sudo、exit、logout 一定被拒絕、什麼都沒做成，不算「自己找到的」解法", () => {

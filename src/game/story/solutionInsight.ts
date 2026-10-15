@@ -54,7 +54,7 @@ export const INSIGHT_FLAG_PREFIX = "insight.";
  * - `hint`、`help` 是遊戲本身的求助指令，開場就告訴玩家有這兩個，不算 shell 技能。
  * - `sudo`、`exit`、`logout` 是彩蛋，在這座站一定被拒絕、什麼都沒做成，不能說是「自己找到的」解法。
  */
-const SYSTEM_COMMANDS = new Set(["hint", "help", "sudo", "exit", "logout"]);
+const SYSTEM_COMMANDS = new Set(["hint", "help", "explain", "sudo", "exit", "logout"]);
 
 /** 語法概念在訊息裡的順序（指令一律排在語法前面）。 */
 const SYNTAX_ORDER = ["|", ">", ">>", "*", "~", "$變數", ";", "&&"] as const;
