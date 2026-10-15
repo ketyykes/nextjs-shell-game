@@ -78,11 +78,22 @@ export interface DoorMarker {
 	height: number;
 }
 
+/** 地圖便條（設計文件 4.19）的互動區，x、y 是中心點；內容由 React 依 noteId 查 `story/mapNotes.ts`。 */
+export interface NoteMarker {
+	noteId: string;
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+}
+
 export interface MapMarkers {
 	spawnPoint: SpawnPoint;
 	terminals: TerminalMarker[];
 	rooms: RoomMarker[];
 	doors: DoorMarker[];
+	/** 只有第 2 到 5 章有，其他章是空陣列。 */
+	notes: NoteMarker[];
 }
 
 // ---------------------------------------------------------------------------
@@ -183,6 +194,18 @@ export function parseDoor(obj: TiledObject): DoorMarker {
 	};
 }
 
+export function parseNote(obj: TiledObject): NoteMarker {
+	const rect = toRect(obj);
+	const center = toCenter(obj);
+	return {
+		noteId: readStringProperty(obj, "noteId"),
+		x: center.x,
+		y: center.y,
+		width: rect.width,
+		height: rect.height,
+	};
+}
+
 /** 出生點取中心；點物件的寬高是 0，中心就是原座標。 */
 export function parseSpawn(obj: TiledObject): SpawnPoint {
 	return toCenter(obj);
@@ -204,6 +227,7 @@ export function parseMapMarkers(objects: readonly TiledObject[]): MapMarkers {
 	const terminals: TerminalMarker[] = [];
 	const rooms: RoomMarker[] = [];
 	const doors: DoorMarker[] = [];
+	const notes: NoteMarker[] = [];
 
 	for (const obj of objects) {
 		switch (obj.type) {
@@ -218,6 +242,9 @@ export function parseMapMarkers(objects: readonly TiledObject[]): MapMarkers {
 				break;
 			case MAP_OBJECT_TYPES.door:
 				doors.push(parseDoor(obj));
+				break;
+			case MAP_OBJECT_TYPES.note:
+				notes.push(parseNote(obj));
 				break;
 			default:
 				// 未知 type：忽略
@@ -237,5 +264,6 @@ export function parseMapMarkers(objects: readonly TiledObject[]): MapMarkers {
 		terminals,
 		rooms,
 		doors,
+		notes,
 	};
 }
