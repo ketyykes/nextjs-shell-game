@@ -4,14 +4,30 @@
  * 只處理「游標在輸入結尾」的情況：
  * - 輸入只有一個 token 且結尾沒有空白：補指令名。
  * - 最後一個 token 是 `|`、`;`、`&&` 右邊的第一個 token（符號後面不加空白也算），或是 `man`、`help` 的參數：補指令名。
+ * - 最後一個 token 是 `$`、`${` 開頭（前面可以有一個 `"`）、還沒有 `/`：補環境變數名（第十九場）。
+ * - 最後一個 token 是 `-` 開頭：補那一段指令的選項（第十九場，來源 `commands/docsOptions.ts`），對不上任何選項時照舊補路徑。
  * - 其他情況：把最後一個 token 當路徑補全；路徑裡的 `$NAME` 會用 `env` 展開查目錄，回填維持原寫法。
+ * - 一段開頭的 `explain` 不算那一段的指令：`explain ls -` 補 ls 的選項、`explain gr` 補指令名。
  *
  * 純字串與虛擬檔案系統運算，不依賴 React、Next.js 或 Phaser。
  * 含空白的檔名先不處理跳脫（tokenizer 也還不支援），第一章沒有這種檔名。
  */
 
+import { getCommandArgsDoc, optionCompletionDescription, optionSpellings } from "./commands/docsOptions";
 import type { CompletionContext, CompletionResult, FsNode } from "./types";
 import { FsError } from "./types";
+
+/** 後面整段是另一個指令的指令：補全時跳過它，看它後面那個指令（`explain ls -` 補 ls 的選項）。 */
+const PREFIX_COMMANDS = new Set(["explain"]);
+
+/** 一段開頭的第一個字與後面的空白。 */
+const FIRST_WORD = /^(\S+)(?:\s+|$)/;
+
+/**
+ * 要補變數名的 token：可有可無的雙引號（雙引號裡的 `$` 會展開）、`$` 或 `${`、還沒打完的名稱。
+ * 名稱後面已經有 `/` 的（`$POD_DIR/PT`）不算，交給路徑補全。
+ */
+const VARIABLE_TOKEN = /^("?)(\$\{?)([A-Za-z_][A-Za-z0-9_]*)?$/;
 
 /** `splitDirAndPrefix` 的結果。 */
 export interface DirAndPrefix {
@@ -99,6 +115,88 @@ export function longestCommonPrefix(names: string[]): string {
 function lastCommandSegment(head: string): string {
 	const segments = head.split(/&&|[|;]/);
 	return segments[segments.length - 1].trim();
+}
+
+/**
+ * 去掉一段開頭的 `explain`（可以好幾個），剩下的才是要補的那個指令。
+ *
+ * @example stripPrefixCommands("explain ls") // "ls"
+ * @example stripPrefixCommands("explain") // ""
+ */
+function stripPrefixCommands(segmentHead: string): string {
+	let rest = segmentHead;
+	let match = FIRST_WORD.exec(rest);
+	while (match !== null && PREFIX_COMMANDS.has(match[1])) {
+		rest = rest.slice(match[0].length);
+		match = FIRST_WORD.exec(rest);
+	}
+	return rest;
+}
+
+/**
+ * 指令選項補全：候選是那個指令的選項短名與長名，順序照選項表，附上一句話說明。
+ * 指令不在這台終端機、沒有選項表，或沒有任何選項對得上時回傳 null，由呼叫端照舊補路徑。
+ */
+function completeOption(head: string, token: string, commandName: string, context: CompletionContext): CompletionResult | null {
+	if (!context.commandNames.includes(commandName)) {
+		return null;
+	}
+	const doc = getCommandArgsDoc(commandName);
+	if (doc === undefined) {
+		return null;
+	}
+
+	const descriptions: Record<string, string> = {};
+	const matches: string[] = [];
+	for (const option of doc.options) {
+		for (const spelling of optionSpellings(option)) {
+			if (spelling.startsWith(token)) {
+				matches.push(spelling);
+				descriptions[spelling] = optionCompletionDescription(option);
+			}
+		}
+	}
+
+	if (matches.length === 0) {
+		return null;
+	}
+	if (matches.length === 1) {
+		return { completed: `${head}${matches[0]} `, candidates: matches, descriptions };
+	}
+	return { completed: head + longestCommonPrefix(matches), candidates: matches, descriptions };
+}
+
+/**
+ * 環境變數名補全：唯一候選補完後不加空白（變數後面常接 `/`），`${` 開頭的補上 `}`。
+ * token 不是變數寫法、沒給 `env`、或沒有變數對得上時回傳 null，由呼叫端照舊處理。
+ */
+function completeVariable(head: string, token: string, context: CompletionContext): CompletionResult | null {
+	const env = context.env;
+	const match = VARIABLE_TOKEN.exec(token);
+	if (env === undefined || match === null) {
+		return null;
+	}
+
+	const quote = match[1];
+	const opener = match[2];
+	const typed = match[3] ?? "";
+	let closer = "";
+	if (opener === "${") {
+		closer = "}";
+	}
+
+	const names = Object.keys(env)
+		.filter((name) => name.startsWith(typed))
+		.sort((a, b) => a.localeCompare(b, "en"));
+	if (names.length === 0) {
+		return null;
+	}
+
+	const candidates = names.map((name) => `${opener}${name}${closer}`);
+	if (names.length === 1) {
+		return { completed: `${head}${quote}${opener}${names[0]}${closer}`, candidates };
+	}
+	return { completed: `${head}${quote}${opener}${longestCommonPrefix(names)}`, candidates };
 }
 
 /** 指令名補全。 */
@@ -206,13 +304,47 @@ export function complete(input: string, context: CompletionContext): CompletionR
 
 	const head = input.slice(0, tokenStart);
 	const lastToken = input.slice(tokenStart);
-	// 最後一段指令：`|`、`;`、`&&` 右邊的部分。整行只有一個 token 時是空字串
-	const segmentHead = lastCommandSegment(head);
+	// 最後一段指令：`|`、`;`、`&&` 右邊的部分，去掉開頭的 explain。整行只有一個 token 時是空字串
+	const segmentHead = stripPrefixCommands(lastCommandSegment(head));
+
+	const variable = completeVariable(head, lastToken, context);
+	if (variable !== null) {
+		return variable;
+	}
 
 	// 每一段的第一個 token 是指令；man 與 help 的參數是指令名，不是路徑
 	if (segmentHead === "" || segmentHead === "man" || segmentHead === "help") {
 		return completeCommandName(head, lastToken, context);
 	}
 
+	const commandName = FIRST_WORD.exec(segmentHead)?.[1];
+	if (lastToken.startsWith("-") && commandName !== undefined) {
+		const option = completeOption(head, lastToken, commandName, context);
+		if (option !== null) {
+			return option;
+		}
+	}
+
 	return completePath(head, lastToken, context);
+}
+
+/**
+ * 把多個候選排成要印在輸出區的行（Tab 列出候選時用）。
+ * 有說明（指令選項）時一行一個，名稱補空白對齊後接兩個空白與說明，例如 `-a  連隱藏檔……一起列出`；
+ * 沒有說明時照舊把候選用兩個空白接成一行。
+ */
+export function formatCompletionCandidates(result: CompletionResult): string[] {
+	const descriptions = result.descriptions;
+	if (descriptions === undefined) {
+		return [result.candidates.join("  ")];
+	}
+
+	const width = Math.max(0, ...result.candidates.map((candidate) => candidate.length));
+	return result.candidates.map((candidate) => {
+		const description = descriptions[candidate];
+		if (description === undefined) {
+			return candidate;
+		}
+		return `${candidate.padEnd(width)}  ${description}`;
+	});
 }

@@ -1,7 +1,8 @@
 // @vitest-environment node
 
 import { describe, expect, it } from "vitest";
-import { complete, longestCommonPrefix, splitDirAndPrefix } from "./completion";
+import { COMMAND_ARGS } from "./commands/docsOptions";
+import { complete, formatCompletionCandidates, longestCommonPrefix, splitDirAndPrefix } from "./completion";
 import { VirtualFileSystem } from "./fs";
 import type { CompletionContext } from "./types";
 
@@ -414,5 +415,188 @@ describe("路徑裡的環境變數", () => {
 
 		expect(result.completed).toBe("cat $NOPE/wa");
 		expect(result.candidates).toEqual([]);
+	});
+});
+
+/** 選項補全用的 context：認得第二章以後的指令，選項表才查得到。 */
+function createOptionContext(): CompletionContext {
+	return {
+		...createContext(),
+		commandNames: [...COMMAND_NAMES, "grep", "head", "find", "kill", "echo", "explain"],
+	};
+}
+
+/** 某個指令的選項說明，依選項名查。 */
+function summaryOf(command: string, option: string): string {
+	const found = COMMAND_ARGS[command].options.find((item) => item.short === option);
+	if (found === undefined) {
+		throw new Error(`${command} 沒有 ${option}`);
+	}
+	return found.summary;
+}
+
+describe("指令選項補全（第十九場）", () => {
+	it("ls - 列出 ls 的全部選項與說明，completed 不變", () => {
+		const result = complete("ls -", createOptionContext());
+
+		expect(result.completed).toBe("ls -");
+		expect(result.candidates).toEqual(["-a", "-l"]);
+		expect(result.descriptions).toEqual({ "-a": summaryOf("ls", "-a"), "-l": summaryOf("ls", "-l") });
+	});
+
+	it("唯一候選補完並加空格", () => {
+		const result = complete("ls -a", createOptionContext());
+
+		expect(result.completed).toBe("ls -a ");
+		expect(result.candidates).toEqual(["-a"]);
+	});
+
+	it("候選照選項表的順序，不照字母排", () => {
+		const result = complete("grep -", createOptionContext());
+
+		expect(result.candidates).toEqual(["-i", "-n", "-c", "-v", "-r", "-w", "-o", "-E", "-F"]);
+	});
+
+	it("接值的選項，說明會提醒後面要接什麼", () => {
+		const result = complete("head -", createOptionContext());
+
+		expect(result.completed).toBe("head -n ");
+		expect(result.descriptions?.["-n"]).toContain(summaryOf("head", "-n"));
+		expect(result.descriptions?.["-n"]).toContain("行數");
+	});
+
+	it("一個 dash 的多字母選項（find -name）照樣補", () => {
+		expect(complete("find . -n", createOptionContext()).completed).toBe("find . -name ");
+
+		const result = complete("find . -", createOptionContext());
+		expect(result.completed).toBe("find . -");
+		expect(result.candidates).toEqual(["-name", "-iname", "-type"]);
+	});
+
+	it("kill 的訊號也是候選", () => {
+		expect(complete("kill -", createOptionContext()).candidates).toEqual(["-9", "-KILL", "-15", "-TERM"]);
+		expect(complete("kill -K", createOptionContext()).completed).toBe("kill -KILL ");
+	});
+
+	it("管線、; 與 && 後面那一段看自己的指令", () => {
+		expect(complete("ls | grep -i", createOptionContext()).completed).toBe("ls | grep -i ");
+		expect(complete("pwd; ls -", createOptionContext()).candidates).toEqual(["-a", "-l"]);
+		expect(complete("cd pod_01 && ls -l", createOptionContext()).completed).toBe("cd pod_01 && ls -l ");
+	});
+
+	it("explain 後面那一行照一般的規則補：先補指令名，再補那個指令的選項", () => {
+		expect(complete("explain gr", createOptionContext()).completed).toBe("explain grep ");
+		expect(complete("explain ls -", createOptionContext()).candidates).toEqual(["-a", "-l"]);
+		expect(complete("explain cat wa", createOptionContext()).completed).toBe("explain cat wake_up.txt ");
+	});
+
+	it("沒有對得上的選項時退回路徑補全，跟以前一樣", () => {
+		expect(complete("ls -z", createOptionContext())).toEqual({ completed: "ls -z", candidates: [] });
+		expect(complete("cat -", createOptionContext())).toEqual({ completed: "cat -", candidates: [] });
+		expect(complete("nope -", createOptionContext())).toEqual({ completed: "nope -", candidates: [] });
+	});
+
+	it("指令沒有註冊在這台終端機時不補它的選項", () => {
+		expect(complete("grep -", createContext())).toEqual({ completed: "grep -", candidates: [] });
+	});
+
+	it("路徑與指令名的補全結果沒有 descriptions", () => {
+		expect(complete("cat wa", createOptionContext()).descriptions).toBeUndefined();
+		expect(complete("h", createOptionContext()).descriptions).toBeUndefined();
+	});
+});
+
+/** 變數補全用的 context。 */
+function createEnvContext(env: Record<string, string>): CompletionContext {
+	return { ...createContext(), commandNames: [...COMMAND_NAMES, "echo"], env };
+}
+
+const ENV = {
+	HOME: "/home/tech",
+	PATH: "/usr/bin",
+	POD_DIR: "/deck1/medbay/records",
+	PWD: "/home/tech",
+	USER: "tech",
+};
+
+describe("環境變數名補全（第十九場）", () => {
+	it("$ 開頭補變數名，唯一候選後面不加空白（常接著打 /）", () => {
+		expect(complete("echo $HO", createEnvContext(ENV))).toEqual({ completed: "echo $HOME", candidates: ["$HOME"] });
+		expect(complete("cd $POD", createEnvContext(ENV)).completed).toBe("cd $POD_DIR");
+	});
+
+	it("${ 開頭的補完會加上 }", () => {
+		expect(complete("cd ${POD", createEnvContext(ENV))).toEqual({
+			completed: "cd ${POD_DIR}",
+			candidates: ["${POD_DIR}"],
+		});
+	});
+
+	it("多個候選補到共同前綴，依名稱排序列出", () => {
+		const result = complete("echo $P", createEnvContext(ENV));
+
+		expect(result.completed).toBe("echo $P");
+		expect(result.candidates).toEqual(["$PATH", "$POD_DIR", "$PWD"]);
+	});
+
+	it("共同前綴比輸入長時往後補；${ 的還沒唯一時不加 }", () => {
+		const env = { NOVA_DIR: "/opt/nova", NOVA_LOG: "/var/log/nova" };
+		expect(complete("echo $N", createEnvContext(env)).completed).toBe("echo $NOVA_");
+		expect(complete("echo ${N", createEnvContext(env)).completed).toBe("echo ${NOVA_");
+	});
+
+	it("只打 $ 列出全部變數", () => {
+		expect(complete("echo $", createEnvContext(ENV)).candidates).toEqual([
+			"$HOME",
+			"$PATH",
+			"$POD_DIR",
+			"$PWD",
+			"$USER",
+		]);
+	});
+
+	it("雙引號裡的 $ 也補，引號原樣保留", () => {
+		const env = { NOVA_DIR: "/opt/nova" };
+		expect(complete('echo "$NO', createEnvContext(env)).completed).toBe('echo "$NOVA_DIR');
+	});
+
+	it("沒有對得上的變數時原樣回傳", () => {
+		expect(complete("echo $NOPE", createEnvContext(ENV))).toEqual({ completed: "echo $NOPE", candidates: [] });
+	});
+
+	it("變數後面接了 / 還是補路徑（舊行為）", () => {
+		const result = complete("cat $POD_DIR/PT-2029", createEnvContext(ENV));
+
+		expect(result.completed).toBe("cat $POD_DIR/PT-2029-1102-MM0006.txt ");
+	});
+
+	it("沒給 env 時不補變數", () => {
+		expect(complete("echo $HO", createContext())).toEqual({ completed: "echo $HO", candidates: [] });
+	});
+});
+
+describe("formatCompletionCandidates", () => {
+	it("沒有說明時候選用兩個空白接成一行（舊格式）", () => {
+		expect(formatCompletionCandidates({ completed: "h", candidates: ["help", "hint"] })).toEqual(["help  hint"]);
+	});
+
+	it("有說明時一行一個候選，名稱對齊後接兩個空白與說明", () => {
+		const lines = formatCompletionCandidates({
+			completed: "find . -",
+			candidates: ["-name", "-type"],
+			descriptions: { "-name": "依檔名找", "-type": "只找檔案或只找目錄" },
+		});
+
+		expect(lines).toEqual(["-name  依檔名找", "-type  只找檔案或只找目錄"]);
+	});
+
+	it("名稱長短不一時補空白對齊", () => {
+		const lines = formatCompletionCandidates({
+			completed: "kill -",
+			candidates: ["-9", "-KILL"],
+			descriptions: { "-9": "強制", "-KILL": "跟 -9 一樣" },
+		});
+
+		expect(lines).toEqual(["-9     強制", "-KILL  跟 -9 一樣"]);
 	});
 });

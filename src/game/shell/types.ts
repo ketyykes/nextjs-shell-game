@@ -553,6 +553,11 @@ export interface CompletionContext {
 export interface CompletionResult {
 	completed: string;
 	candidates: string[];
+	/**
+	 * 候選的一句話說明，key 是候選本身（第十九場）。只有補指令選項時有，例如 `{ "-a": "連隱藏檔……一起列出" }`；
+	 * UI 有這個欄位時一行列一個候選加說明，沒有時照舊把候選用兩個空白接成一行。
+	 */
+	descriptions?: Record<string, string>;
 }
 
 // ---------------------------------------------------------------------------

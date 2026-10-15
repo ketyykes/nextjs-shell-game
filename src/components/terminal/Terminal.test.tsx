@@ -143,6 +143,19 @@ describe("Terminal", () => {
 		expect(onEntriesChange).toHaveBeenCalledTimes(1);
 	});
 
+	it("輸入 ls - 按 Tab 會一行列一個選項，後面接說明", () => {
+		render(<Harness />);
+		typeText("ls -");
+		pressKey("Tab");
+
+		const systemBlock = getLog().querySelector('[data-entry-kind="system"]');
+		const lines = Array.from(systemBlock?.children ?? [], (line) => line.textContent);
+		expect(lines).toHaveLength(2);
+		expect(lines[0]).toMatch(/^-a {2}\S/);
+		expect(lines[1]).toMatch(/^-l {2}\S/);
+		expect(getInput().value).toBe("ls -");
+	});
+
 	it("只有一個候選時不會多出系統訊息", () => {
 		const onEntriesChange = vi.fn();
 		render(<Harness onEntriesChange={onEntriesChange} />);

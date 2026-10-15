@@ -1,5 +1,6 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent, RefObject } from "react";
+import { formatCompletionCandidates } from "@/game/shell/completion";
 import type { Shell } from "@/game/shell/shell";
 import type { ShellExecution } from "@/game/shell/types";
 import type { OutputEntry } from "@/game/store/types";
@@ -103,14 +104,14 @@ export function useTerminalKeyboard({
 		const result = shell.complete(value);
 		replaceInput(result.completed);
 
-		// 多個候選時跟 bash 一樣把候選列出來
+		// 多個候選時跟 bash 一樣把候選列出來；指令選項附說明，一行一個
 		if (result.candidates.length > 1) {
 			onEntriesChange([
 				...entries,
 				{
 					kind: "system",
 					id: createId(),
-					lines: [result.candidates.join("  ")],
+					lines: formatCompletionCandidates(result),
 				},
 			]);
 		}
