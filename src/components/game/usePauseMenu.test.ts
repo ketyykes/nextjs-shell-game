@@ -9,6 +9,7 @@ const unsubscribers: (() => void)[] = [];
 interface HookProps {
 	terminalOpen: boolean;
 	chapterEndOpen: boolean;
+	noteOpen?: boolean;
 }
 
 function setup(props: Partial<HookProps> = {}) {
@@ -67,6 +68,17 @@ describe("usePauseMenu", () => {
 		expect(result.current.paused).toBe(false);
 
 		rerender({ terminalOpen: false, chapterEndOpen: false });
+		pressEscape();
+		expect(result.current.paused).toBe(true);
+	});
+
+	it("地圖便條開著時不接 Esc（Esc 只關便條），關掉後恢復", () => {
+		const { result, rerender } = setup({ noteOpen: true });
+		pressEscape();
+		expect(result.current.paused).toBe(false);
+		expect(events).toEqual([]);
+
+		rerender({ terminalOpen: false, chapterEndOpen: false, noteOpen: false });
 		pressEscape();
 		expect(result.current.paused).toBe(true);
 	});

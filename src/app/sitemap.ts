@@ -5,7 +5,7 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
 /**
  * 列標題頁、練習模式、製作名單與真實世界橋接頁（設計文件 4.20）；
- * /play 沒有存檔會被導回標題，也帶 noindex（見 play/page.tsx）。
+ * /play 沒有存檔、/argo 沒通關會被導回標題，也都帶 noindex（見各自的 page.tsx）。
  */
 export default function sitemap(): MetadataRoute.Sitemap {
 	return [

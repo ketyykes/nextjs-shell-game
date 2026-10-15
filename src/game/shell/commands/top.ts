@@ -4,6 +4,8 @@
  * 真的 top 會全螢幕持續更新，終端機元件做不到也沒必要，所以只印一次：
  * 標題、程序數、空一行，然後跟 `ps` 一樣的表格，但依 %CPU 由大到小排序（同值依 PID）。
  * 不接受任何參數。
+ *
+ * 標題用 `createTopCommand` 注入：遊戲與沙盒都在站上，用 `TOP_TITLE`；救援船終端機（設計文件 4.23）換成 ARGO。
  */
 
 import type { CommandDefinition, CommandResult, ProcessInfo } from "../types";
@@ -24,20 +26,25 @@ function sortByCpu(processes: ProcessInfo[]): ProcessInfo[] {
 	});
 }
 
-export const topCommand: CommandDefinition = {
-	name: "top",
-	run(args, context): CommandResult {
-		if (args.length > 0) {
-			return { ok: false, lines: unknownOption("top", args[0]) };
-		}
+/** 建立 `top` 指令，`title` 是第一行的標題。 */
+export function createTopCommand(title: string = TOP_TITLE): CommandDefinition {
+	return {
+		name: "top",
+		run(args, context): CommandResult {
+			if (args.length > 0) {
+				return { ok: false, lines: unknownOption("top", args[0]) };
+			}
 
-		const lines = [
-			TOP_TITLE,
-			`程序：${context.processes.length} 個`,
-			"",
-			...formatProcessTable(sortByCpu(context.processes)),
-		];
+			const lines = [
+				title,
+				`程序：${context.processes.length} 個`,
+				"",
+				...formatProcessTable(sortByCpu(context.processes)),
+			];
 
-		return { ok: true, lines };
-	},
-};
+			return { ok: true, lines };
+		},
+	};
+}
+
+export const topCommand: CommandDefinition = createTopCommand();

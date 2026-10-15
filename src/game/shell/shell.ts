@@ -175,9 +175,10 @@ export class Shell {
 		return this.history.entries();
 	}
 
-	/** 目前的提示符，家目錄底下顯示成 `~`。 */
+	/** 目前的提示符，家目錄底下顯示成 `~`。帳號與主機沒注入時用 `PROMPT_USER_HOST`。 */
 	prompt(): string {
-		return `${PROMPT_USER_HOST}:${this.displayPath()}$`;
+		const userHost = this.options.promptUserHost ?? PROMPT_USER_HOST;
+		return `${userHost}:${this.displayPath()}$`;
 	}
 
 	/** 把絕對路徑換成提示符用的顯示形式：家目錄本身是 `~`，家目錄底下是 `~/xxx`。 */

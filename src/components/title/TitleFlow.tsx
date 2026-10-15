@@ -11,11 +11,13 @@
  * 存檔管理（M14-2）：匯出與匯入存檔，匯入成功後整頁重新載入讓 store 重新讀檔。
  * 通關（M14-1）：片尾播完回來時副標換成「已逃離 Kepler-9」、「繼續」換成「通關紀錄」；選章重玩後「繼續」回來。
  * 通關過的「通關紀錄」後面多一項「下一步：真的終端機」，進 /real-world（設計文件 4.20）。
+ * 救援船 ARGO（設計文件 4.23）：通關過才有這一項，進 /argo。
  */
 
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { SceneCard } from "@/components/game/SceneCard";
+import { ArchivePanelDynamic } from "@/components/title/ArchivePanelDynamic";
 import { BootLog } from "@/components/title/BootLog";
 import { CharacterSelect } from "@/components/title/CharacterSelect";
 import { FlickerPromptPanel } from "@/components/title/FlickerPromptPanel";
@@ -96,6 +98,7 @@ function TitleFlowReady() {
 	const [stage, setStage] = useState<TitleStage>("title");
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [saveManagerOpen, setSaveManagerOpen] = useState(false);
+	const [archiveOpen, setArchiveOpen] = useState(false);
 	const touchWarning = useTouchWarning();
 	const reducedMotion = usePrefersReducedMotion();
 	// 標題、選角、boot log 的空檔先把 /play、Phaser 引擎與要進的那一章插圖抓進快取
@@ -143,6 +146,10 @@ function TitleFlowReady() {
 		router.push("/real-world");
 	}, [router]);
 
+	const goToArgo = useCallback(() => {
+		router.push("/argo");
+	}, [router]);
+
 	const handleSelectChapter = useCallback(
 		(chapter: number) => {
 			if (!selectChapter(chapter)) {
@@ -183,8 +190,13 @@ function TitleFlowReady() {
 
 	// 通關過才有通關紀錄；列全部章節，沒玩過或統計上線前玩完的章節顯示破折號
 	let clearRecord: ClearRecord | undefined;
+	// 通關過才能上救援船（片尾之後的尾聲）與開檔案櫃（設計文件 4.23、4.24）
+	let onArgo: (() => void) | undefined;
+	let openArchive: (() => void) | undefined;
 	if (progress.clearedAt !== null) {
 		clearRecord = { chapters: chapterOptions(LAST_CHAPTER), stats };
+		onArgo = goToArgo;
+		openArchive = () => setArchiveOpen(true);
 	}
 	let subtitle = subtitleFor(hasSave ? progress.chapter : 1);
 	if (finished) {
@@ -198,6 +210,8 @@ function TitleFlowReady() {
 				subtitle={subtitle}
 				finished={finished}
 				clearRecord={clearRecord}
+				onArgo={onArgo}
+				onOpenArchive={openArchive}
 				onContinue={goToPlay}
 				onNewGame={handleNewGame}
 				onOpenSettings={() => setSettingsOpen(true)}
@@ -207,7 +221,7 @@ function TitleFlowReady() {
 				onManageSave={() => setSaveManagerOpen(true)}
 				onCredits={goToCredits}
 				onRealWorld={goToRealWorld}
-				keyboardEnabled={!settingsOpen && !saveManagerOpen && !touchWarningVisible && !flickerPromptVisible}
+				keyboardEnabled={!settingsOpen && !saveManagerOpen && !archiveOpen && !touchWarningVisible && !flickerPromptVisible}
 				crt={{
 					scanlines: settings.scanlinesEnabled,
 					vignette: settings.vignetteEnabled,
@@ -222,6 +236,7 @@ function TitleFlowReady() {
 				<SaveManager onClose={() => setSaveManagerOpen(false)} onImported={() => window.location.reload()} />
 			)}
 			{flickerPromptVisible && <FlickerPromptPanel reducedMotion={reducedMotion} onChoose={handleFlickerChoice} />}
+			{archiveOpen && <ArchivePanelDynamic onClose={() => setArchiveOpen(false)} />}
 			{touchWarningVisible && <TouchWarningPanel onDismiss={touchWarning.dismiss} />}
 		</>
 	);

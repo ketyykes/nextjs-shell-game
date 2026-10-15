@@ -8,6 +8,9 @@
  * 2. recap：「指令回顧卡」列出本章學會的指令與一句話說明；
  * 3. done：有下一章時顯示「進入第 N 章」與「回標題」；最後一章則進 4；沒給下一章也沒給片尾時顯示「下一章開發中」。
  * 4. ending：片尾（設計文件 4.3）：救援船的終端機亮起，逐句打字，最後回標題。
+ *    有給 `onConnectRescue` 時，最後一句按 Enter 先進 5，不直接回標題。
+ * 5. endingChoice：片尾最後一句留在畫面上，下面兩個選項「連線救援船終端機」「回標題」（設計文件 4.23），
+ *    預設選前者；←→／↑↓ 切換、Enter 確認，也可以用滑鼠點。點畫面其他地方不算選。
  *
  * 鍵盤：Enter 在每個階段都等同點主要按鈕。outro 與 ending 階段點畫面任何地方也一樣。
  */
@@ -15,6 +18,8 @@
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { useTypewriter } from "@/components/terminal/useTypewriter";
+import { MenuOption } from "@/components/title/MenuOption";
+import { useMenuNavigation } from "@/components/title/useMenuNavigation";
 import { getTeachDoc } from "@/game/shell/commands/docs";
 import { formatPlayTime } from "@/game/store/stats";
 import { TEXT_SPEED_MS, type ChapterStats, type TextSpeed } from "@/game/store/types";
@@ -24,7 +29,7 @@ const DEFAULT_LINE_HOLD_MS = 1500;
 /** 回顧卡每一行依序淡入的間隔秒數。 */
 const RECAP_STAGGER_SECONDS = 0.08;
 
-type Phase = "outro" | "recap" | "done" | "ending";
+type Phase = "outro" | "recap" | "done" | "ending" | "endingChoice";
 
 /** 下一章的資訊，done 階段顯示用。 */
 export interface NextChapterInfo {
@@ -57,6 +62,8 @@ export interface ChapterEndScreenProps {
 	ending?: EndingInfo;
 	/** 玩家按「回標題」 */
 	onReturnToTitle: () => void;
+	/** 片尾最後一句之後的「連線救援船終端機」（設計文件 4.23）；有給時最後一句按 Enter 先出現兩個選項 */
+	onConnectRescue?: () => void;
 	/** 玩家按「進入第 N 章」 */
 	onNextChapter?: () => void;
 	/** 畫面掛載時呼叫一次，整合者用來自動存檔 */
@@ -120,6 +127,35 @@ function Illustration({ src, alt }: IllustrationProps) {
 	);
 }
 
+interface EndingChoicesProps {
+	onConnectRescue: () => void;
+	onReturnToTitle: () => void;
+}
+
+/** 片尾最後一句之後的兩個選項，預設選「連線救援船終端機」。Enter 由這裡的選單處理，畫面本身在這個階段不前進。 */
+function EndingChoices({ onConnectRescue, onReturnToTitle }: EndingChoicesProps) {
+	const actions = [onConnectRescue, onReturnToTitle];
+	const { selectedIndex, setSelectedIndex } = useMenuNavigation({
+		itemCount: actions.length,
+		orientation: "both",
+		loop: false,
+		onConfirm: (index) => {
+			actions[index]?.();
+		},
+	});
+
+	return (
+		<div className="flex justify-end gap-6" data-testid="chapter-end-ending-choices">
+			<MenuOption selected={selectedIndex === 0} onHover={() => setSelectedIndex(0)} onClick={onConnectRescue}>
+				連線救援船終端機
+			</MenuOption>
+			<MenuOption selected={selectedIndex === 1} onHover={() => setSelectedIndex(1)} onClick={onReturnToTitle}>
+				回標題
+			</MenuOption>
+		</div>
+	);
+}
+
 const PRIMARY_BUTTON_CLASS =
 	"cursor-pointer border border-game-holo px-6 py-2 text-lg text-game-holo hover:bg-game-holo/10";
 const SECONDARY_BUTTON_CLASS = "cursor-pointer border border-game-dim px-6 py-2 text-lg text-game-dim hover:bg-game-dim/10";
@@ -134,6 +170,7 @@ export function ChapterEndScreen({
 	nextChapter = null,
 	ending,
 	onReturnToTitle,
+	onConnectRescue,
 	onNextChapter,
 	onMounted,
 	lineHoldMs = DEFAULT_LINE_HOLD_MS,
@@ -157,10 +194,11 @@ export function ChapterEndScreen({
 		onMountedRef.current?.();
 	}, []);
 
-	// outro 與 ending 共用同一套逐句打字：依階段決定台詞來源
+	// outro 與 ending 共用同一套逐句打字：依階段決定台詞來源。endingChoice 停在片尾最後一句，不再前進
 	const isTypingPhase = phase === "outro" || phase === "ending";
+	const isEndingPhase = phase === "ending" || phase === "endingChoice";
 	let typedLines = outroLines;
-	if (phase === "ending") {
+	if (isEndingPhase) {
 		typedLines = ending?.lines ?? [];
 	}
 	const currentLine = typedLines[typing.lineIndex] ?? "";
@@ -196,6 +234,15 @@ export function ChapterEndScreen({
 		setPhase("done");
 	}
 
+	/** 片尾最後一句打完：有救援船終端機就先給兩個選項，否則直接回標題。 */
+	function leaveEnding() {
+		if (onConnectRescue !== undefined) {
+			setPhase("endingChoice");
+			return;
+		}
+		onReturnToTitle();
+	}
+
 	/** done 階段的主要動作：有下一章就進下一章，否則回標題。 */
 	function leaveDone() {
 		if (nextChapter !== null && onNextChapter !== undefined) {
@@ -215,6 +262,10 @@ export function ChapterEndScreen({
 			leaveDone();
 			return;
 		}
+		// 兩個選項的 Enter 由 EndingChoices 自己的選單處理
+		if (phase === "endingChoice") {
+			return;
+		}
 		// outro／ending：打字中 → 直接顯示整句；已打完 → 下一句；最後一句已打完 → 下一階段
 		if (isTyping) {
 			setTyping((previous) => ({ ...previous, revealed: true }));
@@ -225,7 +276,7 @@ export function ChapterEndScreen({
 			return;
 		}
 		if (phase === "ending") {
-			onReturnToTitle();
+			leaveEnding();
 			return;
 		}
 		setPhase("recap");
@@ -265,10 +316,16 @@ export function ChapterEndScreen({
 	let typingIllustration = illustrationSrc;
 	let typingSpeaker = "NOVA";
 	let typingAlt = "章節結束的過場插圖";
-	if (phase === "ending") {
+	let typingTestId = `chapter-end-${phase}`;
+	if (isEndingPhase) {
 		typingIllustration = ending?.illustrationSrc;
 		typingSpeaker = "救援船終端機";
 		typingAlt = "片尾的過場插圖";
+		typingTestId = "chapter-end-ending";
+	}
+	let continueHint = "按 Enter 繼續";
+	if (phase === "ending" && onConnectRescue === undefined) {
+		continueHint = "按 Enter 回標題";
 	}
 
 	return (
@@ -281,8 +338,8 @@ export function ChapterEndScreen({
 			className="fixed inset-0 z-45 flex flex-col bg-game-bg font-terminal text-game-text"
 			onClick={handleRootClick}
 		>
-			{isTypingPhase && (
-				<div className="flex min-h-0 flex-1 flex-col" data-testid={`chapter-end-${phase}`}>
+			{(isTypingPhase || phase === "endingChoice") && (
+				<div className="flex min-h-0 flex-1 flex-col" data-testid={typingTestId}>
 					<div className="flex min-h-0 flex-1 items-center justify-center p-6">
 						<Illustration src={typingIllustration} alt={typingAlt} />
 					</div>
@@ -312,13 +369,18 @@ export function ChapterEndScreen({
 								</p>
 							</div>
 						</div>
-						<p className="h-5 text-right text-sm text-game-dim">
-							{isLastLine && !isTyping && (
-								<span className="animate-pulse" data-testid="chapter-end-continue-hint">
-									{phase === "ending" ? "按 Enter 回標題" : "按 Enter 繼續"}
-								</span>
-							)}
-						</p>
+						{phase === "endingChoice" && onConnectRescue !== undefined && (
+							<EndingChoices onConnectRescue={onConnectRescue} onReturnToTitle={onReturnToTitle} />
+						)}
+						{isTypingPhase && (
+							<p className="h-5 text-right text-sm text-game-dim">
+								{isLastLine && !isTyping && (
+									<span className="animate-pulse" data-testid="chapter-end-continue-hint">
+										{continueHint}
+									</span>
+								)}
+							</p>
+						)}
 					</div>
 				</div>
 			)}

@@ -9,6 +9,7 @@
  * - 選項（`-u`、`-g` 等）不支援，回 `unknownOption`。
  *
  * 帳號表用 `createIdCommand` 注入：遊戲用 `STATION_ACCOUNTS`，沙盒換成不碰主線的那一份。
+ * 查不到帳號的訊息也可以換：救援船終端機（設計文件 4.23）不是「這座站」。
  */
 
 import type { CommandDefinition, CommandResult, UserAccount } from "../types";
@@ -26,8 +27,11 @@ function formatAccount(account: UserAccount): string {
 	return `uid=${primary} gid=${primary} groups=${groups.join(",")}`;
 }
 
-/** 依帳號表建立 `id` 指令。 */
-export function createIdCommand(accounts: UserAccount[]): CommandDefinition {
+/** 依帳號表建立 `id` 指令；`missingUser` 是查不到帳號時的訊息，預設 `noSuchUser`。 */
+export function createIdCommand(
+	accounts: UserAccount[],
+	missingUser: (name: string) => string[] = noSuchUser,
+): CommandDefinition {
 	return {
 		name: "id",
 		run(args): CommandResult {
@@ -42,7 +46,7 @@ export function createIdCommand(accounts: UserAccount[]): CommandDefinition {
 			const name = args[0] ?? PLAYER_USER;
 			const account = accounts.find((candidate) => candidate.name === name);
 			if (account === undefined) {
-				return { ok: false, lines: noSuchUser(name) };
+				return { ok: false, lines: missingUser(name) };
 			}
 			return { ok: true, lines: [formatAccount(account)] };
 		},

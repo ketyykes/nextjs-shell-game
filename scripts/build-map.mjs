@@ -13,8 +13,9 @@
  *   2. 可走格依上下左右是否可走自動挑地板邊框（藍色或紅色警示條），轉角缺口另外挑。
  *   3. 不可走格全部進 `walls` 層：正上方是可走格的放牆面，牆面上方放牆頂，其餘放深色虛空。
  *   4. 終端機控制台嵌在房間上緣的牆面那一列（`objects` 層），互動區是它正下方那一格。
+ *      第 2 到 5 章的便條（設計文件 4.19）也一樣：告示 tile 壓在牆面那一列，互動區是正下方那一格。
  *   5. 主艙門放 `objects` 層並在 `collision` 層同一格加阻擋；房間門不碰撞，畫在 `floor` 層。
- *   6. 從出生點做 BFS，確認六台終端機都走得到。
+ *   6. 從出生點做 BFS，確認六台終端機與每張便條都走得到。
  *
  * 用法：
  *   pnpm map:build    # 一次產六張，每張都跑連通性檢查
@@ -39,6 +40,8 @@ import { fileURLToPath } from "node:url";
  * @typedef {TileRect & { id: RoomId, slot: RoomSlot, name: string, palette: FramePalette, door: DoorSpec | null, terminal: TerminalSpec | null }} RoomSpec
  *   x、y、width、height 是房間內部可走範圍（不含牆）。
  * @typedef {{ doorId: string, roomId: RoomId, x: number, y: number }} LockedDoorSpec
+ * @typedef {{ noteId: string, roomId: RoomId, x: number, y: number }} NoteSpec
+ *   地圖上的便條。x、y 是告示 tile 的格座標（房間上緣牆面那一列），互動區是 (x, y + 1)。
  * @typedef {{
  *   width: number,
  *   height: number,
@@ -47,6 +50,7 @@ import { fileURLToPath } from "node:url";
  *   rooms: RoomSpec[],
  *   lockedDoor: LockedDoorSpec,
  *   vents: TilePoint[],
+ *   notes: NoteSpec[],
  * }} MapLayout
  *
  * @typedef {{ name: string, type: string, value: string }} TiledProperty
@@ -168,6 +172,8 @@ export const TILES = {
 	void: 17,
 	/** 完全透明的格子，當 collision 層的阻擋標記 */
 	collisionMarker: 83,
+	/** 警示條牆板，地圖便條（公告、海報）的外觀，壓在牆面那一列 */
+	notice: 45,
 };
 
 /**
@@ -443,6 +449,35 @@ const DECK_VENT_COLUMNS = {
 /** 通風格所在的列：走廊三列的中間那列。 @type {number} */
 const VENT_ROW = 11;
 
+/**
+ * 第 2 到 5 章地圖上的便條（設計文件 4.19），沒列到的章節沒有。x、y 是告示 tile 的格座標，同 `NoteSpec`。
+ * 內容與同一份座標在 `src/game/story/mapNotes.ts`，`mapNotes.test.ts` 會核對兩邊一致（mjs 不能 import TS，只好複製）。
+ * 位置規則（`buildMap` 會檢查）：放在有終端機的房間的上緣牆面、不緊鄰房間門、互動區離每台終端機的互動區至少 3 格；
+ * 也避開 `e2e/helpers/deck.ts` 走路經過的門口直線，所以都放在房間裡離門較遠的那一側。
+ * @type {Record<number, { noteId: string, slot: RoomSlot, x: number, y: number }[]>}
+ */
+const DECK_NOTES = {
+	2: [
+		{ noteId: "ch2-entry-notice", slot: "start", x: 10, y: 14 },
+		{ noteId: "ch2-racks-lost-found", slot: "third", x: 9, y: 1 },
+	],
+	3: [
+		{ noteId: "ch3-entry-safety-poster", slot: "start", x: 10, y: 14 },
+		{ noteId: "ch3-workshop-tool-log", slot: "second", x: 15, y: 14 },
+	],
+	4: [
+		{ noteId: "ch4-entry-notice", slot: "start", x: 10, y: 14 },
+		{ noteId: "ch4-signal-birthday-card", slot: "fourth", x: 27, y: 1 },
+	],
+	5: [
+		{ noteId: "ch5-entry-drill-poster", slot: "start", x: 10, y: 14 },
+		{ noteId: "ch5-nav-chair-note", slot: "second", x: 15, y: 14 },
+	],
+};
+
+/** 便條互動區跟終端機互動區至少要隔幾格：互動半徑 40 px，隔 3 格（96 px）兩邊的範圍才不會重疊。 @type {number} */
+const NOTE_MIN_TERMINAL_DISTANCE = 3;
+
 /** @type {(chapter: number, index: number) => number} */
 const consoleTileFor = (chapter, index) => {
 	const base = BASE_CONSOLE_TILES[index];
@@ -507,6 +542,12 @@ export const buildDeckLayout = (chapter) => {
 		rooms,
 		lockedDoor: { doorId: EXIT_DOOR.doorId, roomId: roomIds.exit, x: EXIT_DOOR.x, y: EXIT_DOOR.y },
 		vents: DECK_VENT_COLUMNS[chapter].map((x) => ({ x, y: VENT_ROW })),
+		notes: (DECK_NOTES[chapter] ?? []).map((note) => ({
+			noteId: note.noteId,
+			roomId: roomIds[note.slot],
+			x: note.x,
+			y: note.y,
+		})),
 	};
 };
 
@@ -576,6 +617,45 @@ const collectTerminals = (layout) => {
 	return list;
 };
 
+/**
+ * 檢查一張便條的位置，不合規就丟錯：本體不能是可走格、互動區要在指定艙區內、
+ * 不緊鄰任何一扇門（同一列左右一格內）、互動區離每台終端機的互動區至少 `NOTE_MIN_TERMINAL_DISTANCE` 格。
+ * @type {(note: NoteSpec, layout: MapLayout, isWalkable: (x: number, y: number) => boolean) => void}
+ */
+const validateNote = (note, layout, isWalkable) => {
+	const label = `便條 ${note.noteId}`;
+	const room = layout.rooms.find((item) => item.id === note.roomId);
+	if (room === undefined) {
+		throw new Error(`${label} 所屬艙區 ${note.roomId} 不存在`);
+	}
+	if (isWalkable(note.x, note.y)) {
+		throw new Error(`${label} 的本體 (${note.x}, ${note.y}) 壓在可走格上，要放在牆面那一列`);
+	}
+	if (!rectContains(room, note.x, note.y + 1)) {
+		throw new Error(`${label} 的互動區 (${note.x}, ${note.y + 1}) 不在 ${note.roomId} 內`);
+	}
+
+	/** @type {TilePoint[]} */
+	const doors = [{ x: layout.lockedDoor.x, y: layout.lockedDoor.y }];
+	for (const item of layout.rooms) {
+		if (item.door !== null) doors.push({ x: item.door.x, y: item.door.y });
+	}
+	for (const door of doors) {
+		if (door.y === note.y && Math.abs(door.x - note.x) <= 1) {
+			throw new Error(`${label} (${note.x}, ${note.y}) 緊鄰門 (${door.x}, ${door.y})`);
+		}
+	}
+
+	for (const { terminal } of collectTerminals(layout)) {
+		const distance = Math.hypot(note.x - terminal.x, note.y - terminal.y);
+		if (distance < NOTE_MIN_TERMINAL_DISTANCE) {
+			throw new Error(
+				`${label} 的互動區離 ${terminal.name} 的互動區不到 ${NOTE_MIN_TERMINAL_DISTANCE} 格，兩邊的「按 E」會重疊`,
+			);
+		}
+	}
+};
+
 // ---------------------------------------------------------------------------
 // 主要產生函式
 // ---------------------------------------------------------------------------
@@ -640,6 +720,18 @@ export const buildMap = (layout) => {
 		consoleTiles.set(toIndex(terminal.x, terminal.y, width), terminal.consoleTile);
 	}
 
+	// 2b. 便條位置（跟控制台一樣在牆面那一列，放 objects 層）
+	/** @type {Set<number>} */
+	const noteCells = new Set();
+	for (const note of layout.notes) {
+		validateNote(note, layout, isWalkable);
+		const index = toIndex(note.x, note.y, width);
+		if (noteCells.has(index) || consoleTiles.has(index)) {
+			throw new Error(`便條 ${note.noteId} 的位置 (${note.x}, ${note.y}) 已經有別的東西`);
+		}
+		noteCells.add(index);
+	}
+
 	/** @type {Set<number>} */
 	const ventSet = new Set(layout.vents.map((point) => toIndex(point.x, point.y, width)));
 
@@ -675,6 +767,11 @@ export const buildMap = (layout) => {
 			const consoleTile = consoleTiles.get(index);
 			if (consoleTile !== undefined) {
 				objects[index] = toGid(consoleTile);
+				continue;
+			}
+
+			if (noteCells.has(index)) {
+				objects[index] = toGid(TILES.notice);
 				continue;
 			}
 
@@ -771,6 +868,23 @@ export const buildMap = (layout) => {
 	});
 	nextObjectId += 1;
 
+	// 便條接在最後面，沒有便條的章節（第 1、6 章）其他物件的 id 不受影響
+	for (const note of layout.notes) {
+		markers.push({
+			id: nextObjectId,
+			name: note.noteId,
+			type: "note",
+			x: note.x * tileSize,
+			y: (note.y + 1) * tileSize,
+			width: tileSize,
+			height: tileSize,
+			rotation: 0,
+			visible: true,
+			properties: [{ name: "noteId", type: "string", value: note.noteId }],
+		});
+		nextObjectId += 1;
+	}
+
 	// 5. 組成 Tiled JSON
 	/** @type {(id: number, name: string, data: number[], visible: boolean, opacity: number) => TiledTileLayer} */
 	const tileLayer = (id, name, data, visible, opacity) => ({
@@ -838,7 +952,7 @@ const getLayerData = (map, name) => {
 
 /**
  * 從出生點做 BFS，只走 `floor` 有值且 `walls`、`objects`、`collision` 都是 0 的格子，
- * 回傳走不到的終端機名稱（互動區本身或上下左右相鄰格有一格走得到就算到達）。
+ * 回傳走不到的終端機與便條名稱（互動區本身或上下左右相鄰格有一格走得到就算到達）。
  * @type {(map: TiledMap) => ConnectivityResult}
  */
 export const checkConnectivity = (map) => {
@@ -901,7 +1015,7 @@ export const checkConnectivity = (map) => {
 	/** @type {string[]} */
 	const unreachable = [];
 	for (const obj of markerLayer.objects) {
-		if (obj.type !== "terminal") continue;
+		if (obj.type !== "terminal" && obj.type !== "note") continue;
 		const tx = Math.floor(obj.x / tilewidth);
 		const ty = Math.floor(obj.y / tileheight);
 		const reached =

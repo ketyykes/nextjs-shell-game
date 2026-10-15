@@ -24,6 +24,8 @@ export interface UseChapterNavigationResult {
 	handleChapterEndMounted: () => void;
 	/** 章節結束畫面的「回標題」：記這章結尾播過（最後一章再記已逃離），回首頁。 */
 	handleReturnToTitle: () => void;
+	/** 片尾之後的「連線救援船終端機」（設計文件 4.23）：跟回標題一樣先記下，再進 /argo。 */
+	handleConnectRescue: () => void;
 	/** 章節結束畫面的「進入下一章」。 */
 	handleNextChapter: () => void;
 	/** 暫停選單的「重玩本章」。 */
@@ -52,15 +54,24 @@ export function useChapterNavigation({
 		useGameStore.getState().touchSave();
 	}, []);
 
-	const handleReturnToTitle = useCallback(() => {
+	/** 離開章節結束畫面前記下：這章結尾播過；最後一章只會從片尾最後一句離開，再記已逃離（M14-1）。 */
+	const recordChapterEnd = useCallback(() => {
 		const store = useGameStore.getState();
 		store.setFlag(outroShownFlag(chapter.chapter));
-		// 最後一章只會從片尾最後一句回標題：記下已逃離（M14-1）
 		if (nextChapter === null) {
 			store.markGameCleared();
 		}
+	}, [chapter.chapter, nextChapter]);
+
+	const handleReturnToTitle = useCallback(() => {
+		recordChapterEnd();
 		router.push("/");
-	}, [chapter.chapter, nextChapter, router]);
+	}, [recordChapterEnd, router]);
+
+	const handleConnectRescue = useCallback(() => {
+		recordChapterEnd();
+		router.push("/argo");
+	}, [recordChapterEnd, router]);
 
 	const handleNextChapter = useCallback(() => {
 		const store = useGameStore.getState();
@@ -83,6 +94,7 @@ export function useChapterNavigation({
 			nextChapter,
 			handleChapterEndMounted,
 			handleReturnToTitle,
+			handleConnectRescue,
 			handleNextChapter,
 			handleRestartChapter,
 		}),
@@ -92,6 +104,7 @@ export function useChapterNavigation({
 			nextChapter,
 			handleChapterEndMounted,
 			handleReturnToTitle,
+			handleConnectRescue,
 			handleNextChapter,
 			handleRestartChapter,
 		],

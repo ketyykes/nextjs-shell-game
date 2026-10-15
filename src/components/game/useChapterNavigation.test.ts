@@ -90,6 +90,28 @@ describe("useChapterNavigation 離開章節", () => {
 		expect(typeof useGameStore.getState().progress.clearedAt).toBe("string");
 	});
 
+	it("片尾之後連線救援船終端機：跟回標題一樣先記 outro 播過與已逃離，再導到 /argo（4.23）", () => {
+		const { result } = setup({ chapter: LAST_CHAPTER });
+		act(() => {
+			result.current.handleConnectRescue();
+		});
+		const state = useGameStore.getState();
+		expect(state.storyFlags[outroShownFlag(6)]).toBe(true);
+		expect(typeof state.progress.clearedAt).toBe("string");
+		expect(mocks.routerPush).toHaveBeenCalledWith("/argo");
+		expect(reloadPage).not.toHaveBeenCalled();
+	});
+
+	it("再通關一次去救援船：已逃離的時間維持第一次的", () => {
+		useGameStore.getState().markGameCleared();
+		const first = useGameStore.getState().progress.clearedAt;
+		const { result } = setup({ chapter: LAST_CHAPTER });
+		act(() => {
+			result.current.handleConnectRescue();
+		});
+		expect(useGameStore.getState().progress.clearedAt).toBe(first);
+	});
+
 	it("進下一章：記 outro 播過、章節加一、整頁重載（#31）", () => {
 		const { result } = setup();
 		act(() => {

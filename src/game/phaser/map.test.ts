@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { deckTerminal, type TerminalIndex } from "@/game/story/decks";
-import { buildDeckLayout, buildMap, checkConnectivity, DEFAULT_LAYOUT } from "../../../scripts/build-map.mjs";
+import { buildDeckLayout, buildMap, checkConnectivity, DEFAULT_LAYOUT, FIRST_GID, TILES } from "../../../scripts/build-map.mjs";
 import {
 	MAP_HEIGHT_TILES,
 	MAP_LAYERS,
@@ -55,6 +55,11 @@ function readProperty(obj: MarkerObject, name: string): string | undefined {
 /** 非零格的位置遮罩，比較幾何時用（不在乎填的是哪一格 tile）。 */
 function occupancy(data: readonly number[]): boolean[] {
 	return data.map((gid) => gid !== 0);
+}
+
+/** 這一章便條本體（牆面那一格）的 tile 索引。 */
+function noteCellIndexes(chapter: number): Set<number> {
+	return new Set(buildDeckLayout(chapter).notes.map((note) => note.y * MAP_WIDTH_TILES + note.x));
 }
 
 describe.each(CHAPTERS)("第 %i 章地圖 deck%i.json", (chapter) => {
@@ -180,6 +185,61 @@ describe.each(CHAPTERS)("第 %i 章地圖 deck%i.json", (chapter) => {
 		expect(checkConnectivity(map)).toEqual({ ok: true, unreachable: [] });
 	});
 
+	it("便條（note）跟 buildDeckLayout 的 notes 一一對應：本體是牆面上的告示 tile，互動區是正下方那一格", () => {
+		const layout = buildDeckLayout(chapter);
+		const floor = getTileLayer(map, MAP_LAYERS.floor).data;
+		const walls = getTileLayer(map, MAP_LAYERS.walls).data;
+		const objects = getTileLayer(map, MAP_LAYERS.objects).data;
+		const collision = getTileLayer(map, MAP_LAYERS.collision).data;
+		const markers = getMarkers(map);
+		const notes = markers.filter((obj) => obj.type === MAP_OBJECT_TYPES.note);
+		expect(notes.map((obj) => readProperty(obj, "noteId"))).toEqual(layout.notes.map((note) => note.noteId));
+
+		for (const note of layout.notes) {
+			const marker = notes.find((obj) => readProperty(obj, "noteId") === note.noteId);
+			expect(marker, note.noteId).toBeDefined();
+			if (marker === undefined) continue;
+			expect(marker.name).toBe(note.noteId);
+			expect({ x: marker.x, y: marker.y, width: marker.width, height: marker.height }).toEqual({
+				x: note.x * TILE_SIZE,
+				y: (note.y + 1) * TILE_SIZE,
+				width: TILE_SIZE,
+				height: TILE_SIZE,
+			});
+
+			const bodyIndex = note.y * MAP_WIDTH_TILES + note.x;
+			expect(objects[bodyIndex]).toBe(TILES.notice + FIRST_GID);
+			expect(walls[bodyIndex]).toBe(0);
+
+			const zoneIndex = bodyIndex + MAP_WIDTH_TILES;
+			expect(floor[zoneIndex]).not.toBe(0);
+			expect(walls[zoneIndex]).toBe(0);
+			expect(objects[zoneIndex]).toBe(0);
+			expect(collision[zoneIndex]).toBe(0);
+
+			const room = markers.find(
+				(obj) => obj.type === MAP_OBJECT_TYPES.room && readProperty(obj, "roomId") === note.roomId,
+			);
+			expect(room, note.roomId).toBeDefined();
+			if (room === undefined) continue;
+			expect(marker.x).toBeGreaterThanOrEqual(room.x);
+			expect(marker.x + marker.width).toBeLessThanOrEqual(room.x + room.width);
+			expect(marker.y).toBeGreaterThanOrEqual(room.y);
+			expect(marker.y + marker.height).toBeLessThanOrEqual(room.y + room.height);
+		}
+	});
+
+	it("便條的互動區離每台終端機的互動區至少三格，靠近便條不會同時靠近終端機", () => {
+		const markers = getMarkers(map);
+		const terminals = markers.filter((obj) => obj.type === MAP_OBJECT_TYPES.terminal);
+		for (const note of markers.filter((obj) => obj.type === MAP_OBJECT_TYPES.note)) {
+			for (const terminal of terminals) {
+				const distance = Math.hypot(note.x - terminal.x, note.y - terminal.y);
+				expect(distance, `${note.name} 與 ${terminal.name}`).toBeGreaterThanOrEqual(3 * TILE_SIZE);
+			}
+		}
+	});
+
 	it(`檔案內容與 buildMap(buildDeckLayout(${chapter})) 一致，沒有手改後跟腳本脫節`, () => {
 		expect(map).toEqual(buildMap(buildDeckLayout(chapter)));
 	});
@@ -204,20 +264,40 @@ describe("六個甲板共用同一張平面圖", () => {
 		expect(buildDeckLayout(1)).toEqual(DEFAULT_LAYOUT);
 	});
 
-	it.each(CHAPTERS.slice(1))("第 %i 章的 walls、collision 與 deck1 完全相同，floor、objects 的非零位置相同", (chapter) => {
-		const map = loadMap(chapter);
-		expect(getTileLayer(map, MAP_LAYERS.walls).data).toEqual(getTileLayer(deck1, MAP_LAYERS.walls).data);
-		expect(getTileLayer(map, MAP_LAYERS.collision).data).toEqual(getTileLayer(deck1, MAP_LAYERS.collision).data);
-		// floor 依配色與通風格位置會換 tile，objects 的控制台會在 43、44 之間交替，只比位置
-		expect(occupancy(getTileLayer(map, MAP_LAYERS.floor).data)).toEqual(
-			occupancy(getTileLayer(deck1, MAP_LAYERS.floor).data),
-		);
-		expect(occupancy(getTileLayer(map, MAP_LAYERS.objects).data)).toEqual(
-			occupancy(getTileLayer(deck1, MAP_LAYERS.objects).data),
-		);
+	it.each(CHAPTERS.slice(1))(
+		"第 %i 章的 collision 與 deck1 完全相同，walls 只差在便條那幾格，floor、objects 的非零位置只多了便條",
+		(chapter) => {
+			const map = loadMap(chapter);
+			const noteCells = noteCellIndexes(chapter);
+			// 便條本體壓在牆面那一列：walls 清空、objects 放告示 tile（跟控制台同一種做法）
+			const expectedWalls = getTileLayer(deck1, MAP_LAYERS.walls).data.map((gid, index) => {
+				if (noteCells.has(index)) {
+					return 0;
+				}
+				return gid;
+			});
+			expect(getTileLayer(map, MAP_LAYERS.walls).data).toEqual(expectedWalls);
+			expect(getTileLayer(map, MAP_LAYERS.collision).data).toEqual(getTileLayer(deck1, MAP_LAYERS.collision).data);
+			// floor 依配色與通風格位置會換 tile，objects 的控制台會在 43、44 之間交替，只比位置
+			expect(occupancy(getTileLayer(map, MAP_LAYERS.floor).data)).toEqual(
+				occupancy(getTileLayer(deck1, MAP_LAYERS.floor).data),
+			);
+			const expectedObjects = occupancy(getTileLayer(deck1, MAP_LAYERS.objects).data).map(
+				(occupied, index) => occupied || noteCells.has(index),
+			);
+			expect(occupancy(getTileLayer(map, MAP_LAYERS.objects).data)).toEqual(expectedObjects);
+		},
+	);
+
+	it("第 1 章與第 6 章沒有便條，第 2 到 5 章有", () => {
+		expect(buildDeckLayout(1).notes).toEqual([]);
+		expect(buildDeckLayout(6).notes).toEqual([]);
+		for (const chapter of [2, 3, 4, 5]) {
+			expect(buildDeckLayout(chapter).notes.length, `第 ${chapter} 章`).toBeGreaterThan(0);
+		}
 	});
 
-	it.each(CHAPTERS.slice(1))("第 %i 章的標記物件位置與 deck1 相同（只有 id、標題、艙區不同）", (chapter) => {
+	it.each(CHAPTERS.slice(1))("第 %i 章便條以外的標記物件位置與 deck1 相同（只有 id、標題、艙區不同）", (chapter) => {
 		const toGeometry = (obj: MarkerObject) => ({
 			id: obj.id,
 			name: obj.name,
@@ -227,8 +307,11 @@ describe("六個甲板共用同一張平面圖", () => {
 			width: obj.width,
 			height: obj.height,
 		});
-		const markers = getMarkers(loadMap(chapter)).filter((obj) => obj.type !== MAP_OBJECT_TYPES.room);
-		const deck1Markers = getMarkers(deck1).filter((obj) => obj.type !== MAP_OBJECT_TYPES.room);
+		// 便條只在第 2 到 5 章，接在所有標記的最後面，不影響其他物件的 id
+		const isSharedMarker = (obj: MarkerObject) =>
+			obj.type !== MAP_OBJECT_TYPES.room && obj.type !== MAP_OBJECT_TYPES.note;
+		const markers = getMarkers(loadMap(chapter)).filter(isSharedMarker);
+		const deck1Markers = getMarkers(deck1).filter(isSharedMarker);
 		expect(markers.map(toGeometry)).toEqual(deck1Markers.map(toGeometry));
 	});
 
@@ -254,5 +337,47 @@ describe("連通性檢查", () => {
 		const result = checkConnectivity(blocked);
 		expect(result.ok).toBe(false);
 		expect(result.unreachable).toEqual(["T2", "T3", "T4", "T5", "T6"]);
+	});
+
+	it("也會列出走不到的便條", () => {
+		const blocked = buildMap(buildDeckLayout(2));
+		const collision = blocked.layers.find((layer) => layer.name === MAP_LAYERS.collision);
+		if (collision === undefined || collision.type !== "tilelayer") {
+			throw new Error("找不到 collision 層");
+		}
+		// 把機櫃區（上排左）的門擋起來，裡面的 T3 與便條就走不到
+		const racks = buildDeckLayout(2).rooms.find((room) => room.id === "dc_racks");
+		if (racks === undefined || racks.door === null) {
+			throw new Error("機櫃區沒有門");
+		}
+		collision.data[racks.door.y * MAP_WIDTH_TILES + racks.door.x] = MAX_GID;
+		const result = checkConnectivity(blocked);
+		expect(result.ok).toBe(false);
+		expect(result.unreachable).toEqual(["T3", "ch2-racks-lost-found"]);
+	});
+});
+
+describe("便條的位置檢查", () => {
+	/** 第二章的配置換成只有一張指定位置的便條。 */
+	function layoutWithNote(note: { roomId: string; x: number; y: number }) {
+		return { ...buildDeckLayout(2), notes: [{ noteId: "ch2-test", ...note }] };
+	}
+
+	it("便條本體壓在可走格上時丟錯", () => {
+		expect(() => buildMap(layoutWithNote({ roomId: "dc_entry", x: 10, y: 15 }))).toThrowError(/ch2-test.*可走格/);
+	});
+
+	it("互動區不在指定的艙區裡時丟錯", () => {
+		expect(() => buildMap(layoutWithNote({ roomId: "dc_logs", x: 10, y: 14 }))).toThrowError(/ch2-test.*dc_logs/);
+	});
+
+	it("緊鄰房間門時丟錯", () => {
+		// 入口的門在 (6, 14)，(7, 14) 是門旁邊的牆
+		expect(() => buildMap(layoutWithNote({ roomId: "dc_entry", x: 7, y: 14 }))).toThrowError(/ch2-test.*門/);
+	});
+
+	it("互動區離終端機的互動區不到三格時丟錯", () => {
+		// T1 控制台在 (4, 14)，(2, 14) 的互動區離它只有兩格
+		expect(() => buildMap(layoutWithNote({ roomId: "dc_entry", x: 2, y: 14 }))).toThrowError(/ch2-test.*T1/);
 	});
 });

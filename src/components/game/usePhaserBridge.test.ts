@@ -16,6 +16,7 @@ function createHandlers() {
 	return {
 		onTerminalOpen: vi.fn<(terminalId: string) => void>(),
 		onTerminalNearby: vi.fn<(terminalId: string | null) => void>(),
+		onNoteOpen: vi.fn<(noteId: string) => void>(),
 		onSceneReady: vi.fn<() => void>(),
 		onPlayerStopped: vi.fn<UsePhaserBridgeOptions["onPlayerStopped"]>(),
 		onRoomEnter: vi.fn<UsePhaserBridgeOptions["onRoomEnter"]>(),
@@ -51,10 +52,10 @@ afterEach(() => {
 });
 
 describe("usePhaserBridge 訂閱", () => {
-	it("掛載時訂閱五個 Phaser 事件，各一次", () => {
+	it("掛載時訂閱六個 Phaser 事件，各一次", () => {
 		setup();
 		expect(subscribedEvents().sort()).toEqual(
-			["player:stopped", "room:enter", "scene:ready", "terminal:nearby", "terminal:open"].sort(),
+			["note:open", "player:stopped", "room:enter", "scene:ready", "terminal:nearby", "terminal:open"].sort(),
 		);
 	});
 
@@ -67,9 +68,11 @@ describe("usePhaserBridge 訂閱", () => {
 			emitGameEvent("scene:ready", { sceneKey: "Station" });
 			emitGameEvent("player:stopped", { x: 1, y: 2, roomId: "cryo" });
 			emitGameEvent("room:enter", { roomId: "medbay" });
+			emitGameEvent("note:open", { noteId: "ch2-entry-notice" });
 		});
 
 		expect(handlers.onTerminalOpen).toHaveBeenCalledExactlyOnceWith("ch1-t1");
+		expect(handlers.onNoteOpen).toHaveBeenCalledExactlyOnceWith("ch2-entry-notice");
 		expect(handlers.onTerminalNearby).toHaveBeenCalledExactlyOnceWith(null);
 		expect(handlers.onSceneReady).toHaveBeenCalledTimes(1);
 		expect(handlers.onPlayerStopped).toHaveBeenCalledExactlyOnceWith({ x: 1, y: 2, roomId: "cryo" });
@@ -86,7 +89,7 @@ describe("usePhaserBridge 訂閱", () => {
 		act(() => {
 			emitGameEvent("room:enter", { roomId: "cryo" });
 		});
-		expect(subscribedEvents()).toHaveLength(5);
+		expect(subscribedEvents()).toHaveLength(6);
 		expect(first.onRoomEnter).not.toHaveBeenCalled();
 		expect(second.onRoomEnter).toHaveBeenCalledExactlyOnceWith("cryo");
 	});

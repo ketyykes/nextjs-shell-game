@@ -4,7 +4,8 @@
  * /play 頁面的 client 入口：Phaser 地圖在底層，終端機彈窗、NOVA 對話框與 HUD 疊在上面。
  *
  * 這裡只負責組裝，各職責拆在同目錄的 hook 與元件（設計文件 3.1、4.6、4.8）：
- * - `usePhaserBridge`：Phaser → React 的五個事件訂閱、設定同步給 Phaser、開發模式的除錯鉤子。
+ * - `usePhaserBridge`：Phaser → React 的六個事件訂閱、設定同步給 Phaser、開發模式的除錯鉤子。
+ * - `MapNoteReader`：地圖便條的閱讀視窗（設計文件 4.19），`note:open` 打開、關掉時發 `note:close`。
  * - `useTerminalSessions`：終端機彈窗開關與每台一個的 Shell 快取（`terminalSession.ts` 從存檔還原，壞掉就重建）。
  * - `useSolveFlow` 與 `usePressureReactions`：指令執行後的扣氧、過關流程、卡關反應階梯。
  * - `useAbinNotes`：包在 `useSolveFlow` 外層，判定這道指令有沒有讀到阿彬的隱藏留言（設計文件 4.12）。
@@ -23,6 +24,7 @@ import { ChapterEndScreen } from "@/components/game/ChapterEndScreen";
 import { shouldShowControlsHint } from "@/components/game/ControlsHint";
 import { CrtOverlay } from "@/components/game/CrtOverlay";
 import { Hud } from "@/components/game/Hud";
+import { MapNoteReader } from "@/components/game/MapNoteReader";
 import { NovaDialogue } from "@/components/game/NovaDialogue";
 import { objectiveDisplay } from "@/components/game/objectiveDisplay";
 import { ObjectivePanel } from "@/components/game/ObjectivePanel";
@@ -52,8 +54,10 @@ import { useTerminalSessions } from "@/components/game/useTerminalSessions";
 import { SettingsMenu } from "@/components/title/SettingsMenu";
 import { chapterTeaches, findTerminal, getChapter, isChapterComplete } from "@/game/chapters";
 import { endingLinesFor } from "@/game/chapters/ending";
+import { emitGameEvent } from "@/game/phaser/EventBus";
 import { ROOM_NAMES, type GameEventMap, type RoomId } from "@/game/phaser/events";
 import { novaPortraitFor, type TerminalDefinition } from "@/game/story";
+import { findMapNote, type MapNote } from "@/game/story/mapNotes";
 import { endingImage, outroImageForChapter, sceneImageForRoom } from "@/game/story/scenes";
 import { selectAbinNotes, selectOxygen, selectSettings, useGameStore, useStoreHydration } from "@/game/store";
 import type { CharacterId } from "@/game/store/types";
@@ -119,6 +123,8 @@ function PlayScreenReady({ character }: PlayScreenReadyProps) {
 	});
 
 	const [nearbyTerminal, setNearbyTerminal] = useState<TerminalDefinition | null>(null);
+	// 正在讀的地圖便條（4.19）：只放記憶體，不存檔、不記對話紀錄
+	const [openNote, setOpenNote] = useState<MapNote | null>(null);
 	const [currentRoom, setCurrentRoom] = useState<RoomId | null>(savedPosition?.roomId ?? null);
 	const [sceneReady, setSceneReady] = useState(false);
 	const [sceneCard, setSceneCard] = useState<SceneCardMessage | null>(null);
@@ -146,7 +152,11 @@ function PlayScreenReady({ character }: PlayScreenReadyProps) {
 	// NOVA 看狀態：原本的流程跑完之後，看這道指令要不要讓 NOVA 插一句
 	const novaReactions = useNovaReactions({ chapter: chapter.chapter, onExecuted: abinNotesFlow.handleExecuted });
 	const chapterNavigation = useChapterNavigation({ chapter, solvedTerminals, terminalOpen });
-	const pauseMenu = usePauseMenu({ terminalOpen, chapterEndOpen: chapterNavigation.showChapterEnd });
+	const pauseMenu = usePauseMenu({
+		terminalOpen,
+		chapterEndOpen: chapterNavigation.showChapterEnd,
+		noteOpen: openNote !== null,
+	});
 	// 遊玩統計（M14-1）：這章還沒全解、選單沒開、分頁在前景時計時；章節結束畫面顯示本章紀錄
 	const playTimeRunning = !isChapterComplete(chapter, solvedTerminals) && !pauseMenu.menuOpen;
 	usePlayTime(chapter.chapter, playTimeRunning);
@@ -185,10 +195,28 @@ function PlayScreenReady({ character }: PlayScreenReadyProps) {
 		}
 		setNearbyTerminal(findTerminal(terminalId) ?? null);
 	};
+	const handleNoteOpen = (noteId: string) => {
+		const note = findMapNote(noteId);
+		if (note === undefined) {
+			// 地圖與便條資料對不上：不開視窗，直接讓 Phaser 恢復，免得場景卡在暫停
+			console.warn(`[PlayScreen] 找不到地圖便條「${noteId}」`);
+			emitGameEvent("note:close", { noteId });
+			return;
+		}
+		setOpenNote(note);
+	};
+	const handleCloseNote = useCallback(() => {
+		if (openNote === null) {
+			return;
+		}
+		setOpenNote(null);
+		emitGameEvent("note:close", { noteId: openNote.id });
+	}, [openNote]);
 	usePhaserBridge({
 		settings,
 		onTerminalOpen: openTerminalById,
 		onTerminalNearby: handleTerminalNearby,
+		onNoteOpen: handleNoteOpen,
 		onSceneReady: () => setSceneReady(true),
 		onPlayerStopped: handlePlayerStopped,
 		onRoomEnter: handleRoomEnter,
@@ -279,6 +307,8 @@ function PlayScreenReady({ character }: PlayScreenReadyProps) {
 				)}
 			</AnimatePresence>
 
+			{openNote !== null && <MapNoteReader key={openNote.id} note={openNote} onClose={handleCloseNote} />}
+
 			{chapterNavigation.showChapterEnd && (
 				<ChapterEndScreen
 					chapterNumber={chapter.chapter}
@@ -299,6 +329,7 @@ function PlayScreenReady({ character }: PlayScreenReadyProps) {
 					}
 					onMounted={chapterNavigation.handleChapterEndMounted}
 					onReturnToTitle={chapterNavigation.handleReturnToTitle}
+					onConnectRescue={chapterNavigation.handleConnectRescue}
 					onNextChapter={chapterNavigation.handleNextChapter}
 					skipOutro={chapterNavigation.outroAlreadyShown}
 					stats={chapterStats}

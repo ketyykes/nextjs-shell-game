@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { unknownOption } from "../messages";
-import { topCommand } from "./top";
+import { createTopCommand, topCommand } from "./top";
 import { createSystemContext, createTestProcesses } from "./systemFixtures";
 
 describe("top", () => {
@@ -47,5 +47,16 @@ describe("top", () => {
 		const result = topCommand.run(["-b"], createSystemContext());
 
 		expect(result).toEqual({ ok: false, lines: unknownOption("top", "-b") });
+	});
+});
+
+describe("createTopCommand 換標題", () => {
+	it("標題換成給的那一行，表格照舊", () => {
+		const command = createTopCommand("ARGO 系統負載（靜態快照）");
+		const lines = command.run([], createSystemContext()).lines;
+
+		expect(command.name).toBe("top");
+		expect(lines[0]).toBe("ARGO 系統負載（靜態快照）");
+		expect(lines.slice(1)).toEqual(topCommand.run([], createSystemContext()).lines.slice(1));
 	});
 });

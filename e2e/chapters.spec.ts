@@ -11,7 +11,7 @@ import {
 
 /**
  * 第二到六章的 happy path：用 `seedSave` 直接種「已玩到第 N 章開頭」的存檔，進地圖後照 T1 到 T6 走完、每台解掉，
- * 看到章節結束畫面，按「進入第 N+1 章」確認換了甲板；第六章則看到片尾並回標題。
+ * 看到章節結束畫面，按「進入第 N+1 章」確認換了甲板；第六章則看到片尾，在兩個選項裡選回標題。
  * 每章一個測試可以平行跑。正解序列由 `terminalScripts` 從 `src/game/chapters/solutions.ts` 取，跟單元測試共用同一份（那裡是用真的 Shell 驗過的）。
  */
 
@@ -147,7 +147,7 @@ test.describe("第二到六章 happy path", () => {
 				).toBeAttached({ timeout: 20000 });
 				await expect(page.getByTestId("hud-room")).toHaveText(script.nextStartRoom);
 			} else {
-				// 最後一章：片尾逐句打字，Enter 到最後一句再 Enter 回標題
+				// 最後一章：片尾逐句打字，Enter 到最後一句再 Enter 出現兩個選項（設計文件 4.23），↓ 選「回標題」
 				const ending = page.getByTestId("chapter-end-ending");
 				await expect(ending).toBeVisible();
 				await expect(ending).toContainText("救援船終端機");
@@ -156,8 +156,11 @@ test.describe("第二到六章 happy path", () => {
 					await page.keyboard.press("Enter");
 					await page.waitForTimeout(300);
 				}
-				await expect(hint).toHaveText("按 Enter 回標題");
+				await expect(hint).toHaveText("按 Enter 繼續");
 				await expect(page.getByTestId("chapter-end-outro-text")).toHaveText("你是……");
+				await page.keyboard.press("Enter");
+				await expect(page.getByTestId("chapter-end-ending-choices")).toBeVisible();
+				await page.keyboard.press("ArrowDown");
 				await page.keyboard.press("Enter");
 				await expect(page.getByRole("heading", { name: "KEPLER-9" })).toBeVisible();
 			}

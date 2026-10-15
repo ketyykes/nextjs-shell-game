@@ -138,6 +138,33 @@ describe("parseMapMarkers", () => {
 		expect(() => parseMapMarkers(objects)).toThrowError(/doorId/);
 	});
 
+	it("解析便條（note）：noteId 與互動區中心", () => {
+		const objects: TiledObject[] = [
+			...createFixtureObjects(),
+			{
+				id: 7,
+				name: "ch2-entry-notice",
+				type: "note",
+				x: 320,
+				y: 480,
+				width: 32,
+				height: 32,
+				properties: [{ name: "noteId", type: "string", value: "ch2-entry-notice" }],
+			},
+		];
+		const markers = parseMapMarkers(objects);
+		expect(markers.notes).toEqual([{ noteId: "ch2-entry-notice", x: 336, y: 496, width: 32, height: 32 }]);
+	});
+
+	it("沒有便條的地圖 notes 是空陣列", () => {
+		expect(parseMapMarkers(createFixtureObjects()).notes).toEqual([]);
+	});
+
+	it("便條缺 noteId 時丟出明確的 Error", () => {
+		const objects: TiledObject[] = [...createFixtureObjects(), { id: 8, type: "note", x: 0, y: 0, width: 32, height: 32 }];
+		expect(() => parseMapMarkers(objects)).toThrowError(/#8.*noteId/);
+	});
+
 	it("沒有出生點時丟錯", () => {
 		const objects = createFixtureObjects().filter((obj) => obj.type !== "spawn");
 		expect(() => parseMapMarkers(objects)).toThrowError(/出生點/);

@@ -77,10 +77,21 @@ export const MAP_OBJECT_TYPES = {
 	room: "room",
 	/** 鎖門的位置，properties 含 `doorId`；每個甲板的出口門 doorId 都是 `airlock`（`EXIT_DOOR_ID`）。 */
 	door: "door",
+	/**
+	 * 地圖上的便條（設計文件 4.19）互動區，32x32 矩形，properties 含 `noteId`（內容在 `src/game/story/mapNotes.ts`）。
+	 * 便條本體壓在正上方牆面那一格，只有第 2 到 5 章有。
+	 */
+	note: "note",
 } as const;
 
 /** 終端機互動區的半徑（px），玩家中心進入這個距離就算「靠近」。 */
 export const TERMINAL_INTERACT_RADIUS = 40;
+
+/**
+ * 地圖便條互動區的半徑（px），跟終端機一樣。
+ * `scripts/build-map.mjs` 讓便條與終端機的互動區至少隔 3 格（96 px），兩邊的範圍不會重疊。
+ */
+export const NOTE_INTERACT_RADIUS = 40;
 
 /** 斷電時角色周圍的可見半徑（px），燈光遮罩用。 */
 export const LIGHT_RADIUS = 96;

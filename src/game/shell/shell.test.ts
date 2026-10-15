@@ -180,6 +180,14 @@ describe("Shell 狀態", () => {
 		expect(shell.prompt()).toBe("crew@kepler9:/deck1$");
 	});
 
+	it("提示符的帳號與主機可以注入（救援船終端機用），家目錄一樣顯示成 ~", () => {
+		const shell = createShell({ promptUserHost: "tech@argo" });
+		expect(shell.prompt()).toBe("tech@argo:~$");
+		shell.execute("cd /deck1");
+		expect(shell.prompt()).toBe("tech@argo:/deck1$");
+		expect(shell.execute("pwd").lines).toEqual(["/deck1"]);
+	});
+
 	it("cd 失敗時 cwd 不變", () => {
 		const shell = createShell();
 		shell.execute("cd wake_up.txt");
