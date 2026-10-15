@@ -38,13 +38,16 @@ export function commandIsLowercase(name: string, lower: string): string[] {
 	return [`找不到指令 \`${name}\`：指令名稱分大小寫，這裡的指令都是小寫，改打 \`${lower}\` 試試。`];
 }
 
-/** 常見但這台終端機沒有的程式（`vim`、`apt`、`python`、`ssh`、Windows 的 `dir`），依種類給替代做法。 */
+/**
+ * 常見但這台終端機沒有的程式（`vim`、`apt`、`python`、`ssh`、Windows 的 `dir`），依種類給替代做法。
+ * 編輯器只有 nano（4.22），所以 `vim`、`emacs` 這類說沒有、改用 nano。
+ */
 export function programNotInstalled(name: string, program: UnavailableProgram): string[] {
 	switch (program.kind) {
 		case "editor":
 			return [
-				`這台終端機沒有安裝 \`${name}\`。`,
-				"要寫檔案可以用 echo 加 >，例如 echo 文字 > 檔名，>> 是接在檔案結尾；要看檔案用 cat 或 less。",
+				`這台終端機沒有安裝 \`${name}\`，文字編輯器只有 nano。`,
+				"用 nano 檔名 打開或建立檔案，Ctrl+O 存檔、Ctrl+X 離開；只寫一行也可以用 echo 文字 > 檔名。",
 			];
 		case "package":
 			return [`這台終端機沒有 \`${name}\`，站上也沒辦法安裝新的程式。手邊的指令就夠用了，輸入 help 看看目前會的指令。`];
@@ -1043,4 +1046,74 @@ export function subcommandRefused(name: string): string[] {
 /** `tr` 不認得的字元類別，例如 `[:digits:]`。 */
 export function trInvalidClass(name: string): string[] {
 	return [`\`[:${name}:]\` 不是 tr 認得的字元類別，可以用 [:upper:]、[:lower:]、[:digit:]、[:space:]、[:alpha:]、[:alnum:]。`];
+}
+
+// ---------------------------------------------------------------------------
+// 第十九場：nano 編輯器（4.22）
+// 編輯器狀態列的訊息照 nano 的格式用 `[ ]` 包起來，一行；離開後印在輸出區的摘要也用同一種括號。
+// ---------------------------------------------------------------------------
+
+/** 打開既有檔案（nano：Read 3 lines）。 */
+export function editorReadLines(count: number): string[] {
+	return [`[ 已讀取 ${count} 行 ]`];
+}
+
+/** 打開不存在的檔案，存檔時才會建立（nano：New File）。 */
+export function editorNewFile(): string[] {
+	return ["[ 新檔案：按 Ctrl+O 存檔時才會建立 ]"];
+}
+
+/** `nano` 沒給檔名，開一個空白緩衝區。 */
+export function editorNewBuffer(): string[] {
+	return ["[ 新緩衝區：按 Ctrl+O 存檔時再輸入檔名 ]"];
+}
+
+/** `nano` 接在管線右邊，緩衝區是左邊指令的輸出。 */
+export function editorReadPipe(count: number): string[] {
+	return [`[ 已讀取 ${count} 行（| 左邊的輸出），按 Ctrl+O 存檔時再輸入檔名 ]`];
+}
+
+/** 打開的檔案沒有寫入權限（nano：File 'x' is unwritable）。照樣能看、能改，存檔要換檔名。 */
+export function editorUnwritable(fileName: string): string[] {
+	return [`[ 沒有 ${fileName} 的寫入權限，存不回去；可以按 Ctrl+O 改存成別的檔名 ]`];
+}
+
+/** 寫入成功（nano：Wrote 3 lines），編輯器的狀態列用。 */
+export function editorWrote(count: number): string[] {
+	return [`[ 已寫入 ${count} 行 ]`];
+}
+
+/** 寫入失敗，編輯器的狀態列用；內容還在編輯器裡，可以換檔名再存。 */
+export function editorWriteFailed(fileName: string, code: FsErrorCode): string[] {
+	let reason = "寫不進去";
+	if (code === "EACCES") {
+		reason = "沒有寫入權限";
+	} else if (code === "EISDIR") {
+		reason = "那是目錄";
+	} else if (code === "ENOENT") {
+		reason = "上層目錄不存在";
+	} else if (code === "ENOTDIR") {
+		reason = "路徑中間有一段是檔案";
+	}
+	return [`[ 無法寫入 ${fileName}：${reason}，換個檔名再按 Ctrl+O ]`];
+}
+
+/** 離開編輯器後印在終端機輸出區的摘要，每個寫過的檔案一行。 */
+export function editorWroteFile(fileName: string, count: number): string[] {
+	return [`[ nano 已寫入 ${fileName}，${count} 行 ]`];
+}
+
+/** `nano` 一次給了兩個以上的檔名（真的 nano 會開好幾個緩衝區，這裡只做一個）。 */
+export function nanoTooManyFiles(): string[] {
+	return ["nano 一次只能開一個檔案，例如 nano notes.txt；要看好幾個檔案用 cat 或 less。"];
+}
+
+/** `nano` 要建立的檔案上層目錄不存在。 */
+export function nanoParentMissing(path: string): string[] {
+	return [`\`${path}\` 的上層目錄不存在，nano 沒辦法在那裡建立檔案。先用 mkdir 建目錄，或檢查路徑有沒有拼錯。`];
+}
+
+/** 一行裡有兩個以上的 nano（`nano a ; nano b`）：只開第一個。 */
+export function nanoOneEditorPerLine(): string[] {
+	return ["一行只能開一個 nano，後面的 nano 沒有開；離開編輯器之後再打一次。"];
 }

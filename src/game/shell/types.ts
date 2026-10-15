@@ -380,7 +380,7 @@ export interface MissingSpaceSuggestion {
 
 /**
  * 常見但這台站沒有的程式，找不到指令時給專屬說明（第十七場）：
- * - editor：文字編輯器（`vim`、`nano`）
+ * - editor：文字編輯器（`vim`、`emacs`；站上的編輯器只有 `nano`）
  * - package：套件管理（`apt`、`pip`）
  * - language：程式語言（`python`、`node`）
  * - network：網路工具（`ssh`、`ping`）
@@ -473,6 +473,34 @@ export interface PagerOutput {
 	lines: string[];
 }
 
+/**
+ * 一次編輯請求（`nano`，第十九場 4.22）。UI 看到它就進全螢幕編輯器，緩衝區內容由 UI 持有，
+ * 存檔時呼叫 `Shell.writeEditorFile`，離開時有存過才呼叫 `Shell.finishEditor`。
+ */
+export interface EditorRequest {
+	/** 玩家打的檔名（相對或絕對照原樣）；`nano` 沒給檔名（含讀管線）時是 null，存檔時再問。 */
+	fileName: string | null;
+	/** 打開時緩衝區的內容：檔案原文、管線輸入，新檔案是空字串。 */
+	content: string;
+	/** 打開時狀態列顯示的訊息，例如 `[ 已讀取 3 行 ]`、`[ 新檔案 ]`。 */
+	notice: string;
+	/** 開啟當下的工作目錄。存檔時相對路徑照它解析，同一行後面的 `cd` 不影響。 */
+	cwd: string;
+}
+
+/** 編輯器一次成功的寫入。 */
+export interface EditorWrite {
+	/** 玩家打的檔名，原樣保留，離開時的摘要用。 */
+	fileName: string;
+	/** 解析後的絕對路徑，同一個檔案寫好幾次時摘要只列一次。 */
+	path: string;
+	/** 寫了幾行。 */
+	lineCount: number;
+}
+
+/** 編輯器寫檔的結果；`status` 是要顯示在編輯器狀態列的一行（成功或失敗的原因）。 */
+export type EditorWriteResult = { ok: true; write: EditorWrite; status: string } | { ok: false; status: string };
+
 /** 指令執行時拿到的環境，全部唯讀，指令透過回傳值表達要改什麼。 */
 export interface CommandContext {
 	/** 目前工作目錄，絕對路徑。 */
@@ -546,6 +574,11 @@ export interface CommandResult {
 	nextAliases?: Record<string, string>;
 	/** `less` 用：要求進分頁模式，見 `PagerOutput`。 */
 	pager?: PagerOutput;
+	/**
+	 * `nano` 用：要求開編輯器。只有在管線最後一個、而且沒有重導向時才會真的開；
+	 * 否則把 `lines`（檔案內容）當一般輸出，跟 `less` 一樣。
+	 */
+	editor?: EditorRequest;
 	/**
 	 * 結束碼，只有「不算錯誤的失敗」才需要給：`grep` 沒符合、`diff` 有差異、`which` 找不到回 1。
 	 * 沒給時由 `ok` 決定（true 是 0、false 是 1）。`&&` 看結束碼決定要不要跳過右邊（照 bash），
@@ -678,4 +711,9 @@ export interface ShellExecution {
 	 * 沒有指令替換時沒有這個欄位；一行串了好幾段時記在 `segments` 各段裡。
 	 */
 	substitutions?: string[];
+	/**
+	 * 要開的編輯器（`nano`，4.22）。UI 看到就進全螢幕編輯器（有分頁時先翻完分頁），離開後回到提示列；
+	 * 有存檔時 UI 再用 `Shell.finishEditor` 拿一次執行結果插進輸出區、交給目標判定。一行只開第一個 nano。
+	 */
+	editor?: EditorRequest;
 }

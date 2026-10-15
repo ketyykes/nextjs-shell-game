@@ -157,12 +157,11 @@ export function suggestLowercaseCommand(input: string, knownCommands: string[]):
 	return lower;
 }
 
-/** 常見但這台站沒有的程式。`sudo`、`exit` 是真的指令（彩蛋），不在這裡。 */
+/** 常見但這台站沒有的程式。`sudo`、`exit` 是真的指令（彩蛋），`nano` 是真的編輯器（4.22），都不在這裡。 */
 const UNAVAILABLE_PROGRAMS: Record<string, UnavailableProgram> = {
 	vim: { kind: "editor" },
 	vi: { kind: "editor" },
 	nvim: { kind: "editor" },
-	nano: { kind: "editor" },
 	emacs: { kind: "editor" },
 	apt: { kind: "package" },
 	"apt-get": { kind: "package" },

@@ -6,6 +6,7 @@
  *
  * - 讀到：這次看得到的輸出裡有某則還沒找到的留言的 signature（定義見 `@/game/story/abinNotes`）。
  *   收進存檔、在終端機輸出區插一行系統行「［已收進「阿彬的留言」n/8　Alt+A 打開］」，再通知外面。
+ *   用 nano 打開留言也算（4.22）：編輯器裡的內容跟 less 分頁一樣是玩家看得到的，接在輸出行後面一起看。
  * - 回信：只在第四章通訊紀錄終端機（請玩家回信的那則留言所在的那台），每道指令執行後讀 `/home/abin/reply.txt`，
  *   有非空白內容就把第一個非空行（整理過）存進存檔；之後再改就用最新的，刪掉或改成空白保留上一次的。
  *   不插系統行：回信的回應是第五、六章才出現的證據（`abinEvidenceFiles`）。
@@ -16,6 +17,7 @@
  */
 
 import { useCallback, useMemo } from "react";
+import { editorVisibleLines } from "@/game/shell/editor";
 import type { Shell } from "@/game/shell/shell";
 import type { ShellExecution } from "@/game/shell/types";
 import type { TerminalDefinition } from "@/game/story";
@@ -76,7 +78,9 @@ export function useAbinNotes({ onExecuted, shortcutLabel, onAbinEvent }: UseAbin
 	const handleExecuted = useCallback(
 		(definition: TerminalDefinition, shell: Shell, execution: ShellExecution): AbinNotesEvent | null => {
 			const store = useGameStore.getState();
-			const revealed = revealedAbinNotes(definition.id, execution, store.abinNotes.found);
+			// nano 打開的內容不在 lines 裡（不進輸出區），判定時接在後面
+			const visible = { ...execution, lines: [...execution.lines, ...editorVisibleLines(execution)] };
+			const revealed = revealedAbinNotes(definition.id, visible, store.abinNotes.found);
 			if (revealed.length > 0) {
 				store.markAbinNotesFound(revealed.map((note) => note.id));
 			}

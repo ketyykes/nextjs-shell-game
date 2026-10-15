@@ -4,10 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { fullwidthChar } from "@/game/shell/messages";
 import { findFullwidthChar } from "@/game/shell/parser/fullwidth";
 import type { Shell } from "@/game/shell/shell";
-import type { PagerRequest, ShellExecution } from "@/game/shell/types";
+import type { EditorRequest, EditorWrite, PagerRequest, ShellExecution } from "@/game/shell/types";
 import { TEXT_SPEED_MS } from "@/game/store/types";
 import type { OutputEntry, TextSpeed } from "@/game/store/types";
 import { DialogueBlock } from "./DialogueBlock";
+import { Editor, type EditorHandle } from "./Editor";
 import { OutputBlock } from "./OutputBlock";
 import { Pager, type PagerHandle } from "./Pager";
 import { PromptInput } from "./PromptInput";
@@ -39,6 +40,8 @@ const STICK_TO_BOTTOM_THRESHOLD_PX = 24;
  * 終端機彈窗：組合外框、輸出區與輸入列。
  * 鍵盤行為在 `useTerminalKeyboard`，這裡只管畫面與焦點、捲動。
  * 執行結果帶 `less` 的分頁請求時，輸出區與輸入列整塊藏起來，改顯示全螢幕分頁器（`Pager`），翻完回到原樣。
+ * 帶 `nano` 的編輯請求時同理改顯示全螢幕編輯器（`Editor`，4.22；同一行有分頁時先翻完分頁）；
+ * 離開時有存過檔，就跟 shell 拿一次執行結果，把寫入摘要插進輸出區並交給 `onExecuted`（存檔、目標判定照常）。
  */
 export function Terminal({
 	title,
@@ -54,6 +57,8 @@ export function Terminal({
 	const inputRef = useRef<HTMLInputElement>(null);
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const pagerRef = useRef<PagerHandle>(null);
+	const editorRef = useRef<EditorHandle>(null);
+	const editorEntryCountRef = useRef(0);
 	const stickToBottomRef = useRef(true);
 
 	// 掛載時就已存在的對話（例如重新打開終端機還原的紀錄）不重播打字動畫
@@ -63,15 +68,42 @@ export function Terminal({
 	const [pagerQueue, setPagerQueue] = useState<PagerRequest[]>([]);
 	const activePager = pagerQueue[0] ?? null;
 
+	// nano 的編輯請求（4.22）與開它的那一行原文；分頁翻完才顯示
+	const [editorSession, setEditorSession] = useState<{ request: EditorRequest; input: string } | null>(null);
+	let activeEditor: { request: EditorRequest; input: string } | null = null;
+	if (activePager === null) {
+		activeEditor = editorSession;
+	}
+	const isFullscreen = activePager !== null || activeEditor !== null;
+
 	const handleExecuted = useCallback(
 		(execution: ShellExecution) => {
 			if (execution.pagers !== undefined) {
 				setPagerQueue(execution.pagers);
 			}
+			if (execution.editor !== undefined) {
+				setEditorSession({ request: execution.editor, input: execution.input });
+			}
 			onExecuted?.(execution);
 		},
 		[onExecuted],
 	);
+
+	// 離開編輯器：沒存過什麼都不留；存過就插一行寫入摘要，再像一般指令一樣交給 onExecuted
+	const handleEditorExit = (writes: EditorWrite[]) => {
+		const session = editorSession;
+		setEditorSession(null);
+		if (session === null || writes.length === 0) {
+			return;
+		}
+		const execution = shell.finishEditor(session.input, writes);
+		editorEntryCountRef.current += 1;
+		onEntriesChange([
+			...entries,
+			{ kind: "system", id: `editor-${Date.now()}-${editorEntryCountRef.current}`, lines: execution.lines },
+		]);
+		onExecuted?.(execution);
+	};
 
 	const { value, handleChange, handleKeyDown, search } = useTerminalKeyboard({
 		shell,
@@ -82,9 +114,9 @@ export function Terminal({
 		inputRef,
 	});
 
-	// 離開分頁（或剛掛載）時捲回最底、焦點回到輸入框，畫面跟 bash 離開 less 後一樣停在提示列
+	// 離開分頁或編輯器（或剛掛載）時捲回最底、焦點回到輸入框，畫面跟 bash 離開 less 後一樣停在提示列
 	useEffect(() => {
-		if (activePager !== null) {
+		if (isFullscreen) {
 			return;
 		}
 		const element = scrollRef.current;
@@ -92,7 +124,7 @@ export function Terminal({
 			element.scrollTop = element.scrollHeight;
 		}
 		inputRef.current?.focus();
-	}, [activePager]);
+	}, [isFullscreen]);
 
 	// 有新區塊時捲到最底
 	useEffect(() => {
@@ -141,8 +173,18 @@ export function Terminal({
 			pagerRef.current?.focus();
 			return;
 		}
+		if (activeEditor !== null) {
+			editorRef.current?.focus();
+			return;
+		}
 		inputRef.current?.focus();
 	};
+
+	// 編輯器開著時「[Esc] 關閉」跟 Esc 一樣只離開編輯器（有沒存的修改先問），不直接關掉終端機丟掉內容
+	let handleClose = onClose;
+	if (activeEditor !== null) {
+		handleClose = () => editorRef.current?.requestExit();
+	}
 
 	// Ctrl+R 搜尋模式打的是關鍵字不是指令，不提醒全形字元（歷史裡本來就可能有打錯的全形字元）
 	let warning: string | undefined;
@@ -155,7 +197,7 @@ export function Terminal({
 
 	return (
 		<div className="flex h-full w-full max-w-4xl" onClick={focusInput}>
-			<TerminalFrame title={title} learnedCommands={learnedCommands} onClose={onClose} solved={solved}>
+			<TerminalFrame title={title} learnedCommands={learnedCommands} onClose={handleClose} solved={solved}>
 				{activePager !== null && (
 					<Pager
 						key={`pager-${pagerQueue.length}`}
@@ -164,10 +206,18 @@ export function Terminal({
 						onQuit={() => setPagerQueue((queue) => queue.slice(1))}
 					/>
 				)}
+				{activeEditor !== null && (
+					<Editor
+						ref={editorRef}
+						request={activeEditor.request}
+						onWrite={(fileName, content) => shell.writeEditorFile(activeEditor.request, fileName, content)}
+						onExit={handleEditorExit}
+					/>
+				)}
 				<div
 					ref={scrollRef}
 					onScroll={handleScroll}
-					hidden={activePager !== null}
+					hidden={isFullscreen}
 					className="min-h-0 flex-1 overflow-y-auto px-3 py-2"
 				>
 					<div role="log" aria-label="終端機輸出">

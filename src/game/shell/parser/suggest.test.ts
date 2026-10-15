@@ -191,7 +191,7 @@ describe("suggestLowercaseCommand", () => {
 describe("findUnavailableProgram", () => {
 	it("常見的編輯器、套件管理、程式語言、網路工具各自歸類", () => {
 		expect(findUnavailableProgram("vim")).toEqual({ kind: "editor" });
-		expect(findUnavailableProgram("nano")).toEqual({ kind: "editor" });
+		expect(findUnavailableProgram("emacs")).toEqual({ kind: "editor" });
 		expect(findUnavailableProgram("apt")).toEqual({ kind: "package" });
 		expect(findUnavailableProgram("python")).toEqual({ kind: "language" });
 		expect(findUnavailableProgram("ssh")).toEqual({ kind: "network" });
@@ -204,6 +204,11 @@ describe("findUnavailableProgram", () => {
 
 	it("大小寫不分", () => {
 		expect(findUnavailableProgram("VIM")).toEqual({ kind: "editor" });
+	});
+
+	it("nano 是真的指令（4.22），不在清單裡", () => {
+		expect(findUnavailableProgram("nano")).toBeNull();
+		expect(findUnavailableProgram("NANO")).toBeNull();
 	});
 
 	it("不在清單裡的回傳 null", () => {

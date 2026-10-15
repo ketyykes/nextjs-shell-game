@@ -18,6 +18,7 @@ import { joinContentLines, splitContentLines } from "./commands/cat";
 import { explainTargetOf } from "./commands/explain";
 import { commandAtInstallPath } from "./commands/which";
 import { complete as completeInput } from "./completion";
+import { editorWriteSummary, writeEditorFile } from "./editor";
 import { CommandHistory } from "./history";
 import {
 	commandIsLowercase,
@@ -25,6 +26,7 @@ import {
 	fsError,
 	fullPathCommand,
 	missingSpace,
+	nanoOneEditorPerLine,
 	parseError,
 	programNotInstalled,
 	similarCommand,
@@ -45,6 +47,9 @@ import type {
 	CommandResult,
 	CompletionResult,
 	ErrorRedirect,
+	EditorRequest,
+	EditorWrite,
+	EditorWriteResult,
 	PagerRequest,
 	ProcessInfo,
 	Redirect,
@@ -95,6 +100,8 @@ interface PipelineOutcome {
 	stderr: string[];
 	clearScreen: boolean;
 	pagers?: PagerRequest[];
+	/** 要開的編輯器（`nano`，4.22），同 `pagers` 只在管線最後、輸出直接到畫面時才有。 */
+	editor?: EditorRequest;
 }
 
 /**
@@ -392,6 +399,9 @@ export class Shell {
 		if (outcome.pagers !== undefined) {
 			execution.pagers = outcome.pagers;
 		}
+		if (outcome.editor !== undefined) {
+			execution.editor = outcome.editor;
+		}
 		if (substitutions.length > 0) {
 			execution.substitutions = substitutions;
 		}
@@ -452,6 +462,10 @@ export class Shell {
 			if (isLast && redirect === null && !this.capturingOutput && result.pager !== undefined) {
 				const routed = this.routeFailure(parsedCommand.stderr, result.pager.lines, clearScreen);
 				return { ...routed, ok: result.ok, exitStatus: exitStatusOf(result), pagers: [result.pager.request] };
+			}
+			// nano 同理：只有在管線最後、輸出直接到畫面時才開編輯器，其他位置把檔案內容當一般輸出（4.22）
+			if (isLast && redirect === null && !this.capturingOutput && result.editor !== undefined) {
+				return { ok: result.ok, exitStatus: exitStatusOf(result), stdout: [], stderr: [], clearScreen, editor: result.editor };
 			}
 			if (!result.ok) {
 				return this.routeFailure(parsedCommand.stderr, result.lines, clearScreen);
@@ -517,11 +531,13 @@ export class Shell {
 	/**
 	 * 把好幾段的結果合成整行的結果：輸出依序接起來，遇到清畫面的段落就丟掉它之前的輸出
 	 * （`ls ; clear ; pwd` 畫面上只剩 pwd 的輸出）；`ok` 由呼叫端依「失敗有沒有被 `||` 接住」決定。
+	 * 有兩個以上的段落要開編輯器（`nano a ; nano b`）時只開第一個，輸出最後多一行說明。
 	 */
 	private combineSegments(input: string, segments: ShellExecution[], ok: boolean): ShellExecution {
 		let lines: string[] = [];
 		let clearScreen = false;
 		const pagers: PagerRequest[] = [];
+		const editors: EditorRequest[] = [];
 		for (const segment of segments) {
 			if (segment.clearScreen) {
 				clearScreen = true;
@@ -529,13 +545,40 @@ export class Shell {
 			}
 			lines = [...lines, ...segment.lines];
 			pagers.push(...(segment.pagers ?? []));
+			if (segment.editor !== undefined) {
+				editors.push(segment.editor);
+			}
+		}
+		if (editors.length > 1) {
+			lines = [...lines, ...nanoOneEditorPerLine()];
 		}
 
 		const combined: ShellExecution = { ...this.finish(input, ok, lines, clearScreen), segments };
 		if (pagers.length > 0) {
 			combined.pagers = pagers;
 		}
+		if (editors.length > 0) {
+			combined.editor = editors[0];
+		}
 		return combined;
+	}
+
+	/**
+	 * nano 存檔（^O、^S、離開時存檔，4.22）：把緩衝區寫進檔案系統。
+	 * 相對路徑照開啟編輯器當下的工作目錄（`request.cwd`）解析，同一行後面的 `cd` 不影響。
+	 * 寫不進去（目錄、沒有寫入權限、上層目錄不存在）時不寫，回傳原因給編輯器的狀態列，不算錯誤。
+	 */
+	writeEditorFile(request: EditorRequest, fileName: string, content: string): EditorWriteResult {
+		return writeEditorFile(this.options.fs, request.cwd, fileName, content);
+	}
+
+	/**
+	 * 離開 nano 時有存過檔，組一次執行結果給 UI：插進輸出區，交給存檔與目標判定（`fileContains` 這類看檔案的目標）。
+	 * `input` 是開編輯器的那一行，`lines` 是每個寫過的檔案一行摘要，cwd、env、程序清單是現況。
+	 * 不進指令歷史；`hintUsed` 一律 false（那一行的 hint 在開編輯器那次已經算過）。沒存檔就離開時 UI 不呼叫這裡。
+	 */
+	finishEditor(input: string, writes: EditorWrite[]): ShellExecution {
+		return { ...this.finish(input, true, editorWriteSummary(writes), false), hintUsed: false };
 	}
 
 	/** Tab 補全，游標視為在輸入結尾。指令名的候選包含別名。 */

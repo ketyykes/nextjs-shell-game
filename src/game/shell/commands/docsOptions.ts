@@ -300,6 +300,7 @@ export const COMMAND_ARGS: Record<string, CommandArgsDoc> = {
 		style: "letters",
 		operands: ["command"],
 	},
+	nano: { options: [], style: "letters", operands: ["path"] },
 };
 
 /**

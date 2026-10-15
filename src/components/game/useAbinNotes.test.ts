@@ -175,3 +175,35 @@ describe("useAbinNotes：回信", () => {
 		expect(useGameStore.getState().abinNotes.reply).toBeNull();
 	});
 });
+
+describe("useAbinNotes：nano（4.22）", () => {
+	it("用 nano 打開留言也算讀到：編輯器裡的內容跟 less 分頁一樣是玩家看得到的", () => {
+		const { result } = setup();
+		const shell = resolveShell(new Map(), MEDBAY);
+
+		const event = run(result.current.handleExecuted, MEDBAY, shell, "nano .abin_jokes.txt");
+
+		expect(event?.found.map((note) => note.id)).toEqual(["ch1-jokes"]);
+		expect(useGameStore.getState().abinNotes.found).toEqual(["ch1-jokes"]);
+	});
+
+	it("用 nano 寫回信：離開編輯器時的執行結果一樣會讀 reply.txt", () => {
+		const { result } = setup();
+		const shell = resolveShell(new Map(), COMMS_ARCHIVE);
+		const request = shell.execute(`nano ${ABIN_REPLY_PATH}`).editor;
+		if (request === undefined) {
+			throw new Error("應該要有編輯請求");
+		}
+		const written = shell.writeEditorFile(request, ABIN_REPLY_PATH, "我在這裡");
+		if (!written.ok) {
+			throw new Error(written.status);
+		}
+
+		let event: AbinNotesEvent | null = null;
+		act(() => {
+			event = result.current.handleExecuted(COMMS_ARCHIVE, shell, shell.finishEditor(`nano ${ABIN_REPLY_PATH}`, [written.write]));
+		});
+
+		expect(event).toMatchObject({ reply: "我在這裡" });
+	});
+});
