@@ -12,6 +12,7 @@ import {
 	shadowFlashPosition,
 } from "../objects/effects";
 import { LightMask } from "../objects/LightMask";
+import { NoteZones } from "../objects/NoteZone";
 import { Player } from "../objects/Player";
 import { installPlayerProbe } from "../objects/playerProbe";
 import { PositionReporter, resolveSpawnPoint } from "../objects/position";
@@ -23,6 +24,7 @@ import { SCENE_KEYS } from "./keys";
 import {
 	parseMapMarkers,
 	type DoorMarker,
+	type NoteMarker,
 	type SpawnPoint,
 	type TerminalMarker,
 	type TiledObject,
@@ -71,6 +73,8 @@ export class Station extends Phaser.Scene {
 	public terminals: TerminalMarker[] = [];
 	public rooms: StationRoom[] = [];
 	public doors: DoorMarker[] = [];
+	/** 地圖便條（4.19），只有第 2 到 5 章有。 */
+	public notes: NoteMarker[] = [];
 	/** 這個甲板的走廊艙區（`corridor` 或 `<前綴>_corridor`），人影出現的地方。 */
 	private corridorRoomId: RoomId | undefined;
 
@@ -78,6 +82,8 @@ export class Station extends Phaser.Scene {
 
 	/** 終端機互動區：靠近發光、顯示「按 E」、按 E 發 `terminal:open`。 */
 	private terminalZones!: TerminalZones;
+	/** 地圖便條的互動區：靠近顯示「按 E」、按 E 發 `note:open`。靠近終端機時讓給終端機。 */
+	private noteZones!: NoteZones;
 	/** 艙區偵測：玩家走進新艙區時發 `room:enter`。 */
 	private roomTracker!: RoomTracker;
 	/** 角色走動後停下時發 `player:stopped`，React 存進存檔。 */
@@ -138,6 +144,7 @@ export class Station extends Phaser.Scene {
 
 		// 遮罩要在圖層與玩家之後建立，深度 50 才蓋得住地板與角色
 		this.terminalZones = new TerminalZones(this, this.terminals);
+		this.noteZones = new NoteZones(this, this.notes);
 		this.roomTracker = new RoomTracker(this.rooms);
 		this.positionReporter = new PositionReporter();
 		this.lightMask = new LightMask(this, map.widthInPixels, map.heightInPixels, this.terminals);
@@ -166,6 +173,7 @@ export class Station extends Phaser.Scene {
 			cleanedUp = true;
 			detachPlayerProbe();
 			this.terminalZones.destroy();
+			this.noteZones.destroy();
 			this.lightMask.destroy();
 			this.shadowFigure.destroy();
 			detachAudio();
@@ -185,10 +193,11 @@ export class Station extends Phaser.Scene {
 		emitGameEvent("scene:ready", { sceneKey: SCENE_KEYS.station });
 	}
 
-	/** 每幀更新：玩家移動、終端機互動、艙區偵測、燈光跟隨。 */
+	/** 每幀更新：玩家移動、終端機與便條互動、艙區偵測、燈光跟隨。 */
 	update(): void {
 		this.player.update();
 		this.terminalZones.update(this.player.x, this.player.y);
+		this.noteZones.update(this.player.x, this.player.y, this.terminalZones.nearbyTerminalId !== null);
 		const roomId = this.roomTracker.update(this.player.x, this.player.y);
 		this.positionReporter.update(this.player.x, this.player.y, roomId);
 		this.lightMask.update(this.player.x, this.player.y);
@@ -465,6 +474,7 @@ export class Station extends Phaser.Scene {
 		this.spawnPoint = markers.spawnPoint;
 		this.terminals = markers.terminals;
 		this.doors = markers.doors;
+		this.notes = markers.notes;
 		this.rooms = markers.rooms.map((room) => ({
 			roomId: room.roomId,
 			rect: new Phaser.Geom.Rectangle(room.rect.x, room.rect.y, room.rect.width, room.rect.height),
@@ -477,6 +487,7 @@ export class Station extends Phaser.Scene {
 	 *
 	 * 暫停由發 `terminal:open` 的一方（終端機互動邏輯）呼叫 `this.scene.pause()`，
 	 * 這裡收到 `terminal:open` 只負責關掉角色輸入；收到 `terminal:close` 負責恢復場景與輸入。
+	 * 地圖便條的 `note:open`／`note:close` 同一套做法（4.19），但不補存位置：讀便條不碰存檔。
 	 */
 	private subscribeEvents(): void {
 		this.unsubscribers.push(
@@ -488,12 +499,13 @@ export class Station extends Phaser.Scene {
 				this.positionReporter.flush(this.player.x, this.player.y, this.roomTracker.roomId);
 			}),
 			onGameEvent("terminal:close", () => {
-				if (this.scene.isPaused()) {
-					this.scene.resume();
-				}
-				// 暫停期間放開的鍵收不到 keyup，按住狀態可能卡著，先全部重設再交還控制
-				this.input.keyboard?.resetKeys();
-				this.player.setInputEnabled(true);
+				this.resumeFromOverlay();
+			}),
+			onGameEvent("note:open", () => {
+				this.player.setInputEnabled(false);
+			}),
+			onGameEvent("note:close", () => {
+				this.resumeFromOverlay();
 			}),
 			onGameEvent("puzzle:solved", ({ terminalId }) => {
 				this.playSolvedEffect(terminalId);
@@ -512,11 +524,13 @@ export class Station extends Phaser.Scene {
 			onGameEvent("game:pause", () => {
 				this.player.setInputEnabled(false);
 				this.terminalZones.setInteractEnabled(false);
+				this.noteZones.setInteractEnabled(false);
 			}),
 			onGameEvent("game:resume", () => {
 				this.input.keyboard?.resetKeys();
 				this.player.setInputEnabled(true);
 				this.terminalZones.setInteractEnabled(true);
+				this.noteZones.setInteractEnabled(true);
 			}),
 		);
 
@@ -526,6 +540,17 @@ export class Station extends Phaser.Scene {
 		// EventBus 是全域的，場景重啟（shutdown）或 game.destroy（destroy）都要清掉，避免殘留舊場景的 handler
 		this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.unsubscribeEvents, this);
 		this.events.once(Phaser.Scenes.Events.DESTROY, this.unsubscribeEvents, this);
+	}
+
+	/** 終端機或便條的閱讀視窗關掉：恢復場景，重設按鍵再交還角色控制。 */
+	private resumeFromOverlay(): void {
+		// pause 與 resume 都排到下一次 SceneManager 更新才生效。同一幀內開了又關（機器很忙時連按兩下 E），
+		// 這時 isPaused() 還是 false、pause 還在排隊，只在已暫停時才 resume 的話，排隊的 pause 生效後場景就卡住。
+		// 所以一律排一次 resume，排在 pause 後面；場景本來就在跑時 resume 什麼都不做
+		this.scene.resume();
+		// 暫停期間放開的鍵收不到 keyup，按住狀態可能卡著，先全部重設再交還控制
+		this.input.keyboard?.resetKeys();
+		this.player.setInputEnabled(true);
 	}
 
 	private unsubscribeEvents(): void {

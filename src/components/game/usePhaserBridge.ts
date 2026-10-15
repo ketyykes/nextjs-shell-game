@@ -24,6 +24,8 @@ export interface UsePhaserBridgeOptions {
 	onTerminalOpen: (terminalId: string) => void;
 	/** 玩家走進或離開終端機互動區，離開是 null。 */
 	onTerminalNearby: (terminalId: string | null) => void;
+	/** 玩家在地圖便條旁按 E（4.19）。 */
+	onNoteOpen: (noteId: string) => void;
 	/** Station 場景建立完成。 */
 	onSceneReady: () => void;
 	/** 角色走動後停下（只在艙區內）。 */
@@ -35,7 +37,7 @@ export interface UsePhaserBridgeOptions {
 /**
  * PlayScreen 與 Phaser 之間的接線（設計文件 3.1）：
  *
- * - Phaser → React：`terminal:open`、`terminal:nearby`、`scene:ready`、`player:stopped`、`room:enter` 五個訂閱，
+ * - Phaser → React：`terminal:open`、`terminal:nearby`、`note:open`、`scene:ready`、`player:stopped`、`room:enter` 六個訂閱，
  *   在掛載時訂一次、卸載時退訂。handler 用 `useEffectEvent` 包起來，永遠呼叫最新的版本，
  *   所以呼叫端傳 inline 函式也不會讓訂閱每次 render 拆掉重掛（審計 A4）。
  * - React → Phaser：設定的音量、靜音、閃爍變動時發 `audio:settings`、`effects:settings`。
@@ -45,12 +47,14 @@ export function usePhaserBridge({
 	settings,
 	onTerminalOpen,
 	onTerminalNearby,
+	onNoteOpen,
 	onSceneReady,
 	onPlayerStopped,
 	onRoomEnter,
 }: UsePhaserBridgeOptions): void {
 	const handleTerminalOpen = useEffectEvent(onTerminalOpen);
 	const handleTerminalNearby = useEffectEvent(onTerminalNearby);
+	const handleNoteOpen = useEffectEvent(onNoteOpen);
 	const handleSceneReady = useEffectEvent(onSceneReady);
 	const handlePlayerStopped = useEffectEvent(onPlayerStopped);
 	const handleRoomEnter = useEffectEvent(onRoomEnter);
@@ -72,6 +76,7 @@ export function usePhaserBridge({
 		const unsubscribers = [
 			onGameEvent("terminal:open", ({ terminalId }) => handleTerminalOpen(terminalId)),
 			onGameEvent("terminal:nearby", ({ terminalId }) => handleTerminalNearby(terminalId)),
+			onGameEvent("note:open", ({ noteId }) => handleNoteOpen(noteId)),
 			onGameEvent("scene:ready", () => handleSceneReady()),
 			onGameEvent("player:stopped", (position) => handlePlayerStopped(position)),
 			onGameEvent("room:enter", ({ roomId }) => handleRoomEnter(roomId)),

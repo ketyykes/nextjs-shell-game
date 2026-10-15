@@ -15,6 +15,13 @@ export interface GameEventMap {
 	"terminal:close": { terminalId: string };
 	/** Phaser 發：玩家走進或離開終端機互動區，HUD 可用它顯示「按 E」。離開時 terminalId 為 null。 */
 	"terminal:nearby": { terminalId: string | null };
+	/**
+	 * Phaser 發：玩家在地圖便條（設計文件 4.19）旁按 E，`NoteZones` 同時暫停場景。React 依 noteId 顯示閱讀視窗。
+	 * 跟終端機分開：靠近便條不發 `terminal:nearby`，目標面板不受影響。
+	 */
+	"note:open": { noteId: string };
+	/** React 發：玩家關閉便條的閱讀視窗。Phaser 恢復場景與角色輸入。 */
+	"note:close": { noteId: string };
 	/** React 發：某台終端機過關。Phaser 依 registry 的 `terminalEffects` 播對應演出（燈亮、門開、人影）。 */
 	"puzzle:solved": { terminalId: string };
 	/** Phaser 發：玩家走進某個艙區。React 觸發 NOVA 的進房台詞。 */

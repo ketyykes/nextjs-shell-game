@@ -2,8 +2,8 @@ import Phaser from "phaser";
 import { TERMINAL_INTERACT_RADIUS, TILE_SIZE } from "../constants";
 import { emitGameEvent } from "../EventBus";
 import type { TerminalMarker } from "../scenes/mapObjects";
+import { createInteractHint, INTERACT_HINT_OFFSET_Y } from "./interactHint";
 import { findNearestTerminal } from "./nearby";
-import { PIXEL_FONT_SIZE, pixelFontFamily } from "./pixelFont";
 
 /** 全息藍，與暫代角色同色。 */
 const HOLOGRAM_BLUE = 0x5fb3e8;
@@ -18,15 +18,11 @@ const GLOW_ALPHA_NEARBY = 0.5;
 /** 脈動單程時間（ms），yoyo 一來一回共兩倍。 */
 const GLOW_PULSE_DURATION = 900;
 
-/** 「按 E」提示在終端機中心上方的距離（px）。 */
-const HINT_OFFSET_Y = 28;
-
 /**
  * 深度配置（與 LightMask 的深度表一起看）：
- * 發光圓在地板之上、角色之下；提示文字要在黑色遮罩（深度 50）之上，不然會被蓋黑。
+ * 發光圓在地板之上、角色之下；「按 E」提示的深度見 `interactHint.ts`（在黑色遮罩之上）。
  */
 const GLOW_DEPTH = 5;
-const HINT_DEPTH = 60;
 
 /** 一台終端機的發光效果。 */
 interface TerminalGlow {
@@ -156,35 +152,9 @@ export class TerminalZones {
 		});
 	}
 
-	/**
-	 * 「按 E」提示，全場景共用一個 Text，靠近時搬到該終端機上方。
-	 * 字型用 next/font 載入的 Fusion Pixel（跟終端機的中文同一套），解析度 1 讓鏡頭放大時維持像素顆粒。
-	 */
+	/** 「按 E」提示，全場景的終端機共用一個 Text，靠近時搬到該終端機上方（樣式見 `interactHint.ts`）。 */
 	private createHintText(): void {
-		const fontFamily = pixelFontFamily((name) => getComputedStyle(document.documentElement).getPropertyValue(name));
-		this.hintText = this.scene.add.text(0, 0, "按 E", {
-			fontFamily,
-			fontSize: `${PIXEL_FONT_SIZE}px`,
-			color: "#5fb3e8",
-		});
-		this.hintText.setOrigin(0.5, 0.5);
-		this.hintText.setResolution(1);
-		this.hintText.setDepth(HINT_DEPTH);
-		this.hintText.setVisible(false);
-
-		// next/font 的 display: swap 讓字型可能還沒下載完；Phaser 的 Text 只在設定改變時重畫（setFontFamily 同名會略過），
-		// 所以載完後用 style.update(true) 重新量字並重畫
-		const hintText = this.hintText;
-		void document.fonts
-			.load(`${PIXEL_FONT_SIZE}px ${fontFamily}`, "按E")
-			.then(() => {
-				if (hintText.active) {
-					hintText.style.update(true);
-				}
-			})
-			.catch(() => {
-				// 載入失敗就維持 monospace 備援
-			});
+		this.hintText = createInteractHint(this.scene);
 	}
 
 	/**
@@ -223,7 +193,7 @@ export class TerminalZones {
 			this.hintText.setVisible(false);
 			return;
 		}
-		this.hintText.setPosition(nearest.x, nearest.y - HINT_OFFSET_Y);
+		this.hintText.setPosition(nearest.x, nearest.y - INTERACT_HINT_OFFSET_Y);
 		this.hintText.setVisible(true);
 	}
 }
