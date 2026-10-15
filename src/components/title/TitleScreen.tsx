@@ -46,9 +46,22 @@ export interface TitleScreenProps {
 	clearRecord?: ClearRecord;
 	/** 有給才顯示「存檔管理」（排在設定後面），匯出與匯入存檔（M14-2），沒有存檔也能進去匯入。 */
 	onManageSave?: () => void;
+	/** 有給才顯示「製作名單」（排在練習模式後面、最後一項），有沒有存檔都出現（設計文件 4.20）。 */
+	onCredits?: () => void;
+	/** 通關過（有 clearRecord）而且有給才顯示「下一步：真的終端機」，排在「通關紀錄」後面（設計文件 4.20）。 */
+	onRealWorld?: () => void;
 }
 
-type TitleAction = "continue" | "clearRecord" | "selectChapter" | "newGame" | "settings" | "manageSave" | "practice";
+type TitleAction =
+	| "continue"
+	| "clearRecord"
+	| "realWorld"
+	| "selectChapter"
+	| "newGame"
+	| "settings"
+	| "manageSave"
+	| "practice"
+	| "credits";
 
 /** 選單下方顯示的內容：主選單、新遊戲覆蓋確認、選章清單、重玩某章的確認。 */
 type TitlePanel =
@@ -73,6 +86,8 @@ interface MenuConditions {
 	finished: boolean;
 	hasClearRecord: boolean;
 	canManageSave: boolean;
+	canShowCredits: boolean;
+	canShowRealWorld: boolean;
 }
 
 /** 依有沒有存檔、通關與否、到過幾章、有哪些入口決定選單項目。 */
@@ -83,6 +98,10 @@ function buildItems(conditions: MenuConditions): TitleItem[] {
 	}
 	if (conditions.hasSave && conditions.hasClearRecord) {
 		items.push({ action: "clearRecord", label: "通關紀錄" });
+	}
+	// 跟「通關紀錄」同一個條件：通關過才出現
+	if (conditions.hasSave && conditions.hasClearRecord && conditions.canShowRealWorld) {
+		items.push({ action: "realWorld", label: "下一步：真的終端機" });
 	}
 	if (conditions.hasSave && conditions.canSelectChapter) {
 		items.push({ action: "selectChapter", label: "選章" });
@@ -95,12 +114,15 @@ function buildItems(conditions: MenuConditions): TitleItem[] {
 	if (conditions.canPractice) {
 		items.push({ action: "practice", label: "練習模式" });
 	}
+	if (conditions.canShowCredits) {
+		items.push({ action: "credits", label: "製作名單" });
+	}
 	return items;
 }
 
 /**
  * 標題畫面（設計文件 4.7）：黑底、KEPLER-9 像素標題、CRT 掃描線，選單「繼續／新遊戲／設定」，
- * 依存檔狀態再加「通關紀錄」「選章」，以及「存檔管理」與練習模式入口。
+ * 依存檔狀態再加「通關紀錄」「下一步：真的終端機」「選章」，以及「存檔管理」、練習模式與製作名單入口。
  *
  * 鍵盤：↑↓ 選擇、Enter 確認。有存檔時按「新遊戲」先跳內嵌確認面板（預設選「取消」）。
  */
@@ -118,6 +140,8 @@ export function TitleScreen({
 	finished = false,
 	clearRecord,
 	onManageSave,
+	onCredits,
+	onRealWorld,
 }: TitleScreenProps) {
 	const canSelectChapter = chapters.length >= 2 && onSelectChapter !== undefined;
 	const items = buildItems({
@@ -127,6 +151,8 @@ export function TitleScreen({
 		finished,
 		hasClearRecord: clearRecord !== undefined,
 		canManageSave: onManageSave !== undefined,
+		canShowCredits: onCredits !== undefined,
+		canShowRealWorld: onRealWorld !== undefined,
 	});
 	const [panel, setPanel] = useState<TitlePanel>({ kind: "menu" });
 
@@ -145,6 +171,14 @@ export function TitleScreen({
 		}
 		if (item.action === "practice") {
 			onPractice?.();
+			return;
+		}
+		if (item.action === "credits") {
+			onCredits?.();
+			return;
+		}
+		if (item.action === "realWorld") {
+			onRealWorld?.();
 			return;
 		}
 		if (item.action === "manageSave") {

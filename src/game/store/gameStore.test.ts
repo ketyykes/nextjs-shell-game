@@ -330,6 +330,15 @@ describe("resetSave", () => {
 		expect(after.abinNotes).toEqual({ found: [], reply: null });
 		expect(after.settings).toEqual({ ...DEFAULT_SETTINGS, flickerEnabled: false, volume: 0.3 });
 	});
+
+	it("新遊戲不清光敏確認的旗標，標題不會再問一次（設計文件 4.20）", () => {
+		useGameStore.getState().updateSettings({ flickerEnabled: false, flickerPromptSeen: true });
+
+		useGameStore.getState().resetSave();
+
+		expect(useGameStore.getState().settings.flickerPromptSeen).toBe(true);
+		expect(useGameStore.getState().settings.flickerEnabled).toBe(false);
+	});
 });
 
 describe("章節", () => {
@@ -682,6 +691,26 @@ describe("persist", () => {
 		await useGameStore.persist.rehydrate();
 
 		expect(useGameStore.getState().settings).toEqual({ ...DEFAULT_SETTINGS, textSpeed: "slow" });
+	});
+
+	it("光敏確認上線前的存檔沒有那個旗標：讀進來是還沒問過，閃爍設定照舊（設計文件 4.20）", async () => {
+		const oldSettings = {
+			textSpeed: "fast",
+			flickerEnabled: true,
+			scanlinesEnabled: true,
+			vignetteEnabled: true,
+			volume: 0.8,
+			muted: false,
+		};
+		localStorage.setItem(
+			SAVE_STORAGE_KEY,
+			JSON.stringify({ state: { ...createInitialSaveData(), settings: oldSettings }, version: SAVE_VERSION }),
+		);
+
+		await useGameStore.persist.rehydrate();
+
+		expect(useGameStore.getState().settings.flickerPromptSeen).toBe(false);
+		expect(useGameStore.getState().settings.flickerEnabled).toBe(true);
 	});
 
 	it("v1 存檔一路升級到 v4：最遠章節等於目前章節、沒有位置、沒通關、統計與阿彬留言是空的，其他資料原樣保留", async () => {

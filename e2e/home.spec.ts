@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { answerFlickerPrompt } from "./helpers/title";
 
 /** M7 完成定義：標題 → 新遊戲 → 選角 → boot log → 地圖；關掉再開能按「繼續」。 */
 test.describe("標題畫面", () => {
@@ -6,6 +7,8 @@ test.describe("標題畫面", () => {
 		await page.goto("/");
 		await page.evaluate(() => window.localStorage.clear());
 		await page.reload();
+		// 沒有存檔先疊光敏確認（4.20），選完才輪到標題選單
+		await answerFlickerPrompt(page);
 		// 讀檔完成、標題選單掛上鍵盤監聽之前按的鍵會被吃掉，先等選單出現
 		await expect(page.getByRole("button", { name: "新遊戲" })).toBeVisible();
 	});
@@ -69,7 +72,11 @@ test.describe("觸控裝置提示", () => {
 		await page.evaluate(() => window.localStorage.clear());
 		await page.reload();
 
+		// 光敏確認排在觸控提示前面（4.20），選完觸控提示才出現
 		const warning = page.getByRole("alertdialog", { name: "本遊戲需要實體鍵盤" });
+		await expect(page.getByRole("alertdialog", { name: "光敏提醒" })).toBeVisible();
+		await expect(warning).toHaveCount(0);
+		await answerFlickerPrompt(page);
 		await expect(warning).toBeVisible();
 
 		// 接實體鍵盤的平板：Enter 只關掉提示，不會同一下就觸發標題選單的「新遊戲」
@@ -87,6 +94,7 @@ test.describe("觸控裝置提示", () => {
 
 	test("點「仍要繼續」略過提示", async ({ page }) => {
 		await page.goto("/");
+		await answerFlickerPrompt(page);
 		const warning = page.getByRole("alertdialog", { name: "本遊戲需要實體鍵盤" });
 		await expect(warning).toBeVisible();
 		await page.getByRole("button", { name: "仍要繼續" }).tap();

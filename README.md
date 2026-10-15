@@ -69,3 +69,5 @@ pnpm build        # 正式建置（三個路由都是靜態輸出）
 | 繁中像素字型 | [Fusion Pixel Font](https://github.com/TakWolf/fusion-pixel-font)（TakWolf） | OFL-1.1 |
 | 英數像素字型 | VT323、Press Start 2P（Google Fonts） | OFL |
 | 角色 sprite 與場景插圖 | AI 產生（OpenAI codex），再以腳本重切對齊 | — |
+
+遊戲內 `/credits`（標題選單的「製作名單」）也列出這些素材，字型與音效的授權全文放在 `public/licenses/` 隨網站散佈。

@@ -224,6 +224,35 @@ describe("TitleScreen", () => {
 			expect(screen.queryByRole("button", { name: "通關紀錄" })).toBeNull();
 		});
 
+		it("通關過才有「下一步：真的終端機」，排在「通關紀錄」後面，按下呼叫 onRealWorld（設計文件 4.20）", () => {
+			const onRealWorld = vi.fn();
+			renderTitle({ hasSave: true, finished: true, clearRecord: RECORD, onRealWorld });
+			const names = screen.getAllByRole("button").map((button) => button.textContent?.trim());
+			expect(names.slice(0, 2)).toEqual([
+				expect.stringContaining("通關紀錄"),
+				expect.stringContaining("下一步：真的終端機"),
+			]);
+
+			press("ArrowDown");
+			press("Enter");
+			expect(onRealWorld).toHaveBeenCalledTimes(1);
+		});
+
+		it("選章重玩後「繼續」回來時，「下一步：真的終端機」照樣跟在「通關紀錄」後面", () => {
+			renderTitle({ hasSave: true, clearRecord: RECORD, onRealWorld: vi.fn() });
+			const names = screen.getAllByRole("button").map((button) => button.textContent?.trim());
+			expect(names.slice(0, 3)).toEqual([
+				expect.stringContaining("繼續"),
+				expect.stringContaining("通關紀錄"),
+				expect.stringContaining("下一步：真的終端機"),
+			]);
+		});
+
+		it("沒通關就沒有「下一步：真的終端機」，就算給了 onRealWorld", () => {
+			renderTitle({ hasSave: true, onRealWorld: vi.fn() });
+			expect(screen.queryByRole("button", { name: "下一步：真的終端機" })).toBeNull();
+		});
+
 		it("通關紀錄列出每章與總計，沒紀錄的章節顯示破折號；Esc 回標題選單", () => {
 			renderTitle({ hasSave: true, finished: true, clearRecord: RECORD });
 			fireEvent.click(screen.getByRole("button", { name: "通關紀錄" }));
@@ -252,6 +281,43 @@ describe("TitleScreen", () => {
 
 			fireEvent.click(screen.getByRole("button", { name: "存檔管理" }));
 			expect(onManageSave).toHaveBeenCalledTimes(1);
+		});
+	});
+
+	describe("製作名單（設計文件 4.20）", () => {
+		it("沒給 onCredits 時不顯示", () => {
+			renderTitle({ onPractice: vi.fn() });
+			expect(screen.queryByRole("button", { name: "製作名單" })).toBeNull();
+		});
+
+		it("沒有存檔也有「製作名單」，排在練習模式後面、是最後一項；↑ 從第一項繞到它，Enter 呼叫 onCredits", () => {
+			const onCredits = vi.fn();
+			const props = renderTitle({ hasSave: false, onManageSave: vi.fn(), onPractice: vi.fn(), onCredits });
+			const names = screen.getAllByRole("button").map((button) => button.textContent?.trim());
+			expect(names).toEqual(
+				["新遊戲", "設定", "存檔管理", "練習模式", "製作名單"].map((name) => expect.stringContaining(name)),
+			);
+
+			press("ArrowUp");
+			press("Enter");
+			expect(onCredits).toHaveBeenCalledTimes(1);
+			expect(props.onNewGame).not.toHaveBeenCalled();
+		});
+
+		it("通關後的選單也是最後一項，滑鼠點了呼叫 onCredits", () => {
+			const onCredits = vi.fn();
+			renderTitle({
+				hasSave: true,
+				finished: true,
+				clearRecord: { chapters: [{ number: 1, label: "第一章 冷凍艙" }], stats: {} },
+				onPractice: vi.fn(),
+				onCredits,
+			});
+			const names = screen.getAllByRole("button").map((button) => button.textContent?.trim());
+			expect(names[names.length - 1]).toContain("製作名單");
+
+			fireEvent.click(screen.getByRole("button", { name: "製作名單" }));
+			expect(onCredits).toHaveBeenCalledTimes(1);
 		});
 	});
 
