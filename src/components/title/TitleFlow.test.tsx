@@ -189,5 +189,14 @@ describe("TitleFlow 的通關狀態（M14-1）", () => {
 
 		expect(screen.getByTestId("title-subtitle").textContent).toBe("NOVA 核心 · 第六章");
 		expect(screen.queryByRole("button", { name: "通關紀錄" })).toBeNull();
+		expect(screen.queryByRole("button", { name: "下一步：真的終端機" })).toBeNull();
+	});
+
+	it("通關過：「下一步：真的終端機」進 /real-world（設計文件 4.20）", async () => {
+		await renderWithSave(finishedSave());
+
+		fireEvent.click(screen.getByRole("button", { name: "下一步：真的終端機" }));
+
+		expect(push).toHaveBeenCalledWith("/real-world");
 	});
 });

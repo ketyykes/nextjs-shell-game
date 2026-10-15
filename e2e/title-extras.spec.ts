@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { seedSave } from "./helpers/deck";
 import { answerFlickerPrompt } from "./helpers/title";
 
 /** 設計文件 4.20：光敏首次確認、製作名單 /credits、真實世界橋接頁 /real-world。 */
@@ -71,4 +72,37 @@ test("製作名單：沒有存檔也在標題選單最後一項，進 /credits �
 		expect(response.status(), file).toBe(200);
 		expect(await response.text()).toContain(text);
 	}
+});
+
+test("通關過的存檔：標題的「通關紀錄」後面多一項「下一步：真的終端機」，進 /real-world 後 Esc 與「返回標題」都回得去", async ({
+	page,
+}) => {
+	// 第六章片尾看完的舊存檔：migrate 直接算已逃離（存檔 v3 的升級規則）
+	await seedSave(page, { chapter: 6, flags: ["ch6.introShown", "ch6.outroShown"] });
+	await page.reload();
+	await expect(page.getByTestId("title-subtitle")).toHaveText("已逃離 Kepler-9");
+
+	const menuItems = page.getByRole("navigation", { name: "標題選單" }).getByRole("button");
+	await expect(menuItems.nth(0)).toHaveText(/通關紀錄/);
+	await expect(menuItems.nth(1)).toHaveText(/下一步：真的終端機/);
+	await page.getByRole("button", { name: "下一步：真的終端機" }).click();
+
+	await expect(page).toHaveURL(/\/real-world$/);
+	await expect(page.getByRole("heading", { level: 1, name: "下一步：真的終端機" })).toBeVisible();
+	await expect(page.getByRole("region", { name: "打開終端機" })).toContainText("wsl --install");
+	await page.keyboard.press("Escape");
+	await expect(page).toHaveURL(/:\d+\/$/);
+	await expect(page.getByTestId("title-subtitle")).toHaveText("已逃離 Kepler-9");
+
+	await page.goto("/real-world");
+	await page.getByRole("link", { name: "返回標題" }).last().click();
+	await expect(page).toHaveURL(/:\d+\/$/);
+	await expect(page.getByRole("button", { name: "下一步：真的終端機" })).toBeVisible();
+});
+
+test("沒通關的存檔沒有「下一步：真的終端機」", async ({ page }) => {
+	await seedSave(page, { chapter: 3 });
+	await page.reload();
+	await expect(page.getByRole("button", { name: "繼續" })).toBeVisible();
+	await expect(page.getByRole("button", { name: "下一步：真的終端機" })).toHaveCount(0);
 });

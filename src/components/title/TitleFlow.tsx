@@ -10,6 +10,7 @@
  * 練習模式：不看存檔，直接進 /sandbox（設計文件 4.11）。製作名單：同樣不看存檔，進 /credits（設計文件 4.20）。
  * 存檔管理（M14-2）：匯出與匯入存檔，匯入成功後整頁重新載入讓 store 重新讀檔。
  * 通關（M14-1）：片尾播完回來時副標換成「已逃離 Kepler-9」、「繼續」換成「通關紀錄」；選章重玩後「繼續」回來。
+ * 通關過的「通關紀錄」後面多一項「下一步：真的終端機」，進 /real-world（設計文件 4.20）。
  */
 
 import { useRouter } from "next/navigation";
@@ -138,6 +139,10 @@ function TitleFlowReady() {
 		router.push("/credits");
 	}, [router]);
 
+	const goToRealWorld = useCallback(() => {
+		router.push("/real-world");
+	}, [router]);
+
 	const handleSelectChapter = useCallback(
 		(chapter: number) => {
 			if (!selectChapter(chapter)) {
@@ -201,6 +206,7 @@ function TitleFlowReady() {
 				onPractice={goToSandbox}
 				onManageSave={() => setSaveManagerOpen(true)}
 				onCredits={goToCredits}
+				onRealWorld={goToRealWorld}
 				keyboardEnabled={!settingsOpen && !saveManagerOpen && !touchWarningVisible && !flickerPromptVisible}
 				crt={{
 					scanlines: settings.scanlinesEnabled,

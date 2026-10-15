@@ -9,8 +9,9 @@ describe("sitemap", () => {
 		expect(urls.some((url) => url.endsWith("/play"))).toBe(false);
 	});
 
-	it("列製作名單（設計文件 4.20）", () => {
+	it("列製作名單與真實世界橋接頁（設計文件 4.20）", () => {
 		const urls = sitemap().map((entry) => entry.url);
 		expect(urls.some((url) => url.endsWith("/credits"))).toBe(true);
+		expect(urls.some((url) => url.endsWith("/real-world"))).toBe(true);
 	});
 });

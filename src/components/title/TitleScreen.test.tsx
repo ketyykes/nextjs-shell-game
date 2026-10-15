@@ -224,6 +224,35 @@ describe("TitleScreen", () => {
 			expect(screen.queryByRole("button", { name: "通關紀錄" })).toBeNull();
 		});
 
+		it("通關過才有「下一步：真的終端機」，排在「通關紀錄」後面，按下呼叫 onRealWorld（設計文件 4.20）", () => {
+			const onRealWorld = vi.fn();
+			renderTitle({ hasSave: true, finished: true, clearRecord: RECORD, onRealWorld });
+			const names = screen.getAllByRole("button").map((button) => button.textContent?.trim());
+			expect(names.slice(0, 2)).toEqual([
+				expect.stringContaining("通關紀錄"),
+				expect.stringContaining("下一步：真的終端機"),
+			]);
+
+			press("ArrowDown");
+			press("Enter");
+			expect(onRealWorld).toHaveBeenCalledTimes(1);
+		});
+
+		it("選章重玩後「繼續」回來時，「下一步：真的終端機」照樣跟在「通關紀錄」後面", () => {
+			renderTitle({ hasSave: true, clearRecord: RECORD, onRealWorld: vi.fn() });
+			const names = screen.getAllByRole("button").map((button) => button.textContent?.trim());
+			expect(names.slice(0, 3)).toEqual([
+				expect.stringContaining("繼續"),
+				expect.stringContaining("通關紀錄"),
+				expect.stringContaining("下一步：真的終端機"),
+			]);
+		});
+
+		it("沒通關就沒有「下一步：真的終端機」，就算給了 onRealWorld", () => {
+			renderTitle({ hasSave: true, onRealWorld: vi.fn() });
+			expect(screen.queryByRole("button", { name: "下一步：真的終端機" })).toBeNull();
+		});
+
 		it("通關紀錄列出每章與總計，沒紀錄的章節顯示破折號；Esc 回標題選單", () => {
 			renderTitle({ hasSave: true, finished: true, clearRecord: RECORD });
 			fireEvent.click(screen.getByRole("button", { name: "通關紀錄" }));

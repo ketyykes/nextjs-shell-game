@@ -4,13 +4,14 @@ import type { MetadataRoute } from "next";
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
 /**
- * 列標題頁、練習模式與製作名單（設計文件 4.20）；
+ * 列標題頁、練習模式、製作名單與真實世界橋接頁（設計文件 4.20）；
  * /play 沒有存檔會被導回標題，也帶 noindex（見 play/page.tsx）。
  */
 export default function sitemap(): MetadataRoute.Sitemap {
 	return [
 		{ url: SITE_URL, priority: 1 },
 		{ url: `${SITE_URL}/sandbox`, priority: 0.5 },
+		{ url: `${SITE_URL}/real-world`, priority: 0.4 },
 		{ url: `${SITE_URL}/credits`, priority: 0.3 },
 	];
 }
