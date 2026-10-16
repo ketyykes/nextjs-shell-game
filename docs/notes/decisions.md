@@ -187,4 +187,5 @@
 | 147 | 第二批音效推翻 4.10「只做五種」（Danny 允許）：心跳 20% 以下循環、音量 0.25 到 0.85 乘設定；低語 0.3，第 9 次錯誤 NOVA 說話那刻與第六章第一次進核心艙；音檔用 `scripts/synth-audio.mjs` 自產（CC0），ogg 用 ffmpeg 內建 vorbis、單聲道 `pan` 成雙聲道；`sfx:play heartbeat` 被忽略 | 不另外找授權素材；Homebrew ffmpeg 沒有 libvorbis | `audio.ts`、`useHeartbeat.ts`、`synth-audio.mjs` |
 | 148 | 合併時的調整：explain 補上 `\|\|`、`<`、`2>` 系列的說明（`SyntaxSymbol` 擴充）；選項表補七個新指令與 nano；`PlayScreen` 的 Phaser 訂閱數 5 → 7（便條、心跳各一）；字型子集在 main 重切一次（1427 字） | 各分支獨立開發看不到彼此 | 各檔 |
 | 149 | 還沒做、列為後續（「提前用上的認可」認新語法在收尾前補上了，`cat < 檔案` 這種寫法因為 `catFile` 看 cat 的參數仍過不了關）：`novaReactions` 看不到 `$( )` 裡的指令；拼字建議 `tre`、`true` 會先被判成「忘記空格 tr e」；`ls -l \| grep` 與 alias 包住的指令不標欄位說明；螢幕閱讀器會讀到亂碼 | 時間到四點前先收尾 | 見 progress.md 第 5 節 |
+| 150 | 拿掉低氧的終端機文字亂碼（Danny 2026-10-16 決定），低氧只留 NOVA 斷句、心跳聲與 HUD 的「缺氧：顯示不穩」；`displayGlitch.ts` 改名 `novaStutter.ts`、`DisplayInstability` 只剩 `stutter`、`OutputBlock` 不再讀 context | 要錯 81 次以上才碰到，碰到的正是最需要讀清楚的新手；錯誤訊息（4.8 的教學手段）與要照抄進下一步的值會被弄壞，越錯越看不懂。推翻 #146 的亂碼部分 | 要加回來就還原 `glitchLines`（git 歷史 a8b7e9b 的 `displayGlitch.ts`）並在 `OutputBlock` 接回 context |
 

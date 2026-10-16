@@ -14,6 +14,7 @@
 - 驗證：`pnpm test --run` 208 檔 4718 全綠，tsc、lint、build 乾淨，`PORT=3500 pnpm test:e2e` 77 條全綠（修完順序斷言重跑那條）。沒有真人試玩，音效沒人耳聽過。
 - 文件：`game-design.md` 4.15 到 4.25 由各 agent 寫定案，我補 3.1、3.3、4.3、4.6、4.7、4.8、4.9、4.11、6.1 的連動；`notes/decisions.md` #128 到 #149；`notes/pitfalls.md` 八條；`CLAUDE.md` 目錄與指令；`README.md`；`cheatsheet.html` 加「第十九場的新東西」。
 - commit：38c9b1d 起約 75 筆（各 agent 的 feat／test／docs 加合併與修正），未 push，Danny 自己決定何時 push。
+- 收尾後 Danny 問「低氧亂碼會不會打到最需要照抄 hint 的新手」，我評估後他選「拿掉文字亂碼，只留 NOVA 斷句、心跳聲與 HUD 標示」：刪 `glitchLines` 與 `useDisplayedOutputLines`，`displayGlitch.ts` 改名 `novaStutter.ts`，測試、e2e、4.25、密技同步（#150）。
 - 下一步：Danny 試玩與確認 #128 起的決策；第 5 節列的後續小項；試聽兩個自產音效。
 
 ### 2026-10-16（第十八場，整理 docs/ 資料夾）

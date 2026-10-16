@@ -870,7 +870,7 @@
 		<li><strong>欄位說明</strong>：<code>ls -l</code>、<code>ps</code>、<code>top</code>、<code>last</code> 的輸出右側有「[?] 欄位說明」，第一次自動展開。</li>
 		<li><strong>nano</strong>：Ctrl+O 寫入、Ctrl+X 離開（Esc 也可以）、Ctrl+W 搜尋；用 nano 寫檔也能過關、也算讀到阿彬的留言。</li>
 		<li><strong>便條</strong>：第二到五章每章兩張（入口一張、另一間房一張），走近按 E 讀，純氣氛不影響過關；位置在 <code>src/game/story/mapNotes.ts</code>。</li>
-		<li><strong>低氧</strong>：O2 低於 20% 時輸出會有亂碼、NOVA 斷句、心跳聲；提示列與 hint、help、explain 的輸出照原文，過關回 100% 就恢復。跳章程式種 <code>oxygen: 12</code> 可以直接看。</li>
+		<li><strong>低氧</strong>：O2 低於 20% 時 NOVA 斷句、心跳聲、HUD 標「缺氧：顯示不穩」；終端機的文字完全不動（亂碼已拿掉），過關回 100% 就恢復。跳章程式種 <code>oxygen: 12</code> 可以直接看。</li>
 		<li><strong>通關後的標題</strong>：多了「救援船 ARGO」（可玩的尾聲，<code>ps</code> 看得到 nova、kill 不掉）、「檔案櫃」（六章關鍵檔案與時間軸）、「下一步：真的終端機」（/real-world）；「製作名單」（/credits）隨時都在。片尾最後一句按 Enter 先出「連線救援船終端機」。</li>
 		<li><strong>第一次進站</strong>會先問要不要關閉閃爍（存在設定的 <code>flickerPromptSeen</code>，跳章程式種存檔時記得帶 <code>true</code>）；兩個分頁同時玩時，後寫入的贏，先開的分頁會停止存檔並提示重新載入。</li>
 	</ul>
