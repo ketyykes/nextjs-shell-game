@@ -2,15 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { OXYGEN_CRITICAL_THRESHOLD, OXYGEN_LOW_THRESHOLD } from "@/game/store/selectors";
 import { OXYGEN_MIN } from "@/game/store/types";
-import {
-	displayInstabilityFor,
-	GLITCH_RATE_MAX,
-	GLITCH_RATE_MIN,
-	glitchRateFor,
-	heartbeatFor,
-	isOxygenCritical,
-	shouldWhisperOnRoomEnter,
-} from "./lowOxygen";
+import { displayInstabilityFor, heartbeatFor, isOxygenCritical, shouldWhisperOnRoomEnter } from "./lowOxygen";
 
 describe("低氧門檻", () => {
 	it("顯示不穩的門檻是 20%，比 30% 的暗角低", () => {
@@ -26,40 +18,13 @@ describe("低氧門檻", () => {
 	});
 });
 
-describe("glitchRateFor（亂碼比例）", () => {
-	it("20% 以上是 0", () => {
-		expect(glitchRateFor(100)).toBe(0);
-		expect(glitchRateFor(30)).toBe(0);
-		expect(glitchRateFor(20)).toBe(0);
-	});
-
-	it("19% 是最低比例 2%，最低氧氣 5% 是最高比例 8%", () => {
-		expect(GLITCH_RATE_MIN).toBe(0.02);
-		expect(GLITCH_RATE_MAX).toBe(0.08);
-		expect(glitchRateFor(19)).toBeCloseTo(GLITCH_RATE_MIN);
-		expect(glitchRateFor(OXYGEN_MIN)).toBeCloseTo(GLITCH_RATE_MAX);
-	});
-
-	it("氧氣越低比例越高，低於下限也不超過最高比例", () => {
-		let previous = 0;
-		for (let oxygen = 19; oxygen >= OXYGEN_MIN; oxygen -= 1) {
-			const rate = glitchRateFor(oxygen);
-			expect(rate).toBeGreaterThan(previous);
-			previous = rate;
-		}
-		expect(glitchRateFor(0)).toBeCloseTo(GLITCH_RATE_MAX);
-	});
-});
-
 describe("displayInstabilityFor", () => {
 	it("20% 以上完全穩定", () => {
-		expect(displayInstabilityFor(20)).toEqual({ glitchRate: 0, stutter: false });
+		expect(displayInstabilityFor(20)).toEqual({ stutter: false });
 	});
 
-	it("低於 20% 時亂碼與斷句一起開", () => {
-		const instability = displayInstabilityFor(12);
-		expect(instability.glitchRate).toBeCloseTo(glitchRateFor(12));
-		expect(instability.stutter).toBe(true);
+	it("低於 20% 時 NOVA 斷句打開；終端機文字不再亂碼，所以沒有別的欄位", () => {
+		expect(displayInstabilityFor(12)).toEqual({ stutter: true });
 	});
 });
 

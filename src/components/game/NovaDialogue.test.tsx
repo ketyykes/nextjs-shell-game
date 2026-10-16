@@ -1,6 +1,6 @@
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { applyStutter, STUTTER_MARK, stutterPoints } from "@/components/terminal/displayGlitch";
+import { applyStutter, STUTTER_MARK, stutterPoints } from "@/components/terminal/novaStutter";
 import { computeHoldMs, type NovaMessage, NovaDialogue } from "./NovaDialogue";
 
 // vitest 未啟用 globals，需手動在每個測試後卸載畫面

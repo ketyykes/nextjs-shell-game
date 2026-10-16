@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TEXT_SPEED_MS } from "@/game/store/types";
 import { DialogueBlock } from "./DialogueBlock";
 import { DisplayInstabilityContext } from "./DisplayInstabilityContext";
-import { applyStutter, STUTTER_MARK, STUTTER_PAUSE_MS, stutterPoints } from "./displayGlitch";
+import { applyStutter, STUTTER_MARK, STUTTER_PAUSE_MS, stutterPoints } from "./novaStutter";
 
 const TEXT = "喚醒程序啟動";
 
@@ -90,8 +90,8 @@ describe("DialogueBlock", () => {
 
 	describe("低氧斷句（4.25）", () => {
 		const LONG = "你確定你是技師嗎我查不到你的名字這不太對應該有名字的";
-		const UNSTABLE = { glitchRate: 0.05, stutter: true };
-		const STABLE = { glitchRate: 0, stutter: false };
+		const UNSTABLE = { stutter: true };
+		const STABLE = { stutter: false };
 
 		function renderWith(value: typeof UNSTABLE, msPerChar: number) {
 			return render(

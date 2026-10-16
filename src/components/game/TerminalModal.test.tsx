@@ -166,14 +166,13 @@ describe("TerminalModal", () => {
 			return { shown, saved };
 		}
 
-		it("氧氣低於 20% 時指令輸出換掉少數字元，store 存的還是原文", () => {
+		it("氧氣低於 20% 時指令輸出照原文：低氧不動終端機的字（亂碼已拿掉，決策 #150）", () => {
 			setOxygen(12);
 			renderModal();
 			runCommand("cat wake_up.txt");
 			const { shown, saved } = lastCommand();
 			expect(saved[0]).toBe("冷凍艙喚醒排程");
-			expect(shown).toHaveLength(saved.length);
-			expect(shown.join("\n")).not.toBe(saved.join("\n"));
+			expect(shown).toEqual(saved);
 		});
 
 		it("hint 的輸出照原文，新手照著打不會錯", () => {

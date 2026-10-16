@@ -2,8 +2,8 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { enterPlay, seedSave, walkToTerminal } from "./helpers/deck";
 
 /**
- * 低氧氣的後果（設計文件 4.25）：氧氣低於 20% 時終端機輸出顯示不穩（少數字元換成亂碼），
- * 提示符、玩家打的那一行、輸入列與 hint 的輸出照原文；HUD 標出「顯示不穩」讓玩家知道是故意的。
+ * 低氧氣的後果（設計文件 4.25）：氧氣低於 20% 時 HUD 標出「缺氧：顯示不穩」、NOVA 斷句、心跳聲；
+ * 終端機的輸出、提示符、輸入列與 hint 都照原文（文字亂碼已拿掉，notes/decisions.md #150）。
  */
 
 /** 第一章冷凍艙控制台的家目錄 `ls` 應該列出的東西（`ch1-life-support.ts` 的 T1 快照）。 */
@@ -59,9 +59,7 @@ async function outputLinesOf(modal: Locator, firstLine: string): Promise<string[
 	return block.slice(1);
 }
 
-test("O2 12%：ls 的輸出有字被換掉，提示列與 hint 照原文，HUD 標顯示不穩，重新整理後同一筆輸出壞的字一樣", async ({
-	page,
-}) => {
+test("O2 12%：HUD 標顯示不穩，ls 與 hint 的輸出照原文，重新整理後也一樣", async ({ page }) => {
 	const pageErrors: string[] = [];
 	page.on("pageerror", (error) => pageErrors.push(error.message));
 	// 自產的 ogg 是 ffmpeg 內建 vorbis 編碼器產的，確認瀏覽器解得開（解不開時 AudioManager 會印這個警告）
@@ -89,9 +87,8 @@ test("O2 12%：ls 的輸出有字被換掉，提示列與 hint 照原文，HUD �
 	await expect(lsLines.first()).toHaveText("crew@kepler9:~$ ls");
 	const shown = (await lsLines.allTextContents()).slice(1);
 	const tokens = shown.join(" ").split(/\s+/).filter((token) => token !== "");
-	// 字數、每個名字的長度都對，但至少有一個名字被換了字
-	expect(tokens.map((token) => token.length)).toEqual(CRYO_LS.map((name) => name.length));
-	expect(tokens).not.toEqual(CRYO_LS);
+	// 低氧不動終端機的字：每個名字都原樣
+	expect(tokens).toEqual(CRYO_LS);
 
 	// 輸入列的提示符與玩家打的字不受影響
 	await expect(promptOf(page)).toHaveText("crew@kepler9:~$");
@@ -103,7 +100,7 @@ test("O2 12%：ls 的輸出有字被換掉，提示列與 hint 照原文，HUD �
 	const hintBlock = modal.locator('[data-entry-kind="command"]').last();
 	await expect(hintBlock.locator(":scope > div")).toHaveText(["crew@kepler9:~$ hint", CRYO_FIRST_HINT]);
 
-	// 不跳動：重新整理後同一筆 ls 輸出還是同一組壞字
+	// 重新整理後還原的輸出一樣是原文
 	await page.keyboard.press("Escape");
 	await expect(modal).toBeHidden();
 	await page.reload();
