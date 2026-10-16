@@ -34,6 +34,8 @@
 
 劇本之外還開放 `less`（全螢幕分頁器）、`tree`、`cut`、`diff`、`which`、`tr`、`tee`、`xargs`、`sed`、`date`、`alias`、`nano`（全螢幕編輯器）與帳號彩蛋 `whoami`、`id`、`last`，會的人可以直接用，`man` 查得到說明；`explain 一整行指令` 會把那一行拆開逐項說明。通關後標題多了救援船終端機、劇情檔案櫃與「下一步：真的終端機」橋接頁。
 
+線上版：<https://nextjs-shell-game.vercel.app>（push 到 main 由 Vercel 自動部署）。
+
 ## 快速開始
 
 需要 Node.js 20.9+ 與 [pnpm](https://pnpm.io/)。

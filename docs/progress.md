@@ -23,7 +23,7 @@
 | 目前階段 | **M0 到 M16 全部完成**。M16 是第十九場的十一項功能（設計文件 4.15 到 4.25），自主決策在 `notes/decisions.md` #128 起，**等 Danny 確認**。M15 是第十七場依「遊戲化實戰全書」八角框架挑的八項功能（`archive/progress-milestones-m0-m15.md`），自主決策在 `notes/decisions.md` #102 起，**等 Danny 確認**。M10 到 M14 是第十三場審計排出的優化路線（證據在 [`archive/audit-2026-10-08.md`](./archive/audit-2026-10-08.md)），第十四場由十幾個 agent 平行實作、我逐組合併驗證；這次的自主決策在 `notes/decisions.md` #62 到 #100，**等 Danny 確認**。Danny 本人還沒玩過第二章以後，也還沒看過 M10 到 M14 的新東西 |
 | 程式碼狀態 | 標題（含光敏確認、觸控提示、練習模式、存檔管理、通關紀錄、救援船 ARGO、檔案櫃、下一步橋接頁、製作名單）→ 選角 → boot log → 六章地圖（第二到五章有便條）→ 片尾 → 救援船終端機。`pnpm test --run` 208 個測試檔 4686 個測試全綠，`npx tsc --noEmit`、`pnpm lint`、`pnpm build`（六個路由都靜態）乾淨；`PORT=3500 pnpm test:e2e` 77 個全綠（第一輪 1 個是選單順序的斷言，改完重跑過）。存檔格式 v4（settings 多 `flickerPromptSeen`，不升版）；指令 49 個 |
 | 下一步 | Danny 試玩第十九場的東西（explain、Ctrl+R、nano、便條、低氧斷句與心跳、救援船、檔案櫃、光敏確認、/credits、/real-world）並確認 `notes/decisions.md` #128 起；第 5 節剩下的候選（拼字建議的 `tr` 雜訊、`cat < 檔案` 的過關判定等）；第 3 節的試聽（多了兩個自產音效）、潤稿與六處時間線矛盾；部署 |
-| 遠端 | `origin` 是 HTTPS 網址 `https://github.com/ketyykes/nextjs-shell-game.git`，2026-10-10 Danny 自己 push 到 `70bde04`（第十六場過關密技）；之後的 commit push 前先問 Danny |
+| 遠端 | `origin` 是 HTTPS 網址 `https://github.com/ketyykes/nextjs-shell-game.git`，2026-10-16 Danny 要求 commit 並部署，push 到 `5fa3c22`（第十九場全部）；repo 早已接 Vercel 的 Git 整合，push 到 main 會由 `vercel[bot]` 自動建 Production 部署，正式網址 `https://nextjs-shell-game.vercel.app`，`NEXT_PUBLIC_SITE_URL` 已在 Vercel 設好（線上 sitemap 是正式網域）。之後的 commit push 前仍先問 Danny |
 
 ## 2. 里程碑總覽
 
@@ -85,4 +85,4 @@
 - **真人試玩與調整**：第 3 節的試玩、試聽（含第十九場自產的心跳與低語）、潤稿（含第二到六章）。
 - **第十九場收尾時列為後續的小項**（`notes/decisions.md` #149）：`catFile` 這類看參數的目標讓 `cat < 檔案` 過不了關（4.9 的「只看結果不看寫法」在 `<` 上不成立）；`novaReactions` 看 `$( )` 裡的指令；拼字建議把 `tre`、`true` 判成「忘記空格 `tr e`」（建議剩下的字三個以上才判忘記空格）；alias 包住的指令與 `ls -l | grep` 不標欄位說明；`>`、`touch`、`cp` 也檢查寫入權限（nano 有檢查）；`nano x && cat x` 的 cat 會先跑。
 - **上次列的構想還沒做的**：章末複習台、每日挑戰、沙盒任務卡、每輪不同細節、通關分享卡、自訂章節匯入、教室統計匯出、對比與焦點隔離（A30、A32）、PWA 離線（A52）、錯誤邊界與匿名埋點（A47、A48）；⚠ 困難模式（A43）、觸控支援仍跟設計定案衝突。
-- **部署**：`pnpm build` 已過、六個路由都是靜態，可直接上 Vercel 或任何靜態主機；CI 已在第十二場設好（`.github/workflows/ci.yml`），部署後記得設 `NEXT_PUBLIC_SITE_URL`（sitemap 與 OG 圖的網域都吃它）。
+- ✅ **部署**：已在 Vercel（`https://nextjs-shell-game.vercel.app`，Git 整合，push main 自動部署，`NEXT_PUBLIC_SITE_URL` 已設）。2026-10-16 推上 5fa3c22 後確認十條路由、`/licenses/*.txt`、新音檔與便條地圖都回 200。CI（`.github/workflows/ci.yml`）照舊跑 lint、tsc、測試、build。
